@@ -2,7 +2,7 @@
 <img width="256" height="256" alt="KrankyBear Genealogy" src="https://github.com/user-attachments/assets/5ecff2a8-99d8-40b2-8d08-fce46741228e" />
 
 
-A modern, cross-platform genealogy application inspired by Personal Ancestral File (PAF) which was discontinued in 2013, built with Go and Fyne.
+A modern, cross-platform genealogy application originally inspired by Personal Ancestral File (PAF) which was discontinued in 2013, built with Go and Fyne.
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
@@ -90,13 +90,7 @@ git clone https://github.com/amarillier/KrankyBearGenealogy.git
 cd KrankyBearGenealogy
 
 # Build
-go build -mod=mod -o genealogy .
-
-# Or use platform-specific scripts
-./compile-mac.sh      # macOS
-./compile-windows.sh  # Windows
-./compile-linux.sh    # Linux
-```
+go build -mod=mod -ldflags="-s -w" -trimpath -o genealogy .
 
 ## Usage
 
