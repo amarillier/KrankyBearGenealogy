@@ -1,0 +1,16 @@
+[Details]
+ID = "com.github.amarillier.KrankyBearGenealogy"
+Name = "KrankyBear Genealogy"
+Creator = "Allan Marillier"
+Version = "1.0.0"
+Build = 2
+Icon = "KrankyBearGenealogy.png"
+
+[Migrations]
+  fyneDo = true
+
+[Development]
+  HelperText = "This binary was built with debug symbols"
+
+[Release]
+  HelperText = "This binary was built without debug symbols"

@@ -1,0 +1,51 @@
+KrankyBear Genealogy - Release Notes
+
+1.0.0 - January 2026 - First Public Release
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This is the first official public release of KrankyBear Genealogy!
+
+✨ Core Features:
+  • Three-view interface (Family, Pedigree, Individual)
+  • GEDCOM, GenoPro, and Gramps import/export
+  • Media management (photos, documents, videos)
+  • Multiple marriage support with relationship tracking
+  • Relationship calculator
+  • Data quality and living status reports
+  • Cross-platform (Windows, macOS, Linux)
+  • Choose from portable stanadlone binaries or full installer options
+
+📸 Media Management:
+  • Store photos and documents in database or link externally
+  • Many-to-many linking (one photo → multiple people)
+  • Thumbnail generation
+  • Support for images, PDFs, videos, Microsoft Office documents
+  • Centralized Media Library
+
+💾 Data Management:
+  • SQLite database with hot-switching capability
+  • Backup/restore with timestamped ZIP files
+  • Branch export (person + descendants)
+  • Smart relationship linking
+
+🎨 User Experience:
+  • Focus user preference
+  • Theme support (Light/Dark/System)
+  • Auto update checker
+  • System tray integration
+  • Universal search/filter
+
+📋 Contact & Notes:
+  • Contact information fields
+  • Notes and annotations
+  • Searchable and exportable
+
+For complete feature list, see README.md
+Report issues: https://github.com/amarillier/KrankyBearGenealogy/issues
+
+🔮 Coming Soon (.NEXT):
+  • Enhanced reporting (timeline, statistics, duplicates)
+  • Research tools and source citations
+  • GEDCOM merge with conflict resolution
+  • Advanced visualizations (fan charts, maps)
+  • Performance optimizations for large databases
+  • Keyboard shortcuts and advanced search

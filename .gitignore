@@ -1,0 +1,88 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test files
+test/*
+*.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# git setup stuff
+git.sh
+
+# Update checker data
+latestcheck.json
+
+## Build artifacts
+bin/.DS_Store
+docs/*
+Resources/
+dist/
+build/
+installers/
+KrankyBearGenealogy.app/
+vendor/*
+sync*.sh
+compile*.sh
+compile*.ps1
+compile*.bat
+check-windows-env.ps1
+iconprep.sh
+images-optimize.sh
+install-fyne.sh
+install-go.sh
+Makefile
+mkAllZip.sh
+package.sh
+package-resources.sh
+prepare-deps.sh
+rename-app.sh
+rsrc_windows_amd64.syso
+setIcon.sh
+setver.sh
+prepare-deps.ps1
+rename-app.sh
+rsrc_windows_amd64.syso
+ROADMAP.md
+
+# ALLOWED
+!bin/*
+!installers/*
+!Inno/*
+Inno/.DS_Store
+!winres/*
+
+# Ignore all files in the data directory
+data/*
+
+# Ignore all files in the installers directory
+#installers/*
+
+# Ignore all files in the Resources directory
+Resources/*
+
+# Ignore all files in the vendor directory
+vendor/*
+
+# Ignore all files in the bin directory
+#bin/*   
+
+# Ignore all files in the KrankyBearGenealogy.app directory
+KrankyBearGenealogy.app/*
+
+# Ignore all files in the Inno directory
+#Inno/*
+
+# Ignore all files in the winres directory
+#winres/*
+

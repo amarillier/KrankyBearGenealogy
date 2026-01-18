@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This is a sample Info.plist file since some IT teams don't like plist. Rename if wanted -->
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>KrankyBearGenealogy</string>
+	<key>CFBundleExecutable</key>
+	<string>genealogy</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.amarillier.KrankyBearGenealogy</string>
+	<key>CFBundleIconFile</key>
+	<string>Icon.icns</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>MacOSX</string>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>1.0.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSSupportsAutomaticGraphicsSwitching</key>
+	<true/>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.lifestyle</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>10.13</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>KrankyBearGenealogy needs access to your documents folder to open and save genealogy databases.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>KrankyBearGenealogy needs access to your desktop to open and save genealogy databases.</string>
+</dict>
+</plist>

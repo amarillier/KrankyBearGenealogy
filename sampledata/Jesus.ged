@@ -1,0 +1,1369 @@
+﻿0 HEAD
+1 SOUR PAF
+2 NAME Personal Ancestral File
+2 VERS 5.2.18.0
+2 CORP The Church of Jesus Christ of Latter-day Saints
+3 ADDR 50 East North Temple Street
+4 CONT Salt Lake City, UT 84150
+4 CONT USA
+1 DEST PAF
+1 DATE 27 Dec 2008
+2 TIME 20:13:10
+1 FILE Jesus.ged
+1 GEDC
+2 VERS 5.5
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 LANG English
+1 SUBM @SUB1@
+0 @SUB1@ SUBM
+1 NAME Allan Marillier
+1 ADDR 6729 Denbridge Drive
+2 CONT Sylvania  OH  43560
+2 CTRY USA
+1 EMAIL amarillier@gmail.com
+0 @I3@ INDI
+1 NAME Jesus Christ // of Nazareth
+2 GIVN Jesus Christ
+2 NSFX of Nazareth
+1 SEX M
+1 BIRT
+2 PLAC Bethlehem, Judea
+1 REFN +
+1 _UID E85ED1857F77144BADDF8CB719BFB1A7F0B3
+1 FAMC @F4@
+2 _PRIMARY Y
+1 FAMC @F15@
+2 PEDI adopted
+1 CHAN
+2 DATE 27 Dec 2008
+3 TIME 19:54:31
+0 @I4@ INDI
+1 NAME Jehovah God //
+2 GIVN Jehovah God
+1 SEX M
+1 BIRT
+2 DATE Always existed
+1 REFN +
+1 _UID 877495BF61314B4DA2CFD4F2EEFF6B838BD8
+1 FAMS @F4@
+1 EVEN 
+2 TYPE He is immortal 
+2 DATE Always existed
+2 PLAC Heaven
+1 NOTE Genesis 1:1
+2 CONT YHWH (Yahweh)
+1 SOUR @S76@
+1 CHAN
+2 DATE 1 Jan 2004
+3 TIME 20:43:21
+0 @I11@ INDI
+1 NAME Anna //
+2 GIVN Anna
+1 SEX F
+1 _UID 8CDD7E34EAF85F4297401A61D7E78FC502D0
+1 FAMC @F11@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I12@ INDI
+1 NAME Joseph of Arimathaea //
+2 GIVN Joseph of Arimathaea
+1 SEX M
+1 _UID 2A1D6EE22A6D2045850A3BA83D0A62D482E7
+1 FAMS @F11@
+1 FAMC @F12@
+1 NOTE Joseph of Arimathea, according to all four Gospels of the New Testament, a
+2 CONT rich Jew of Arimathea, probably a member of the Sanhedrin, the ancient
+2 CONT Jewish court in Jerusalem, who after the crucifixion of Jesus Christ,
+2 CONT requested the body from the Roman procurator Pontius Pilate and placed it
+2 CONT in his own tomb. According to some ancient writers he was later the
+2 CONT founder of Christianity in Britain and of a monastery at Glastonbury;
+2 CONT scholars, however, reject these claims. In the Arthurian cycle of romances
+2 CONT and in late medieval legend he brings the Holy Grail into Britain.
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I13@ INDI
+1 NAME Josephes //
+2 GIVN Josephes
+1 SEX M
+1 _UID 4864478541FE0542A4CCD5D341452DB27B29
+1 FAMS @F13@
+1 FAMC @F11@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I14@ INDI
+1 NAME Mary //
+2 GIVN Mary
+1 SEX F
+1 _UID 92A41F7D26646F4CAE5D947C0C68E0870D6B
+1 FAMS @F14@
+1 FAMC @F11@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I15@ INDI
+1 NAME Cleon //
+2 GIVN Cleon
+1 SEX M
+1 _UID 0AD579ABF8F5FB4A84F205ED113C27B1C26B
+1 FAMS @F14@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I16@ INDI
+1 NAME Eurgain //
+2 GIVN Eurgain
+1 SEX F
+1 _UID 7FCE64102AAFEB468795D9BDEFE3277DF3AD
+1 FAMS @F13@
+1 FAMC @F8@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I17@ INDI
+1 NAME Mary //
+2 GIVN Mary
+1 SEX F
+1 _UID 9A1DC0A29F29EA4BB60A64F507D43863A58D
+1 FAMS @F4@
+1 FAMS @F15@
+1 FAMC @F16@
+1 NOTE Mary (Virgin Mary), also the Virgin Mary, the mother of Jesus Christ,
+2 CONT venerated by Christians since apostolic times. The Gospels give only a
+2 CONT fragmentary account of Mary, mentioning her chiefly in connection with the
+2 CONT beginning and the end of Jesus' life. Matthew speaks of Mary as Joseph's
+2 CONT wife, who is "with child of the Holy Spirit" before they "came together"
+2 CONT as husband and wife (see Matthew 1:18). After the birth of Jesus, she is
+2 CONT present at the visit of the Magi (see Matthew 2:11), flees with Joseph in
+2 CONT Egypt (see Matt. 2:14), and returns to Nazareth (see Matt. 2:23). Mark
+2 CONT simply refers to Jesus as the son of Mary (see Mark 6:3). Luke's narrative
+2 CONT of the nativity includes the angel Gabriel announcing to Mary the coming
+2 CONT birth of Jesus (see Luke 1:27-38); her visit to her kinswoman Elizabeth,
+2 CONT mother of John the Baptist, and Mary's hymn, the Magnificat (see Luke
+2 CONT 1:39-56); and the shepherds' visit to the manger (see Luke 2:1-20). Luke
+2 CONT also tells of Mary's perplexity at finding Jesus in the Temple questioning
+2 CONT the teachers when he was 12 years old. The Gospel of John contains no
+2 CONT infancy narrative, nor does it mention Mary's name; she is referred to as
+2 CONT the mother of Jesus (see John 2, 19). She is present at the first of
+2 CONT Jesus' miracles at the wedding feast of Cana (2:1,3,5) and at his death
+2 CONT (19:25-27). Mary is also mentioned as being present in the upper room at
+2 CONT Olivet with the apostles and with Jesus' brothers before Pentecost (see
+2 CONT Acts 1:14).
+2 CONT 
+2 CONT The Early Church
+2 CONT 
+2 CONT As early as the 2d century Christians venerated Mary by calling her Mother
+2 CONT of God, a title that primarily stresses the divinity of Jesus. During the
+2 CONT 4th-century controversies concerning the divine and human natures of
+2 CONT Jesus, the Greek title Theotokos (Mother of God) came to be used for Mary
+2 CONT in devotional and theological writing. The Syrian monk Nestorius (died
+2 CONT about 451) contested this usage, insisting that Mary was mother of Christ,
+2 CONT not of God. The Council of Ephesus (431) condemned Nestorius's teaching
+2 CONT and solemnly affirmed that Mary is to be called Theotokos, a title that
+2 CONT has been used since that time in the Orthodox and Roman Catholic churches.
+2 CONT 
+2 CONT Closely allied with the title Mother of God is the title Virgin Mary,
+2 CONT affirming the virginal conception of Jesus (see Luke 1:35). Initially,
+2 CONT this title stressed the belief that God, not Joseph, was the true Father
+2 CONT of Jesus. In the Marian devotion that developed in the East in the 4th
+2 CONT century Mary was venerated not only in the conception, but also in the
+2 CONT birth of Jesus. This conviction was expressed clearly in the 4th century
+2 CONT baptismal creeds of Cyprus, Syria, Palestine, and Armenia (373-74). The
+2 CONT title used was Aieiparthenos (ever-virgin), and by the middle of the 7th
+2 CONT century the understanding of the title came to include the conviction that
+2 CONT Mary remained a virgin for the whole of her life. The passages in the New
+2 CONT Testament referring to the brothers of Jesus (for instance, Mark 6:3,
+2 CONT which also mentions sisters; see 1 Corinthians 9:5; Galatians 1:19) have
+2 CONT been accordingly explained as references to relatives of Jesus or to
+2 CONT children of Joseph by a previous marriage, although no textual evidence
+2 CONT supports these interpretations.
+2 CONT 
+2 CONT Beginning in the 2d and 3d centuries Mary was called Holy or Blessed
+2 CONT Virgin to express the belief that, because of her intimate union with God
+2 CONT through the Holy Spirit in the conception of Jesus (see Luke 1:35), Mary
+2 CONT was completely free from any taint of sin. A Roman Council in 680 spoke of
+2 CONT her as the blessed, immaculate ever-virgin.
+2 CONT 
+2 CONT In both the Eastern and Western churches, feast days in honor of the
+2 CONT events of Mary's life came into existence between the 4th and 7th
+2 CONT centuries. They celebrate her miraculous conception and her birth,
+2 CONT narrated in the apocryphal protogospel of James (September 8), the
+2 CONT Annunciation (March 25), her purification in the Temple (February 2), and
+2 CONT her death (called the Dormition in the Eastern church) and bodily
+2 CONT assumption into heaven (August 15; see Assumption of the Virgin).
+2 CONT 
+2 CONT The Middle Ages
+2 CONT 
+2 CONT During the late Middle Ages (13th-15th century) devotion to Mary grew
+2 CONT vigorously. One of the principal reasons was the image of Christ that
+2 CONT developed in the missionary efforts of the early Middle Ages. To the
+2 CONT extent that the Gothic and other tribes of central and northern Europe
+2 CONT were Christian, they remained strongly influenced by Arianism, a teaching
+2 CONT that denied the divinity of Christ. In response, preaching and the arts of
+2 CONT this period particularly stressed Christ's divinity, as in the Byzantine
+2 CONT depictions of Christ as Pantokrator (universal and all-powerful ruler)
+2 CONT and in the western images of Christ as the supreme and universal judge. As
+2 CONT Christ became an awe-inspiring, judgmental figure, Mary came to be
+2 CONT depicted as the one who interceded for sinners. As the fear of death and
+2 CONT the Last Judgment intensified following the Black Plague in the 14th
+2 CONT century, Mary was increasingly venerated in popular piety as mediator of
+2 CONT the mercy of Christ. Her prayers and pleas were seen as the agency that
+2 CONT tempered the stern justice of Christ. Among the popular devotions that
+2 CONT came into being at this time were the rosary; (a chaplet originally
+2 CONT consisting of 150 Hail Marys in imitation of the 150 Psalms in the
+2 CONT psalter, later augmented by 15 interspersed Our Fathers as penance for
+2 CONT daily sins); the angelus recited at sunrise, noon, and sunset; and
+2 CONT litanies, invocations of Mary using such biblical titles as Mystical Rose,
+2 CONT Tower of David, and Refuge of Sinners (see Litany). Hymns, psalms, and
+2 CONT prayers were incorporated into the Little Office of the Blessed Virgin, in
+2 CONT imitation of the longer divine office recited or chanted by monks and
+2 CONT priests.
+2 CONT 
+2 CONT Doctrine of Immaculate Conception
+2 CONT 
+2 CONT The principal theological development concerning Mary in the Middle Ages
+2 CONT was the doctrine of the Immaculate Conception. This doctrine, defended and
+2 CONT preached by the Franciscan friars under the inspiration of the 13th
+2 CONT century Scottish theologian John Duns Scotus, maintains that Mary was
+2 CONT conceived without original sin. Dominican teachers and preachers
+2 CONT vigorously opposed the doctrine, maintaining that it detracted from
+2 CONT Christ's role as universal savior. Pope Sixtus IV, however, defended it,
+2 CONT establishing (1477) a feast of the Immaculate Conception with a proper
+2 CONT mass and office to be celebrated on December 8. This feast was extended to
+2 CONT the whole Western church by Pope Clement XI in 1708. In 1854 Pope Pius IX
+2 CONT issued a solemn decree defining the Immaculate Conception for all Roman
+2 CONT Catholics, but the doctrine has not been accepted by Protestants or by the
+2 CONT Orthodox churches. In 1950, Pope Pius XII solemnly defined as an article
+2 CONT of faith for all Roman Catholics the doctrine of the bodily assumption of
+2 CONT Mary into heaven.
+2 CONT 
+2 CONT Shrines
+2 CONT 
+2 CONT Marian shrines and places of pilgrimage are found throughout the world. At
+2 CONT Monserrat in Spain the Black Virgin has been venerated since the 12th
+2 CONT century. The icon of Our Lady of Cz粴ochowa has been venerated in Poland
+2 CONT since the early 14th century. The picture of Our Lady of Guadalupe
+2 CONT commemorates an alleged apparition of Mary to the Indian Juan Diego in
+2 CONT Mexico in 1531. In the 19th century a number of apparitions of Mary were
+2 CONT reported that inspired the development of shrines, devotions, and
+2 CONT pilgrimagesfor instance, in Paris (1830, Our Lady of the Miraculous
+2 CONT Medal), Lourdes (1858, Our Lady of Lourdes), Knock, in Ireland (1879, Our
+2 CONT Lady of Knock), and Fatima, in Portugal (1917, Our Lady of Fatima).
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I18@ INDI
+1 NAME Joseph //
+2 GIVN Joseph
+1 SEX M
+1 _UID BBD0638B36CCF64FAF92E4EBBF5D87F66984
+1 FAMS @F15@
+1 FAMC @F17@
+1 NOTE Joseph, Saint, in the New Testament, husband of the Virgin Mary. Most of
+2 CONT what is known about him is contained in the first two chapters of the
+2 CONT books of Matthew and Luke. Several other passages mention him as the
+2 CONT father of Jesus Christ, and a few refer to him as a carpenter or an
+2 CONT artisan (see Matthew 13:55; Luke 3:23; John 1:45, 6:42). He was a
+2 CONT descendant of the royal line of David, and his family was from David's
+2 CONT town of Bethlehem.
+2 CONT 
+2 CONT Joseph, Mary, and Jesus settled in Nazareth. There, Christ grew up in his
+2 CONT household for 12 years. Joseph's last appearance in the Gospels occurs
+2 CONT when he and Mary find the 12-year-old Jesus in the Temple (see Luke
+2 CONT 2:41-51). Joseph was apparently dead by the time of Christ's passion. St.
+2 CONT Joseph is venerated by both the Orthodox and Roman Catholics; he is
+2 CONT regarded by the latter as the patron of the universal church. His feast
+2 CONT day is March 19, in the West, and the first Sunday after Christmas, in the
+2 CONT East.
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I36@ INDI
+1 NAME Solomon // King of Israel
+2 GIVN Solomon
+2 NSFX King of Israel
+1 SEX M
+1 _UID F7D0F1005D2EC2428015A1B0D85525D55451
+1 FAMS @F45@
+1 CHAN
+2 DATE 23 Oct 2003
+3 TIME 01:00:00
+0 @I39@ INDI
+1 NAME Rehoboam // King of Isreal
+2 GIVN Rehoboam
+2 NSFX King of Isreal
+1 SEX M
+1 _UID 545EB5BEEB496740A836D8B9D71DCCDD0C4A
+1 FAMS @F48@
+1 FAMC @F45@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I40@ INDI
+1 NAME Abijah //
+2 GIVN Abijah
+1 SEX M
+1 _UID E0A7BE2EEC51004E9E26A4E23B6013C0B6FA
+1 FAMS @F49@
+1 FAMC @F48@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I41@ INDI
+1 NAME Asa // King of Judah
+2 GIVN Asa
+2 NSFX King of Judah
+1 SEX M
+1 _UID 390BBF796490944597237B177BFBB16A268C
+1 FAMS @F50@
+1 FAMC @F49@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I42@ INDI
+1 NAME Jehoshaphat // King of Judah
+2 GIVN Jehoshaphat
+2 NSFX King of Judah
+1 SEX M
+1 _UID E535851BCBDC2B4895EF46DE1B1C61FB0FE6
+1 FAMS @F51@
+1 FAMC @F50@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I43@ INDI
+1 NAME Jehoram // King of Judah
+2 GIVN Jehoram
+2 NSFX King of Judah
+1 SEX M
+1 _UID A3920E6EFDBB4E488F6A366EC058AFB41773
+1 FAMS @F52@
+1 FAMC @F51@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I44@ INDI
+1 NAME Uzziah //
+2 GIVN Uzziah
+1 SEX M
+1 _UID D626982E015B5D4780C7BF741AB3D1E4BE8C
+1 FAMS @F53@
+1 FAMC @F52@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I45@ INDI
+1 NAME Jotham //
+2 GIVN Jotham
+1 SEX M
+1 _UID 7BC1C9DB38EFA544803C3C91D02A2175092D
+1 FAMS @F54@
+1 FAMC @F53@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I46@ INDI
+1 NAME Ahaz //
+2 GIVN Ahaz
+1 SEX M
+1 _UID 578BC5171179074CA97D98CFD220833AD7AD
+1 FAMS @F55@
+1 FAMC @F54@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I47@ INDI
+1 NAME Hezekiah //
+2 GIVN Hezekiah
+1 SEX M
+1 _UID 790EB85844FE204D86DC463AA10AF13E02B5
+1 FAMS @F56@
+1 FAMC @F55@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I48@ INDI
+1 NAME Manasseh //
+2 GIVN Manasseh
+1 SEX M
+1 _UID 4C34B5D04B00E9448E752077E56F4CF1A864
+1 FAMS @F57@
+1 FAMC @F56@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I49@ INDI
+1 NAME Amon //
+2 GIVN Amon
+1 SEX M
+1 _UID 83013E654D69424395120365301D3CAAA43C
+1 FAMS @F58@
+1 FAMC @F57@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I50@ INDI
+1 NAME Josiah //
+2 GIVN Josiah
+1 SEX M
+1 _UID 1926EFE2372EC6419A75FAE498E849ED1FD3
+1 FAMS @F59@
+1 FAMC @F58@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I51@ INDI
+1 NAME Jeconiah //
+2 GIVN Jeconiah
+1 SEX M
+1 _UID 3CC7FAD003417748920E1DDF36599EB24B8E
+1 FAMS @F60@
+1 FAMC @F59@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I52@ INDI
+1 NAME Shealtiel //
+2 GIVN Shealtiel
+1 SEX M
+1 _UID 3C8A8D47A79B164AA16343DCF84F7DD3F64F
+1 FAMS @F61@
+1 FAMC @F60@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I53@ INDI
+1 NAME Zerubbabel //
+2 GIVN Zerubbabel
+1 SEX M
+1 _UID 4C1FCA0D64421646956C2707EFFC92776712
+1 FAMS @F62@
+1 FAMC @F61@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I54@ INDI
+1 NAME Abiud //
+2 GIVN Abiud
+1 SEX M
+1 _UID 1349504D34B96C41B74A77C386B40D4F6498
+1 FAMS @F63@
+1 FAMC @F62@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I55@ INDI
+1 NAME Eliakim //
+2 GIVN Eliakim
+1 SEX M
+1 _UID 3D26534A2B621844BCD043E45E13E65B4E52
+1 FAMS @F64@
+1 FAMC @F63@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I56@ INDI
+1 NAME Azor //
+2 GIVN Azor
+1 SEX M
+1 _UID 50D0ECAD20AE7F4B8105326FF56B7535822A
+1 FAMS @F65@
+1 FAMC @F64@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I57@ INDI
+1 NAME Zadok //
+2 GIVN Zadok
+1 SEX M
+1 _UID 7FE965FF130CBB449701BF0A38295B727918
+1 FAMS @F66@
+1 FAMC @F65@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I58@ INDI
+1 NAME Akim //
+2 GIVN Akim
+1 SEX M
+1 _UID 357ECC3E3B105241A6AAEAFE3960681EF22B
+1 FAMS @F67@
+1 FAMC @F66@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I59@ INDI
+1 NAME Eliud //
+2 GIVN Eliud
+1 SEX M
+1 _UID 1E7549CEDA8CF34095D6A3B12587BFBE2B57
+1 FAMS @F68@
+1 FAMC @F67@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I60@ INDI
+1 NAME Eleazar //
+2 GIVN Eleazar
+1 SEX M
+1 _UID 8A1C4531478F0D41809098B7819CE90DB295
+1 FAMS @F69@
+1 FAMC @F68@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I61@ INDI
+1 NAME Matthan //
+2 GIVN Matthan
+1 SEX M
+1 _UID C12FD21318618A43999466F484A7AA6DE410
+1 FAMS @F70@
+1 FAMC @F69@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I62@ INDI
+1 NAME Jacob //
+2 GIVN Jacob
+1 SEX M
+1 _UID 251AB471D6BA314FA1B47E43AB5FB1F83D7C
+1 FAMS @F17@
+1 FAMC @F70@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I84@ INDI
+1 NAME Nathan //
+2 GIVN Nathan
+1 SEX M
+1 _UID D803C37F9B5E7D4FA4B0112D707B7F18F63F
+1 FAMS @F91@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I85@ INDI
+1 NAME Mattatha //
+2 GIVN Mattatha
+1 SEX M
+1 _UID 8E65CB8AA44A4349AF5D3B244FB04957CC42
+1 FAMS @F92@
+1 FAMC @F91@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I86@ INDI
+1 NAME Menna //
+2 GIVN Menna
+1 SEX M
+1 _UID 838C8E4CA0FC4948BE8B0880799796CE5BCA
+1 FAMS @F93@
+1 FAMC @F92@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I87@ INDI
+1 NAME Melea //
+2 GIVN Melea
+1 SEX M
+1 _UID A90D3A423333344389F270B7ED8F2C92EB35
+1 FAMS @F94@
+1 FAMC @F93@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I88@ INDI
+1 NAME Eliakim //
+2 GIVN Eliakim
+1 SEX M
+1 _UID D77528564CF281429F181333170E09FDF3D1
+1 FAMS @F95@
+1 FAMC @F94@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I89@ INDI
+1 NAME Jonam //
+2 GIVN Jonam
+1 SEX M
+1 _UID 103E03E1C39BC14B917EA301DABE41BCE4E4
+1 FAMS @F96@
+1 FAMC @F95@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I90@ INDI
+1 NAME Joseph //
+2 GIVN Joseph
+1 SEX M
+1 _UID 1DC40B5192FB914689CF75855010D6CAF3F2
+1 FAMS @F97@
+1 FAMC @F96@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I91@ INDI
+1 NAME Judah //
+2 GIVN Judah
+1 SEX M
+1 _UID BBF515776CE92646AA6923F38E062410EEA3
+1 FAMS @F98@
+1 FAMC @F97@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I92@ INDI
+1 NAME Simeon //
+2 GIVN Simeon
+1 SEX M
+1 _UID 8E26B9B7332ADD4291026A4EFF3AB33F1690
+1 FAMS @F99@
+1 FAMC @F98@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I93@ INDI
+1 NAME Levi //
+2 GIVN Levi
+1 SEX M
+1 _UID 6630F522F7189C4AB2402D0EB46BE8E9BF0C
+1 FAMS @F100@
+1 FAMC @F99@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I94@ INDI
+1 NAME Matthat //
+2 GIVN Matthat
+1 SEX M
+1 _UID F5722BF7958015459CDDBBC3CBFD4F686EE3
+1 FAMS @F101@
+1 FAMC @F100@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I95@ INDI
+1 NAME Jorim //
+2 GIVN Jorim
+1 SEX M
+1 _UID 089721C8249C4340B10E4BC3D570AF2EBA3C
+1 FAMS @F102@
+1 FAMC @F101@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I96@ INDI
+1 NAME Eliezer //
+2 GIVN Eliezer
+1 SEX M
+1 _UID 104CCDB161803441A5DBF5818B2FEB511C4C
+1 FAMS @F103@
+1 FAMC @F102@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I97@ INDI
+1 NAME Joshua //
+2 GIVN Joshua
+1 SEX M
+1 _UID 8413E0508402E24EB75FFBB82B490A3C0027
+1 FAMS @F104@
+1 FAMC @F103@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I98@ INDI
+1 NAME Er //
+2 GIVN Er
+1 SEX M
+1 _UID 6BA28CEE69C6FB4C91A60F65045D13A1BD27
+1 FAMS @F105@
+1 FAMC @F104@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I99@ INDI
+1 NAME Elmadam //
+2 GIVN Elmadam
+1 SEX M
+1 _UID DF951E2E2C492E48B1D0F4CA637D009862A9
+1 FAMS @F106@
+1 FAMC @F105@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I100@ INDI
+1 NAME Cosam //
+2 GIVN Cosam
+1 SEX M
+1 _UID F6861D8F1A904A43AEFE5816BAEBA27838FF
+1 FAMS @F107@
+1 FAMC @F106@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I101@ INDI
+1 NAME Addi //
+2 GIVN Addi
+1 SEX M
+1 _UID 623D1DF9230D5F46B5B3EFE773F83A59C678
+1 FAMS @F108@
+1 FAMC @F107@
+1 CHAN
+2 DATE 1 Jan 2004
+3 TIME 00:00:00
+0 @I102@ INDI
+1 NAME Melki //
+2 GIVN Melki
+1 SEX M
+1 _UID 86714D007F0A9F4F955D83B8C343AFA54249
+1 FAMS @F109@
+1 FAMC @F108@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I103@ INDI
+1 NAME Neri //
+2 GIVN Neri
+1 SEX M
+1 _UID 9A09441764617D448F9900229DC3197AC1E5
+1 FAMS @F110@
+1 FAMC @F109@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I104@ INDI
+1 NAME Shealtiel //
+2 GIVN Shealtiel
+1 SEX M
+1 _UID 1EBC44270B79DB4FB957634B26964EEDA878
+1 FAMS @F111@
+1 FAMC @F110@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I105@ INDI
+1 NAME Zerubbabel //
+2 GIVN Zerubbabel
+1 SEX M
+1 _UID 65673E788100414A857E757E916492C8D32F
+1 FAMS @F112@
+1 FAMC @F111@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I106@ INDI
+1 NAME Rhesa //
+2 GIVN Rhesa
+1 SEX M
+1 _UID F9F73F382191B24E84B5B8712C5819C5DD13
+1 FAMS @F113@
+1 FAMC @F112@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I107@ INDI
+1 NAME Joanan //
+2 GIVN Joanan
+1 SEX M
+1 _UID 0E7EE69DF4ACC141B7A5F07AB76205FE93BD
+1 FAMS @F114@
+1 FAMC @F113@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I108@ INDI
+1 NAME Joda //
+2 GIVN Joda
+1 SEX M
+1 _UID 69FF3FA1509DB8469AE77E1CEFE24FC331A9
+1 FAMS @F115@
+1 FAMC @F114@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I109@ INDI
+1 NAME Josech //
+2 GIVN Josech
+1 SEX M
+1 _UID 09FC4005D2AF7F489C3F16E50C69610442B7
+1 FAMS @F116@
+1 FAMC @F115@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I110@ INDI
+1 NAME Semein //
+2 GIVN Semein
+1 SEX M
+1 _UID 96738556A040D249871A2D96D7859989C156
+1 FAMS @F117@
+1 FAMC @F116@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I111@ INDI
+1 NAME Mattathias //
+2 GIVN Mattathias
+1 SEX M
+1 _UID 1FE805743B94D442BFE1491AC569DC8DFF57
+1 FAMS @F118@
+1 FAMC @F117@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I112@ INDI
+1 NAME Maath //
+2 GIVN Maath
+1 SEX M
+1 _UID 2CDF4866F883B54881F530E5400E81E67130
+1 FAMS @F119@
+1 FAMC @F118@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I113@ INDI
+1 NAME Naggai //
+2 GIVN Naggai
+1 SEX M
+1 _UID AF80AE9DBE85C5478711A7537979D995BB8B
+1 FAMS @F120@
+1 FAMC @F119@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I114@ INDI
+1 NAME Esli //
+2 GIVN Esli
+1 SEX M
+1 _UID 8D1A67726BEFAA4796A371A875C5AA9B9C53
+1 FAMS @F121@
+1 FAMC @F120@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I115@ INDI
+1 NAME Nahum //
+2 GIVN Nahum
+1 SEX M
+1 _UID 10A60404796029498ECABF2BBC2A3CAE1BF8
+1 FAMS @F122@
+1 FAMC @F121@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I116@ INDI
+1 NAME Amos //
+2 GIVN Amos
+1 SEX M
+1 _UID 55814A9E285DFF46A4088016FBA46766360E
+1 FAMS @F123@
+1 FAMC @F122@
+1 CHAN
+2 DATE 1 Jan 2004
+3 TIME 00:00:00
+0 @I117@ INDI
+1 NAME Mattathias //
+2 GIVN Mattathias
+1 SEX M
+1 _UID E03245C6F2ADAF43802B81707C41269FCCBB
+1 FAMS @F124@
+1 FAMC @F123@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I118@ INDI
+1 NAME Joseph //
+2 GIVN Joseph
+1 SEX M
+1 _UID A8CE996E7D47F344AA64E2FAE6E55122A096
+1 FAMS @F125@
+1 FAMC @F124@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I119@ INDI
+1 NAME Jannai //
+2 GIVN Jannai
+1 SEX M
+1 _UID 175F67A6679E5042B26A02E4E049348A0364
+1 FAMS @F126@
+1 FAMC @F125@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I120@ INDI
+1 NAME Melki //
+2 GIVN Melki
+1 SEX M
+1 _UID A3E1F435CEC14F4E84A05066CA7EFD160E3F
+1 FAMS @F127@
+1 FAMC @F126@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I121@ INDI
+1 NAME Levi //
+2 GIVN Levi
+1 SEX M
+1 _UID E208880E21B7614FA34CE015CC849518E98B
+1 FAMS @F128@
+1 FAMC @F127@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I122@ INDI
+1 NAME Matthat //
+2 GIVN Matthat
+1 SEX M
+1 _UID BC0714CC7FE045429DCF15FFDEDAE42ACF37
+1 FAMS @F12@
+1 FAMC @F128@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I123@ INDI
+1 NAME Heli //
+2 GIVN Heli
+1 SEX M
+1 _UID B843ADBECB05324183EC44CAF6421AFA7263
+1 FAMS @F16@
+1 FAMC @F12@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I260@ INDI
+1 NAME James //
+2 GIVN James
+1 SEX M
+1 _UID 5381A0FF54619347AA6F36864DAB80307F6A
+1 FAMC @F15@
+1 NOTE Mark 6:3
+1 CHAN
+2 DATE 27 Dec 2008
+3 TIME 19:49:30
+0 @I282@ INDI
+1 NAME Galahad //
+2 GIVN Galahad
+1 SEX M
+1 _UID C52DC640F9D3C24D802A54050048D4BEB082
+1 FAMC @F11@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I447@ INDI
+1 NAME Athaliah //
+2 GIVN Athaliah
+1 SEX F
+1 DEAT
+2 DATE 0836 BC
+1 _UID CD13D4F96B217847A05CF406B56F30D41677
+1 FAMS @F52@
+1 FAMC @F268@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I448@ INDI
+1 NAME Ahab // King of Israel
+2 GIVN Ahab
+2 NSFX King of Israel
+1 SEX M
+1 _UID C232053C860C894DA48D16B2EE1744AA8963
+1 FAMS @F268@
+1 FAMC @F269@
+1 CHAN
+2 DATE 10 Apr 2004
+3 TIME 14:04:12
+0 @I449@ INDI
+1 NAME Jezebel //
+2 GIVN Jezebel
+1 SEX F
+1 _UID 4CE3F617B39F5944B78001E894F7DADE8E50
+1 FAMS @F268@
+1 FAMC @F270@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I450@ INDI
+1 NAME Omri // King of Isreal
+2 GIVN Omri
+2 NSFX King of Isreal
+1 SEX M
+1 _UID CD99290C1A9CD9419D936F3D9E1D116F8268
+1 FAMS @F269@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I451@ INDI
+1 NAME Ethbaal // King of Tyre & Sidon
+2 GIVN Ethbaal
+2 NSFX King of Tyre & Sidon
+1 SEX M
+1 _UID 5C68F0A3C7511E49ADD3F49CE69724DC633D
+1 FAMS @F270@
+1 CHAN
+2 DATE 18 Oct 2003
+3 TIME 01:00:00
+0 @I1078@ INDI
+1 NAME Joses //
+2 GIVN Joses
+1 SEX M
+1 _UID 32CBE00A709F74428E703721532DD697EF3B
+1 FAMC @F15@
+1 NOTE Mark 6:3
+1 CHAN
+2 DATE 27 Dec 2008
+3 TIME 19:49:37
+0 @I1079@ INDI
+1 NAME Judas //
+2 GIVN Judas
+1 SEX M
+1 _UID 0E790E11E7F0FF4E8E33E03F2F80ACD9DE2D
+1 FAMC @F15@
+1 NOTE Mark 6:3
+1 CHAN
+2 DATE 27 Dec 2008
+3 TIME 19:49:57
+0 @I1080@ INDI
+1 NAME Simon //
+2 GIVN Simon
+1 SEX M
+1 _UID 2CC6707DA880E648A5DD895DCFB0471E81E9
+1 FAMC @F15@
+1 NOTE Mark 6:3
+1 CHAN
+2 DATE 27 Dec 2008
+3 TIME 19:50:12
+0 @F4@ FAM
+1 _UID 6DF4C3F3E1D2C444A7F3C105F5FC3D6ACAE3
+1 HUSB @I4@
+1 WIFE @I17@
+1 CHIL @I3@
+0 @F8@ FAM
+1 _UID E8DD2FC062F3574BAF1E5BD642ACA92464F3
+1 CHIL @I16@
+0 @F11@ FAM
+1 _UID 3B5F364962D9CC49A0B070A0D38877922D52
+1 HUSB @I12@
+1 CHIL @I13@
+1 CHIL @I14@
+1 CHIL @I11@
+1 CHIL @I282@
+0 @F12@ FAM
+1 _UID 367C5658D5A2684BBEEFA1ED52615F1BF299
+1 HUSB @I122@
+1 CHIL @I123@
+1 CHIL @I12@
+0 @F13@ FAM
+1 _UID F18D3F2F7D320447AE6C07795114821B825B
+1 HUSB @I13@
+1 WIFE @I16@
+0 @F14@ FAM
+1 _UID FD91AFBB887B6448A1398D934CA5E370E592
+1 HUSB @I15@
+1 WIFE @I14@
+0 @F15@ FAM
+1 _UID 238B9AB177A7784AAFC850E66AF248AED8D3
+1 HUSB @I18@
+1 WIFE @I17@
+1 CHIL @I260@
+1 CHIL @I1078@
+1 CHIL @I1079@
+1 CHIL @I1080@
+1 CHIL @I3@
+0 @F16@ FAM
+1 _UID 36E58DC66FBCAB479647FA354FF7830E6EBF
+1 HUSB @I123@
+1 CHIL @I17@
+0 @F17@ FAM
+1 _UID F8191F512FD1954B96847E977EA24502F707
+1 HUSB @I62@
+1 CHIL @I18@
+0 @F45@ FAM
+1 _UID B0B91CDA68595C46961ECD2552D81A4CF88B
+1 HUSB @I36@
+1 CHIL @I39@
+0 @F48@ FAM
+1 _UID 9833F2AEBEC95C4592F166C2ED7D84507CF7
+1 HUSB @I39@
+1 CHIL @I40@
+0 @F49@ FAM
+1 _UID 1C6465DEDAB2D542B7DDB6547BFD18AD4155
+1 HUSB @I40@
+1 CHIL @I41@
+0 @F50@ FAM
+1 _UID F5F3E859F58AAF468B60331A719E15E4DDD0
+1 HUSB @I41@
+1 CHIL @I42@
+0 @F51@ FAM
+1 _UID E4043FF40D9EAC41A753081B6C8B70245B42
+1 HUSB @I42@
+1 CHIL @I43@
+0 @F52@ FAM
+1 _UID 19170DE8A8A7D246B9EFFA7B6908DED9D103
+1 HUSB @I43@
+1 WIFE @I447@
+1 CHIL @I44@
+0 @F53@ FAM
+1 _UID B70392BA97A96245A8387538F40AD1DD26AE
+1 HUSB @I44@
+1 CHIL @I45@
+0 @F54@ FAM
+1 _UID A147C2AF5590024AAFD17EB9746F46980293
+1 HUSB @I45@
+1 CHIL @I46@
+0 @F55@ FAM
+1 _UID DB3E40463F8B9A4C8ACF4589DA3D85182A82
+1 HUSB @I46@
+1 CHIL @I47@
+0 @F56@ FAM
+1 _UID 6FFF8AC070DA424FBA2A30877CF7A1D214C8
+1 HUSB @I47@
+1 CHIL @I48@
+0 @F57@ FAM
+1 _UID 56C27F74D995A8419BC9C3E6542E76BE25EB
+1 HUSB @I48@
+1 CHIL @I49@
+0 @F58@ FAM
+1 _UID B7E7B28DA0F44A46B4E1851C56774E6DBF6B
+1 HUSB @I49@
+1 CHIL @I50@
+0 @F59@ FAM
+1 _UID B5384FB2D60382459D5A137DF4A542BAAADC
+1 HUSB @I50@
+1 CHIL @I51@
+0 @F60@ FAM
+1 _UID FE768DCAA4505F46B03739853C59BF3491AB
+1 HUSB @I51@
+1 CHIL @I52@
+0 @F61@ FAM
+1 _UID 8DA1261A34352440A961E94CE50A4E6E25A1
+1 HUSB @I52@
+1 CHIL @I53@
+0 @F62@ FAM
+1 _UID 3C9582ADAD68F04289584CECB5F256A603B6
+1 HUSB @I53@
+1 CHIL @I54@
+0 @F63@ FAM
+1 _UID 38A6B15E600A2D4FAFE421F64351C5552B4B
+1 HUSB @I54@
+1 CHIL @I55@
+0 @F64@ FAM
+1 _UID 5B4456272530A3459B90C69D6FD8C62F236E
+1 HUSB @I55@
+1 CHIL @I56@
+0 @F65@ FAM
+1 _UID F45A4CA148376E40BA7DB9D85747A79308FF
+1 HUSB @I56@
+1 CHIL @I57@
+0 @F66@ FAM
+1 _UID 7D44CB511A452F4CB89105320A5FFA16B0D2
+1 HUSB @I57@
+1 CHIL @I58@
+0 @F67@ FAM
+1 _UID 9B9612CEEEA78240827E93BC0B56A3E09B89
+1 HUSB @I58@
+1 CHIL @I59@
+0 @F68@ FAM
+1 _UID 02FF1FFBCB7C994A932DD9528030DFE4A3A3
+1 HUSB @I59@
+1 CHIL @I60@
+0 @F69@ FAM
+1 _UID 18297A54D9143F44A85CBB5B19AC9CCEC814
+1 HUSB @I60@
+1 CHIL @I61@
+0 @F70@ FAM
+1 _UID 28F4F3503CD40F4E8587AE4F97B0AFD8A380
+1 HUSB @I61@
+1 CHIL @I62@
+0 @F91@ FAM
+1 _UID 655DD3464726C442A0782BE3E98B95850278
+1 HUSB @I84@
+1 CHIL @I85@
+0 @F92@ FAM
+1 _UID 37452574AAE28849B83A58EFB1BB4BD43664
+1 HUSB @I85@
+1 CHIL @I86@
+0 @F93@ FAM
+1 _UID 44461B15704E784FBE2FB33AF3D2F12FFED6
+1 HUSB @I86@
+1 CHIL @I87@
+0 @F94@ FAM
+1 _UID D40707EB7DC25B4F82BB73B5358C15A2932D
+1 HUSB @I87@
+1 CHIL @I88@
+0 @F95@ FAM
+1 _UID 2DF3F25C9695504AA4B98D1CB63CA3EBB9E4
+1 HUSB @I88@
+1 CHIL @I89@
+0 @F96@ FAM
+1 _UID 1F85CCCEDF019143A866D920A19ACFC9CC56
+1 HUSB @I89@
+1 CHIL @I90@
+0 @F97@ FAM
+1 _UID 434604542127344A84D64D2CE95319734287
+1 HUSB @I90@
+1 CHIL @I91@
+0 @F98@ FAM
+1 _UID 4570B45D1A7A194692B84F2D51E9A472CF63
+1 HUSB @I91@
+1 CHIL @I92@
+0 @F99@ FAM
+1 _UID F3F408AEF5660E4BA23CF04CAB315517B39F
+1 HUSB @I92@
+1 CHIL @I93@
+0 @F100@ FAM
+1 _UID 9A20C7E3E133D84EADBF02FE101544BF323D
+1 HUSB @I93@
+1 CHIL @I94@
+0 @F101@ FAM
+1 _UID FAD1F95D907BBA409B73E4B0A0B8D17C6D4E
+1 HUSB @I94@
+1 CHIL @I95@
+0 @F102@ FAM
+1 _UID 608BD2E76ABD0248A368B4A11CCFC50E33D1
+1 HUSB @I95@
+1 CHIL @I96@
+0 @F103@ FAM
+1 _UID 01388227EA1719419B7BB2880E2D6FC8FF15
+1 HUSB @I96@
+1 CHIL @I97@
+0 @F104@ FAM
+1 _UID FD141D302F24FE4D9604A453D421C6CD15B2
+1 HUSB @I97@
+1 CHIL @I98@
+0 @F105@ FAM
+1 _UID DC01B3BFF72EBE49B054B088CB9C53CE3FDF
+1 HUSB @I98@
+1 CHIL @I99@
+0 @F106@ FAM
+1 _UID 41A36B4D6B1DF044804889157609B84338A4
+1 HUSB @I99@
+1 CHIL @I100@
+0 @F107@ FAM
+1 _UID 18FB69933C8247458F34296E7442B93B5D46
+1 HUSB @I100@
+1 CHIL @I101@
+0 @F108@ FAM
+1 _UID 6113D4748B49EF4EB7D740C6518120ABFE0D
+1 HUSB @I101@
+1 CHIL @I102@
+0 @F109@ FAM
+1 _UID 1729F0FD9EB46E44916BA2D19F592A511326
+1 HUSB @I102@
+1 CHIL @I103@
+0 @F110@ FAM
+1 _UID C6CC36B19B0D1343A21A3EFC826C76A67735
+1 HUSB @I103@
+1 CHIL @I104@
+0 @F111@ FAM
+1 _UID E0523B5C2B12544AA8731D3996F419C77FBD
+1 HUSB @I104@
+1 CHIL @I105@
+0 @F112@ FAM
+1 _UID 47F58A3B1892774A9F21B172A040D1B5B5D2
+1 HUSB @I105@
+1 CHIL @I106@
+0 @F113@ FAM
+1 _UID B3B05C85E0C1B04382B4BE1AA06009BFAEB2
+1 HUSB @I106@
+1 CHIL @I107@
+0 @F114@ FAM
+1 _UID 3B1A61326CDF944797A04AB593A9B781B88D
+1 HUSB @I107@
+1 CHIL @I108@
+0 @F115@ FAM
+1 _UID 978477AB73FB3A4BAACE9332BBE12686B530
+1 HUSB @I108@
+1 CHIL @I109@
+0 @F116@ FAM
+1 _UID 27710B1CF0C00C46AA56DEBE49ED9F407280
+1 HUSB @I109@
+1 CHIL @I110@
+0 @F117@ FAM
+1 _UID DA36DAE124D4EE4681D988C1FE3E77085545
+1 HUSB @I110@
+1 CHIL @I111@
+0 @F118@ FAM
+1 _UID CD8D14B27F12774E9E4057640FFBFB2D4151
+1 HUSB @I111@
+1 CHIL @I112@
+0 @F119@ FAM
+1 _UID 34CFCDE4B55CB0449C57C75E9ABA754CE66C
+1 HUSB @I112@
+1 CHIL @I113@
+0 @F120@ FAM
+1 _UID 795379F783978645A11CAC012F4CDCAD8FBE
+1 HUSB @I113@
+1 CHIL @I114@
+0 @F121@ FAM
+1 _UID 9F01A2778BC0194483142245C0FB2B66AB7E
+1 HUSB @I114@
+1 CHIL @I115@
+0 @F122@ FAM
+1 _UID C0EDA3198D88C043BB03AD8FFE0DF2930BBD
+1 HUSB @I115@
+1 CHIL @I116@
+0 @F123@ FAM
+1 _UID 21124819601C614D8705AD3B805EDB47322D
+1 HUSB @I116@
+1 CHIL @I117@
+0 @F124@ FAM
+1 _UID F90693328043904DAD7085050951B9607E4C
+1 HUSB @I117@
+1 CHIL @I118@
+0 @F125@ FAM
+1 _UID 8A657C23FDEFA6468792C26B5DB916D7AFA8
+1 HUSB @I118@
+1 CHIL @I119@
+0 @F126@ FAM
+1 _UID F9532C013CF6114485CAD99C277CDFB8FEA8
+1 HUSB @I119@
+1 CHIL @I120@
+0 @F127@ FAM
+1 _UID 24D45A017EB86F48A4AF7522DEFE531770D3
+1 HUSB @I120@
+1 CHIL @I121@
+0 @F128@ FAM
+1 _UID 4376F2D7CAA7834F85540C93D7DEF9F1DC3F
+1 HUSB @I121@
+1 CHIL @I122@
+0 @F268@ FAM
+1 _UID DE3C0F16EC06F445AA989B861E65B9444DB0
+1 HUSB @I448@
+1 WIFE @I449@
+1 CHIL @I447@
+0 @F269@ FAM
+1 _UID 0684F61FD9827A498E7781E9D3ABF6FC9CB3
+1 HUSB @I450@
+1 CHIL @I448@
+0 @F270@ FAM
+1 _UID 46812A92F810D146B3FC3DEBC53312AD3094
+1 HUSB @I451@
+1 CHIL @I449@
+0 _EVENT_DEFN He is immortal
+1 TYPE I
+1 TITL He is immortal
+2 ABBR He is immortal
+1 ABBR HI
+1 _SENM 
+1 _SENDOM 
+1 _SENPOM 
+1 _SENDPM 
+1 _SENF 
+1 _SENDOF 
+1 _SENPOF 
+1 _SENDPF 
+1 _SENU 
+1 _SENDOU 
+1 _SENPOU 
+1 _SENDPU 
+1 _DATE_TYPE 1
+1 _PLACE_TYPE 1
+1 _DESC_FLAG 1
+1 _CONF_FLAG 0
+0 @S76@ SOUR
+1 TITL Genesis 1:1
+0 TRLR
