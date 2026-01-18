@@ -1,5 +1,6 @@
 # KrankyBear Genealogy
-<img width="256" height="256" alt="KrankyBear Genealogy" src="https://github.com/user-attachments/assets/c7011106-5b4b-4ce4-8d50-601a4fc724e3" />
+<img width="256" height="256" alt="KrankyBear Genealogy" src="https://github.com/user-attachments/assets/5ecff2a8-99d8-40b2-8d08-fce46741228e" />
+
 
 A modern, cross-platform genealogy application inspired by Personal Ancestral File (PAF) which was discontinued in 2013, built with Go and Fyne.
 
