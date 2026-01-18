@@ -57,10 +57,13 @@ ROADMAP.md
 
 # ALLOWED
 !bin/*
+bin/.DS_Store
 !installers/*
+installers/.DS_Store
 !Inno/*
 Inno/.DS_Store
 !winres/*
+winres/.DS_Store
 
 # Ignore all files in the data directory
 data/*
