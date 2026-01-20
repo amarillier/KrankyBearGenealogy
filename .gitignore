@@ -16,6 +16,7 @@ test/*
 *.swo
 *~
 .DS_Store
+genealogy
 
 # git setup stuff
 git.sh

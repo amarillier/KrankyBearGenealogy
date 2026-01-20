@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -23,6 +24,14 @@ import (
 )
 
 var mainWindowRef fyne.Window
+
+// Dialog tracking to prevent duplicates
+var (
+	statisticsDialog   dialog.Dialog
+	dataQualityDialog  dialog.Dialog
+	livingStatusDialog dialog.Dialog
+	settingsDialog     dialog.Dialog
+)
 
 // Theme and dialog callback functions from main.go
 var (
@@ -720,6 +729,26 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		showLivingStatusReport(w, getStore(), navigateToPerson)
 	})
 
+	conflictsBtn := widget.NewButton("Conflicts Report", func() {
+		showConflictsReport(w, getStore(), navigateToPerson)
+	})
+
+	duplicatesBtn := widget.NewButton("Duplicate Detection", func() {
+		showDuplicateDetectionReport(w, getStore(), navigateToPerson, refreshAll)
+	})
+
+	descendantBtn := widget.NewButton("Descendant Report", func() {
+		showDescendantReport(w, getStore(), currentPersonID, navigateToPerson)
+	})
+
+	ancestorBtn := widget.NewButton("Ancestor Report", func() {
+		showAncestorReport(w, getStore(), currentPersonID, navigateToPerson)
+	})
+
+	timelineBtn := widget.NewButton("Timeline View", func() {
+		showTimelineView(w, getStore(), navigateToPerson)
+	})
+
 	settingsBtn := widget.NewButton("Settings", func() {
 		showSettingsDialog(w, cfg, dbPath, getStore(), func() {
 			// Callback when settings change - no need to refresh views
@@ -797,13 +826,22 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	w.Resize(fyne.NewSize(1200, 800))
 
 	// Setup system tray and menus (if supported)
-	setupMenus(a, w, newDatabaseBtn, openDatabaseBtn, backupBtn, restoreBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn, dataQualityBtn, livingStatusBtn, settingsBtn, getStore, navigateToPerson)
+	setupMenus(a, w, cfg, newDatabaseBtn, openDatabaseBtn, backupBtn, restoreBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn, dataQualityBtn, livingStatusBtn, conflictsBtn, duplicatesBtn, descendantBtn, ancestorBtn, timelineBtn, settingsBtn, getStore, navigateToPerson, refreshAll, func() int64 { return currentPersonID })
+
+	// Statistics dashboard button (for keyboard shortcut)
+	statsBtn := widget.NewButton("Statistics", func() {
+		showStatisticsDashboard(w, getStore())
+	})
+
+	// Setup keyboard shortcuts
+	setupKeyboardShortcuts(a, w, cfg, tabs, searchEntry, addPersonBtn, deletePersonBtn, focusPersonBtn,
+		settingsBtn, dataQualityBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn, editPerson, &currentPersonID)
 
 	w.ShowAndRun()
 }
 
 // setupMenus creates the system tray and window menus
-func setupMenus(a fyne.App, w fyne.Window, newDBBtn, openDBBtn, backupBtn, restoreBtn, importBtn, importGNOBtn, importGrampsBtn, exportBtn, dataQBtn, livingStatusBtn, settingsBtn *widget.Button, getStore func() *store.Store, navigateToPerson func(int64)) {
+func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBBtn, backupBtn, restoreBtn, importBtn, importGNOBtn, importGrampsBtn, exportBtn, dataQBtn, livingStatusBtn, conflictsBtn, duplicatesBtn, descendantBtn, ancestorBtn, timelineBtn, settingsBtn *widget.Button, getStore func() *store.Store, navigateToPerson func(int64), refreshAll func(), getCurrentPersonID func() int64) {
 	desk, ok := a.(desktop.App)
 	if !ok {
 		return // System tray not supported on this platform
@@ -848,12 +886,50 @@ func setupMenus(a fyne.App, w fyne.Window, newDBBtn, openDBBtn, backupBtn, resto
 	})
 
 	// Reports menu items
+	statistics := fyne.NewMenuItem("Statistics Dashboard", func() {
+		showStatisticsDashboard(w, getStore())
+	})
+
 	dataQuality := fyne.NewMenuItem("Data Quality Report", func() {
 		showDataQualityReport(w, getStore(), navigateToPerson)
 	})
 
 	livingStatus := fyne.NewMenuItem("Living Status Report", func() {
 		showLivingStatusReport(w, getStore(), navigateToPerson)
+	})
+
+	conflictsReport := fyne.NewMenuItem("Conflicts Report", func() {
+		showConflictsReport(w, getStore(), navigateToPerson)
+	})
+
+	duplicatesReport := fyne.NewMenuItem("Duplicate Detection", func() {
+		showDuplicateDetectionReport(w, getStore(), navigateToPerson, refreshAll)
+	})
+
+	descendantReport := fyne.NewMenuItem("Descendant Report", func() {
+		showDescendantReport(w, getStore(), getCurrentPersonID(), navigateToPerson)
+	})
+
+	ancestorReport := fyne.NewMenuItem("Ancestor Report", func() {
+		showAncestorReport(w, getStore(), getCurrentPersonID(), navigateToPerson)
+	})
+
+	timelineReport := fyne.NewMenuItem("Timeline View", func() {
+		showTimelineView(w, getStore(), navigateToPerson)
+	})
+
+	reviewedItemsReport := fyne.NewMenuItem("Reviewed Items", func() {
+		showReviewedItemsReport(w, getStore(), navigateToPerson)
+	})
+
+	geographicReport := fyne.NewMenuItem("Geographic Distribution", func() {
+		showGeographicDistributionReport(w, getStore(), navigateToPerson)
+	})
+
+	massMarkLivingReport := fyne.NewMenuItem("Mark as Living (Bulk)", func() {
+		showMassMarkLivingReport(w, getStore(), func() {
+			refreshAll()
+		})
 	})
 
 	// Media menu items
@@ -868,6 +944,9 @@ func setupMenus(a fyne.App, w fyne.Window, newDBBtn, openDBBtn, backupBtn, resto
 	// Settings menu items
 	settingsDialog := fyne.NewMenuItem("Preferences...", func() {
 		settingsBtn.OnTapped()
+	})
+	keyboardShortcuts := fyne.NewMenuItem("Keyboard Shortcuts...", func() {
+		showKeyboardShortcutsDialog(w, cfg)
 	})
 	settingsLight := fyne.NewMenuItem("Light Theme", func() {
 		if LightThemeFunc != nil {
@@ -902,19 +981,73 @@ func setupMenus(a fyne.App, w fyne.Window, newDBBtn, openDBBtn, backupBtn, resto
 		}
 	})
 
-	// System tray menu (flat structure)
+	// System tray menu with proper submenus using ChildMenu
+	// Create File submenu
+	fileSubMenu := fyne.NewMenu("File",
+		newDB, openDB,
+		fyne.NewMenuItemSeparator(),
+		backup, restore,
+		fyne.NewMenuItemSeparator(),
+		importGED, importGNO, importGramps,
+		fyne.NewMenuItemSeparator(),
+		exportGED)
+	fileMenuItem := fyne.NewMenuItem("File", nil)
+	fileMenuItem.ChildMenu = fileSubMenu
+
+	// Create Media submenu
+	mediaSubMenu := fyne.NewMenu("Media",
+		mediaLibraryMenuItem,
+		addMediaMenuItem)
+	mediaMenuItem := fyne.NewMenuItem("Media", nil)
+	mediaMenuItem.ChildMenu = mediaSubMenu
+
+	// Create Reports submenu
+	reportsSubMenu := fyne.NewMenu("Reports",
+		statistics,
+		fyne.NewMenuItemSeparator(),
+		dataQuality,
+		livingStatus,
+		conflictsReport,
+		duplicatesReport,
+		fyne.NewMenuItemSeparator(),
+		descendantReport,
+		ancestorReport,
+		timelineReport,
+		geographicReport,
+		fyne.NewMenuItemSeparator(),
+		massMarkLivingReport,
+		reviewedItemsReport)
+	reportsMenuItem := fyne.NewMenuItem("Reports", nil)
+	reportsMenuItem.ChildMenu = reportsSubMenu
+
+	// Create Settings submenu
+	settingsSubMenu := fyne.NewMenu("Settings",
+		settingsDialog,
+		keyboardShortcuts,
+		fyne.NewMenuItemSeparator(),
+		settingsLight,
+		settingsDark,
+		settingsSystem)
+	settingsMenuItem := fyne.NewMenuItem("Settings", nil)
+	settingsMenuItem.ChildMenu = settingsSubMenu
+
+	// Create Help submenu
+	helpSubMenu := fyne.NewMenu("Help",
+		about,
+		updtchk,
+		help)
+	helpMenuItem := fyne.NewMenuItem("Help", nil)
+	helpMenuItem.ChildMenu = helpSubMenu
+
+	// Main system tray menu with submenus
 	menu := fyne.NewMenu("KrankyBear Genealogy",
 		show, hide,
 		fyne.NewMenuItemSeparator(),
-		newDB, openDB, backup, restore,
-		fyne.NewMenuItemSeparator(),
-		importGED, importGNO, importGramps, exportGED,
-		fyne.NewMenuItemSeparator(),
-		dataQuality, livingStatus, settingsDialog,
-		fyne.NewMenuItemSeparator(),
-		about, updtchk, help,
-		fyne.NewMenuItemSeparator(),
-		settingsLight, settingsDark, settingsSystem,
+		fileMenuItem,
+		mediaMenuItem,
+		reportsMenuItem,
+		settingsMenuItem,
+		helpMenuItem,
 		fyne.NewMenuItemSeparator(),
 		quit)
 	desk.SetSystemTrayMenu(menu)
@@ -924,12 +1057,174 @@ func setupMenus(a fyne.App, w fyne.Window, newDBBtn, openDBBtn, backupBtn, resto
 	fileMenu := fyne.NewMenu("File", newDB, openDB, backup, restore, fyne.NewMenuItemSeparator(),
 		importGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(), quit)
 	mediaMenu := fyne.NewMenu("Media", mediaLibraryMenuItem, addMediaMenuItem)
-	reportsMenu := fyne.NewMenu("Reports", dataQuality, livingStatus)
-	settingsMenu := fyne.NewMenu("Settings", settingsDialog, fyne.NewMenuItemSeparator(),
+	reportsMenu := fyne.NewMenu("Reports", statistics, dataQuality, livingStatus, conflictsReport, duplicatesReport,
+		fyne.NewMenuItemSeparator(), descendantReport, ancestorReport, timelineReport, geographicReport,
+		fyne.NewMenuItemSeparator(), massMarkLivingReport, reviewedItemsReport)
+	settingsMenu := fyne.NewMenu("Settings", settingsDialog, keyboardShortcuts, fyne.NewMenuItemSeparator(),
 		settingsLight, settingsDark, settingsSystem)
 	helpMenu := fyne.NewMenu("Help", about, updtchk, help)
 	cmenu := fyne.NewMainMenu(fileMenu, mediaMenu, reportsMenu, settingsMenu, helpMenu)
 	w.SetMainMenu(cmenu)
+}
+
+// setupKeyboardShortcuts registers keyboard shortcuts for common actions
+func setupKeyboardShortcuts(a fyne.App, w fyne.Window, cfg *config.Config, tabs *container.AppTabs, searchEntry *widget.Entry,
+	addPersonBtn, deletePersonBtn, focusPersonBtn, settingsBtn, dataQualityBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn *widget.Button,
+	editPerson func(int64), currentPersonID *int64) {
+
+	// Helper to register both Cmd (Mac) and Ctrl (Win/Linux) shortcuts
+	addShortcut := func(key fyne.KeyName, handler func()) {
+		if key == fyne.KeyUnknown {
+			return // Skip if key is not recognized
+		}
+		// Cmd+Key for Mac
+		cmdShortcut := &desktop.CustomShortcut{KeyName: key, Modifier: fyne.KeyModifierSuper}
+		w.Canvas().AddShortcut(cmdShortcut, func(shortcut fyne.Shortcut) { handler() })
+
+		// Ctrl+Key for Windows/Linux
+		ctrlShortcut := &desktop.CustomShortcut{KeyName: key, Modifier: fyne.KeyModifierControl}
+		w.Canvas().AddShortcut(ctrlShortcut, func(shortcut fyne.Shortcut) { handler() })
+	}
+
+	// Add Person
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("AddPerson")), func() {
+		if addPersonBtn != nil {
+			addPersonBtn.OnTapped()
+		}
+	})
+
+	// Delete Person
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("DeletePerson")), func() {
+		if deletePersonBtn != nil {
+			deletePersonBtn.OnTapped()
+		}
+	})
+
+	// Focus Search
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("FocusSearch")), func() {
+		if searchEntry != nil {
+			w.Canvas().Focus(searchEntry)
+		}
+	})
+
+	// Go to Focus Person
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("GoToFocusPerson")), func() {
+		if focusPersonBtn != nil {
+			focusPersonBtn.OnTapped()
+		}
+	})
+
+	// Edit Person
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("EditPerson")), func() {
+		if currentPersonID != nil && *currentPersonID > 0 && editPerson != nil {
+			editPerson(*currentPersonID)
+		}
+	})
+
+	// Open Database
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("OpenDatabase")), func() {
+		if openDatabaseBtn != nil {
+			openDatabaseBtn.OnTapped()
+		}
+	})
+
+	// Backup Database
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("BackupDatabase")), func() {
+		if backupBtn != nil {
+			backupBtn.OnTapped()
+		}
+	})
+
+	// Media Library
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("MediaLibrary")), func() {
+		if mediaLibraryBtn != nil {
+			mediaLibraryBtn.OnTapped()
+		}
+	})
+
+	// Data Quality Report
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("DataQuality")), func() {
+		if dataQualityBtn != nil {
+			dataQualityBtn.OnTapped()
+		}
+	})
+
+	// Statistics Dashboard
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("Statistics")), func() {
+		if statsBtn != nil {
+			statsBtn.OnTapped()
+		}
+	})
+
+	// Settings (primary and alternative)
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("Settings")), func() {
+		if settingsBtn != nil {
+			settingsBtn.OnTapped()
+		}
+	})
+
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("SettingsAlt")), func() {
+		if settingsBtn != nil {
+			settingsBtn.OnTapped()
+		}
+	})
+
+	// Keyboard Shortcuts
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("KeyboardShortcuts")), func() {
+		showKeyboardShortcutsDialog(w, cfg)
+	})
+
+	// About
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("About")), func() {
+		if ShowAboutFunc != nil {
+			ShowAboutFunc()
+		}
+	})
+
+	// Check for Updates
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("CheckUpdate")), func() {
+		if CheckUpdateFunc != nil {
+			CheckUpdateFunc()
+		}
+	})
+
+	// Help
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("Help")), func() {
+		if ShowHelpFunc != nil {
+			ShowHelpFunc()
+		}
+	})
+
+	// Quit Application
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("Quit")), func() {
+		// Show confirmation dialog before quitting
+		dialog.ShowConfirm("Quit KrankyBear Genealogy",
+			"Are you sure you want to quit? All changes have been saved.",
+			func(confirmed bool) {
+				if confirmed {
+					a.Quit()
+				}
+			}, w)
+	})
+
+	// Tab switching shortcuts
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("SwitchToFamily")), func() {
+		if tabs != nil && len(tabs.Items) > 0 {
+			tabs.Select(tabs.Items[0])
+		}
+	})
+
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("SwitchToPedigree")), func() {
+		if tabs != nil && len(tabs.Items) > 1 {
+			tabs.Select(tabs.Items[1])
+		}
+	})
+
+	addShortcut(config.StringToKeyName(cfg.GetShortcut("SwitchToIndividual")), func() {
+		if tabs != nil && len(tabs.Items) > 2 {
+			tabs.Select(tabs.Items[2])
+		}
+	})
 }
 
 // storageFilter implements fyne.FileFilter for file dialogs.
@@ -1142,6 +1437,12 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 
 // showDataQualityReport displays a report of records with missing or incomplete data.
 func showDataQualityReport(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
+	// Check if already open
+	if dataQualityDialog != nil {
+		dataQualityDialog.Show()
+		return
+	}
+
 	people, err := s.GetPeople()
 	if err != nil {
 		dialog.ShowError(err, w)
@@ -1213,8 +1514,6 @@ func showDataQualityReport(w fyne.Window, s *store.Store, navigateFunc func(int6
 	content.Add(header)
 	content.Add(widget.NewSeparator())
 
-	var dialogRef dialog.Dialog
-
 	for _, record := range problemRecords {
 		p := record.person // Capture for closure
 
@@ -1227,8 +1526,8 @@ func showDataQualityReport(w fyne.Window, s *store.Store, navigateFunc func(int6
 		issueSubtext := fmt.Sprintf("Issues: %s", strings.Join(record.issues, ", "))
 
 		btn := widget.NewButton(issueText, func() {
-			if dialogRef != nil {
-				dialogRef.Hide()
+			if dataQualityDialog != nil {
+				dataQualityDialog.Hide()
 			}
 			// Navigate to this person
 			navigateFunc(p.ID)
@@ -1244,12 +1543,275 @@ func showDataQualityReport(w fyne.Window, s *store.Store, navigateFunc func(int6
 	scroll := container.NewScroll(content)
 	scroll.SetMinSize(fyne.NewSize(600, 400))
 
-	dialogRef = dialog.NewCustom("Data Quality Report", "Close", scroll, w)
-	dialogRef.Show()
+	dataQualityDialog = dialog.NewCustom("Data Quality Report", "Close", scroll, w)
+	dataQualityDialog.SetOnClosed(func() {
+		dataQualityDialog = nil
+	})
+	dataQualityDialog.Show()
+}
+
+// showStatisticsDashboard displays comprehensive database statistics
+func showStatisticsDashboard(w fyne.Window, s *store.Store) {
+	// Check if already open
+	if statisticsDialog != nil {
+		statisticsDialog.Show()
+		return
+	}
+
+	people, err := s.GetPeople()
+	if err != nil {
+		dialog.ShowError(err, w)
+		return
+	}
+
+	// Calculate statistics
+	totalPeople := len(people)
+
+	// Count living vs deceased
+	living := 0
+	deceased := 0
+	for _, p := range people {
+		if p.IsLiving {
+			living++
+		} else {
+			deceased++
+		}
+	}
+
+	// Count relationships
+	relationshipCount, _ := s.GetRelationshipCount()
+
+	// Count marriages (relationships where type contains "spouse", "partner", "married", etc.)
+	marriages := 0
+	for _, p := range people {
+		spouses, _ := s.GetSpouses(p.ID)
+		marriages += len(spouses)
+	}
+	marriages = marriages / 2 // Each marriage counted twice
+
+	// Get media count
+	mediaCount, _ := s.GetMediaCount()
+
+	// Count people with complete data (name, birth date, and either death date or marked living)
+	complete := 0
+	incomplete := 0
+	for _, p := range people {
+		hasName := strings.TrimSpace(p.GivenName) != "" && strings.TrimSpace(p.Surname) != ""
+		hasBirth := strings.TrimSpace(p.BirthDate) != ""
+		hasDeathOrLiving := strings.TrimSpace(p.DeathDate) != "" || p.IsLiving
+
+		if hasName && hasBirth && hasDeathOrLiving {
+			complete++
+		} else {
+			incomplete++
+		}
+	}
+
+	completionRate := 0.0
+	if totalPeople > 0 {
+		completionRate = float64(complete) / float64(totalPeople) * 100
+	}
+
+	// Find most common surnames
+	surnameCount := make(map[string]int)
+	for _, p := range people {
+		surname := strings.TrimSpace(p.Surname)
+		if surname != "" && surname != "Unknown" {
+			surnameCount[surname]++
+		}
+	}
+
+	// Sort surnames by frequency
+	type surnameFreq struct {
+		name  string
+		count int
+	}
+	var surnames []surnameFreq
+	for name, count := range surnameCount {
+		surnames = append(surnames, surnameFreq{name, count})
+	}
+	sort.Slice(surnames, func(i, j int) bool {
+		return surnames[i].count > surnames[j].count
+	})
+
+	// Get top 10 surnames
+	topSurnames := ""
+	for i := 0; i < 10 && i < len(surnames); i++ {
+		topSurnames += fmt.Sprintf("  %d. %s (%d people)\n", i+1, surnames[i].name, surnames[i].count)
+	}
+	if topSurnames == "" {
+		topSurnames = "  (no surnames recorded)"
+	}
+
+	// Find date range (oldest and newest birth)
+	var oldestBirth, newestBirth string
+	oldestYear := 9999
+	newestYear := 0
+	for _, p := range people {
+		if p.BirthDate != "" {
+			year := parseBirthYear(p.BirthDate)
+			if year > 0 {
+				if year < oldestYear {
+					oldestYear = year
+					oldestBirth = p.BirthDate
+				}
+				if year > newestYear {
+					newestYear = year
+					newestBirth = p.BirthDate
+				}
+			}
+		}
+	}
+
+	dateRange := "(no dates recorded)"
+	if oldestYear != 9999 && newestYear != 0 {
+		dateRange = fmt.Sprintf("%s to %s (%d years)", oldestBirth, newestBirth, newestYear-oldestYear)
+	}
+
+	// Calculate generation depth (max distance from oldest to youngest)
+	generationDepth := 0
+	if oldestYear != 9999 && newestYear != 0 {
+		generationDepth = (newestYear - oldestYear) / 25 // Rough estimate: 25 years per generation
+	}
+
+	// Build statistics display
+	content := container.NewVBox()
+
+	title := widget.NewLabelWithStyle("📊 Database Statistics", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	title.TextStyle.Bold = true
+	content.Add(title)
+	content.Add(widget.NewSeparator())
+
+	// People statistics
+	peopleSection := widget.NewLabelWithStyle("👥 People", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(peopleSection)
+	content.Add(widget.NewLabel(fmt.Sprintf("  Total People: %d", totalPeople)))
+	content.Add(widget.NewLabel(fmt.Sprintf("  Living: %d (%.1f%%)", living, float64(living)/float64(totalPeople)*100)))
+	content.Add(widget.NewLabel(fmt.Sprintf("  Deceased: %d (%.1f%%)", deceased, float64(deceased)/float64(totalPeople)*100)))
+	content.Add(widget.NewLabel(""))
+
+	// Relationship statistics
+	relSection := widget.NewLabelWithStyle("🔗 Relationships", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(relSection)
+	content.Add(widget.NewLabel(fmt.Sprintf("  Total Relationships: %d", relationshipCount)))
+	content.Add(widget.NewLabel(fmt.Sprintf("  Marriages/Partnerships: %d", marriages)))
+	content.Add(widget.NewLabel(""))
+
+	// Data quality statistics
+	qualitySection := widget.NewLabelWithStyle("✓ Data Quality", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(qualitySection)
+	content.Add(widget.NewLabel(fmt.Sprintf("  Complete Records: %d (%.1f%%)", complete, completionRate)))
+	content.Add(widget.NewLabel(fmt.Sprintf("  Incomplete Records: %d (%.1f%%)", incomplete, float64(incomplete)/float64(totalPeople)*100)))
+	content.Add(widget.NewLabel(""))
+
+	// Media statistics
+	mediaSection := widget.NewLabelWithStyle("📷 Media", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(mediaSection)
+	content.Add(widget.NewLabel(fmt.Sprintf("  Total Media Files: %d", mediaCount)))
+	content.Add(widget.NewLabel(""))
+
+	// Surname statistics
+	surnameSection := widget.NewLabelWithStyle("📝 Most Common Surnames", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(surnameSection)
+	topSurnamesLabel := widget.NewLabel(topSurnames)
+	topSurnamesLabel.TextStyle.Monospace = true
+	content.Add(topSurnamesLabel)
+	content.Add(widget.NewLabel(""))
+
+	// Age & Lifespan statistics
+	ageSection := widget.NewLabelWithStyle("👴 Age & Lifespan", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(ageSection)
+
+	// Find oldest living person
+	var oldestLivingPerson *store.Person
+	oldestLivingAge := 0
+	for i, p := range people {
+		if p.IsLiving && p.BirthDate != "" {
+			birthYear := parseBirthYear(p.BirthDate)
+			if birthYear > 0 {
+				age := time.Now().Year() - birthYear
+				if age > oldestLivingAge {
+					oldestLivingAge = age
+					oldestLivingPerson = &people[i]
+				}
+			}
+		}
+	}
+
+	if oldestLivingPerson != nil {
+		content.Add(widget.NewLabel(fmt.Sprintf("  Oldest Living: %s (age %d, born %s)",
+			formatPersonName(*oldestLivingPerson), oldestLivingAge, oldestLivingPerson.BirthDate)))
+	} else {
+		content.Add(widget.NewLabel("  Oldest Living: (none recorded)"))
+	}
+
+	// Find oldest deceased person (by age at death)
+	var oldestDeceasedPerson *store.Person
+	oldestDeceasedAge := 0
+	totalLifespanYears := 0
+	lifespanCount := 0
+
+	for i, p := range people {
+		if !p.IsLiving && p.BirthDate != "" && p.DeathDate != "" {
+			birthYear := parseBirthYear(p.BirthDate)
+			deathYear := parseBirthYear(p.DeathDate)
+			if birthYear > 0 && deathYear > 0 {
+				ageAtDeath := deathYear - birthYear
+				if ageAtDeath > 0 && ageAtDeath < 150 { // Sanity check
+					totalLifespanYears += ageAtDeath
+					lifespanCount++
+
+					if ageAtDeath > oldestDeceasedAge {
+						oldestDeceasedAge = ageAtDeath
+						oldestDeceasedPerson = &people[i]
+					}
+				}
+			}
+		}
+	}
+
+	if oldestDeceasedPerson != nil {
+		content.Add(widget.NewLabel(fmt.Sprintf("  Oldest Deceased: %s (age %d, %s - %s)",
+			formatPersonName(*oldestDeceasedPerson), oldestDeceasedAge,
+			oldestDeceasedPerson.BirthDate, oldestDeceasedPerson.DeathDate)))
+	} else {
+		content.Add(widget.NewLabel("  Oldest Deceased: (none recorded)"))
+	}
+
+	// Calculate average lifespan
+	if lifespanCount > 0 {
+		avgLifespan := float64(totalLifespanYears) / float64(lifespanCount)
+		content.Add(widget.NewLabel(fmt.Sprintf("  Average Lifespan: %.1f years (based on %d deceased with dates)",
+			avgLifespan, lifespanCount)))
+	} else {
+		content.Add(widget.NewLabel("  Average Lifespan: (insufficient data)"))
+	}
+	content.Add(widget.NewLabel(""))
+
+	// Timeline statistics
+	timelineSection := widget.NewLabelWithStyle("📅 Timeline", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(timelineSection)
+	content.Add(widget.NewLabel(fmt.Sprintf("  Date Range: %s", dateRange)))
+	content.Add(widget.NewLabel(fmt.Sprintf("  Estimated Generations: ~%d", generationDepth)))
+
+	scroll := container.NewScroll(content)
+	scroll.SetMinSize(fyne.NewSize(600, 500))
+
+	statisticsDialog = dialog.NewCustom("Statistics Dashboard", "Close", scroll, w)
+	statisticsDialog.SetOnClosed(func() {
+		statisticsDialog = nil
+	})
+	statisticsDialog.Show()
 }
 
 // showLivingStatusReport displays a report analyzing ages and living status
 func showLivingStatusReport(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
+	// Check if already open
+	if livingStatusDialog != nil {
+		livingStatusDialog.Show()
+		return
+	}
+
 	people, err := s.GetPeople()
 	if err != nil {
 		dialog.ShowError(err, w)
@@ -1331,8 +1893,6 @@ func showLivingStatusReport(w fyne.Window, s *store.Store, navigateFunc func(int
 	content.Add(header)
 	content.Add(widget.NewSeparator())
 
-	var dialogRef dialog.Dialog
-
 	for _, rec := range issues {
 		p := rec.person // Capture for closure
 
@@ -1344,8 +1904,8 @@ func showLivingStatusReport(w fyne.Window, s *store.Store, navigateFunc func(int
 		issueText := fmt.Sprintf("%s (ID: %d)", displayName, p.ID)
 
 		btn := widget.NewButton(issueText, func() {
-			if dialogRef != nil {
-				dialogRef.Hide()
+			if livingStatusDialog != nil {
+				livingStatusDialog.Hide()
 			}
 			// Navigate to this person
 			navigateFunc(p.ID)
@@ -1379,8 +1939,11 @@ func showLivingStatusReport(w fyne.Window, s *store.Store, navigateFunc func(int
 	scroll := container.NewScroll(content)
 	scroll.SetMinSize(fyne.NewSize(700, 400))
 
-	dialogRef = dialog.NewCustom("Living Status Report", "Close", scroll, w)
-	dialogRef.Show()
+	livingStatusDialog = dialog.NewCustom("Living Status Report", "Close", scroll, w)
+	livingStatusDialog.SetOnClosed(func() {
+		livingStatusDialog = nil
+	})
+	livingStatusDialog.Show()
 }
 
 // parseBirthYear extracts the year from various date formats
@@ -1422,8 +1985,263 @@ func parseBirthYear(dateStr string) int {
 	return 0
 }
 
+// showKeyboardShortcutsDialog displays a dialog for customizing keyboard shortcuts
+func showKeyboardShortcutsDialog(w fyne.Window, cfg *config.Config) {
+	content := container.NewVBox()
+
+	title := widget.NewLabelWithStyle("Customize Keyboard Shortcuts", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	content.Add(title)
+	content.Add(widget.NewLabel("Click on a shortcut key to change it. Use Cmd (Mac) or Ctrl (Windows/Linux) + key."))
+	content.Add(widget.NewSeparator())
+
+	// Map of action name -> display name
+	shortcuts := []struct {
+		Action  string
+		Display string
+	}{
+		{"AddPerson", "Add Person"},
+		{"DeletePerson", "Delete Person"},
+		{"EditPerson", "Edit Person"},
+		{"FocusSearch", "Focus Search Box"},
+		{"GoToFocusPerson", "Go to Focus Person"},
+		{"OpenDatabase", "Open Database"},
+		{"BackupDatabase", "Backup Database"},
+		{"MediaLibrary", "Media Library"},
+		{"Settings", "Settings (Primary)"},
+		{"SettingsAlt", "Settings (Alternative)"},
+		{"KeyboardShortcuts", "Keyboard Shortcuts"},
+		{"About", "About"},
+		{"CheckUpdate", "Check for Updates"},
+		{"Help", "Help"},
+		{"Quit", "Quit Application"},
+		{"Statistics", "Statistics Dashboard"},
+		{"DataQuality", "Data Quality Report"},
+		{"SwitchToFamily", "Switch to Family View"},
+		{"SwitchToPedigree", "Switch to Pedigree View"},
+		{"SwitchToIndividual", "Switch to Individual View"},
+	}
+
+	// Track if any changes were made
+	changesMap := make(map[string]string) // action -> new key
+
+	// Create maps for shortcuts
+	actionToDisplay := make(map[string]string) // action -> display name
+	for _, sc := range shortcuts {
+		actionToDisplay[sc.Action] = sc.Display
+	}
+
+	for _, sc := range shortcuts {
+		// Capture loop variables properly
+		currentAction := sc.Action
+		currentDisplayName := sc.Display
+
+		currentKey := cfg.GetShortcut(currentAction)
+		if currentKey == "" {
+			currentKey = config.DefaultKeyboardShortcuts()[currentAction]
+		}
+
+		label := widget.NewLabel(currentDisplayName + ":")
+
+		// Use a regular label instead of disabled entry for better readability
+		keyLabel := widget.NewLabel("Cmd/Ctrl+" + currentKey)
+		keyLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+		// Change button to edit this shortcut
+		editBtn := widget.NewButton("Change...", func() {
+			// Capture for this closure
+			action := currentAction
+			displayName := currentDisplayName
+
+			currentKeyVal := cfg.GetShortcut(action)
+			if currentKeyVal == "" {
+				currentKeyVal = config.DefaultKeyboardShortcuts()[action]
+			}
+
+			// Show dialog to enter new key
+			showEditShortcutDialog(w, cfg, action, displayName, currentKeyVal, func(newKey string) bool {
+				// Check for conflicts
+				conflictAction := ""
+				conflictDisplay := ""
+
+				for otherAction, otherDisplay := range actionToDisplay {
+					if otherAction == action {
+						continue
+					}
+					otherKey := cfg.GetShortcut(otherAction)
+					if otherKey == "" {
+						otherKey = config.DefaultKeyboardShortcuts()[otherAction]
+					}
+					// Check pending changes too
+					if pendingKey, ok := changesMap[otherAction]; ok {
+						otherKey = pendingKey
+					}
+
+					if otherKey == newKey {
+						conflictAction = otherAction
+						conflictDisplay = otherDisplay
+						break
+					}
+				}
+
+				if conflictAction != "" {
+					dialog.ShowError(fmt.Errorf("Key '%s' is already assigned to:\n\n%s\n\nPlease choose a different key.", newKey, conflictDisplay), w)
+					return false // Don't close dialog, there was a conflict
+				}
+
+				// Update the display
+				keyLabel.SetText("Cmd/Ctrl+" + newKey)
+				changesMap[action] = newKey
+				return true // Success, close dialog
+			})
+		})
+
+		row := container.NewBorder(nil, nil, label, editBtn, keyLabel)
+		content.Add(row)
+	}
+
+	content.Add(widget.NewSeparator())
+
+	// Save and Reset buttons
+	saveBtn := widget.NewButton("Save Changes", func() {
+		if len(changesMap) == 0 {
+			dialog.ShowInformation("No Changes", "No shortcuts have been changed.", w)
+			return
+		}
+
+		// Apply all changes
+		for action, newKey := range changesMap {
+			cfg.SetShortcut(action, newKey)
+		}
+
+		if err := cfg.Save(); err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to save configuration: %w", err), w)
+			return
+		}
+
+		dialog.ShowInformation("Success",
+			fmt.Sprintf("Saved %d shortcut change(s).\n\nRestart the application for changes to take effect.", len(changesMap)), w)
+
+		// Clear changes map
+		changesMap = make(map[string]string)
+	})
+
+	resetBtn := widget.NewButton("Reset to Defaults", func() {
+		dialog.ShowConfirm("Reset Shortcuts",
+			"Are you sure you want to reset all keyboard shortcuts to their default values?",
+			func(confirmed bool) {
+				if confirmed {
+					cfg.ResetShortcutsToDefaults()
+					if err := cfg.Save(); err != nil {
+						dialog.ShowError(fmt.Errorf("Failed to save configuration: %w", err), w)
+						return
+					}
+
+					dialog.ShowInformation("Success",
+						"Keyboard shortcuts have been reset to defaults.\n\nRestart the application for changes to take effect.", w)
+				}
+			}, w)
+	})
+
+	buttonBox := container.NewHBox(saveBtn, resetBtn)
+	content.Add(buttonBox)
+
+	scroll := container.NewScroll(content)
+	scroll.SetMinSize(fyne.NewSize(550, 600))
+
+	d := dialog.NewCustom("Keyboard Shortcuts", "Close", scroll, w)
+	d.Show()
+}
+
+// showEditShortcutDialog shows a dialog to edit a single keyboard shortcut
+func showEditShortcutDialog(parent fyne.Window, cfg *config.Config, action, displayName, currentKey string, onSave func(string) bool) {
+	content := container.NewVBox()
+
+	content.Add(widget.NewLabel(fmt.Sprintf("Change shortcut for: %s", displayName)))
+	content.Add(widget.NewLabel(fmt.Sprintf("Current: Cmd/Ctrl+%s", currentKey)))
+	content.Add(widget.NewSeparator())
+
+	content.Add(widget.NewLabel("Enter the new key (letter, number, or symbol):"))
+	content.Add(widget.NewLabel("Letters/Numbers: A-Z, 0-9"))
+	content.Add(widget.NewLabel("Symbols: , . / ; - ="))
+
+	keyEntry := widget.NewEntry()
+	keyEntry.SetPlaceHolder("Type: N, T, 5, or , . / etc.")
+	content.Add(keyEntry)
+
+	var d dialog.Dialog
+
+	saveBtn := widget.NewButton("Save", func() {
+		newKey := strings.ToUpper(strings.TrimSpace(keyEntry.Text))
+		if newKey == "" {
+			dialog.ShowError(fmt.Errorf("Please enter a key"), parent)
+			return
+		}
+
+		// Convert symbols to their word equivalents
+		symbolMap := map[string]string{
+			",":  "Comma",
+			".":  "Period",
+			"/":  "Slash",
+			"\\": "Backslash",
+			";":  "Semicolon",
+			"-":  "Minus",
+			"=":  "Equal",
+			"!":  "1", // Shift+1
+			"@":  "2", // Shift+2
+			"#":  "3", // Shift+3
+			"$":  "4", // Shift+4
+			"%":  "5", // Shift+5
+			"^":  "6", // Shift+6
+			"&":  "7", // Shift+7
+			"*":  "8", // Shift+8
+			"(":  "9", // Shift+9
+			")":  "0", // Shift+0
+		}
+
+		if wordKey, ok := symbolMap[newKey]; ok {
+			newKey = wordKey
+		}
+
+		// Validate the key
+		if config.StringToKeyName(newKey) == fyne.KeyUnknown {
+			dialog.ShowError(fmt.Errorf("Invalid key: %s\n\nPlease use:\n- Letters: A-Z\n- Numbers: 0-9\n- Special: , (comma)  . (period)  / (slash)  ; (semicolon)  - (minus)  = (equal)", newKey), parent)
+			return
+		}
+
+		// Call onSave and only hide if successful (no conflict)
+		if onSave(newKey) {
+			d.Hide()
+		}
+	})
+
+	cancelBtn := widget.NewButton("Cancel", func() {
+		d.Hide()
+	})
+
+	// Enter key to save
+	keyEntry.OnSubmitted = func(s string) {
+		saveBtn.OnTapped()
+	}
+
+	buttons := container.NewHBox(saveBtn, cancelBtn)
+	content.Add(buttons)
+
+	d = dialog.NewCustom("Edit Shortcut", "", content, parent)
+	d.Resize(fyne.NewSize(400, 250))
+	d.Show()
+
+	// Focus the entry
+	parent.Canvas().Focus(keyEntry)
+}
+
 // showSettingsDialog displays application settings including Focus User preference
 func showSettingsDialog(w fyne.Window, cfg *config.Config, dbPath string, s *store.Store, onSave func()) {
+	// Check if already open
+	if settingsDialog != nil {
+		settingsDialog.Show()
+		return
+	}
+
 	// Get all people for search
 	people, err := s.GetPeople()
 	if err != nil {
@@ -1580,11 +2398,12 @@ func showSettingsDialog(w fyne.Window, cfg *config.Config, dbPath string, s *sto
 	scroll.SetMinSize(fyne.NewSize(600, 500))
 
 	// Dialog with Save and Cancel
-	d := dialog.NewCustom("Settings", "Close", scroll, w)
-	d.SetOnClosed(func() {
+	settingsDialog = dialog.NewCustom("Settings", "Close", scroll, w)
+	settingsDialog.SetOnClosed(func() {
 		onSave()
+		settingsDialog = nil
 	})
-	d.Show()
+	settingsDialog.Show()
 }
 
 // getStats returns a formatted string with database statistics
@@ -2235,4 +3054,2100 @@ func showRestoreDialog(w fyne.Window, currentDBPath string, reloadFunc func(stri
 
 	fd.SetFilter(storageFilter{ext: ".zip"})
 	fd.Show()
+}
+
+// formatPersonName formats a person's full name.
+func formatPersonName(p store.Person) string {
+	name := fmt.Sprintf("%s %s", p.GivenName, p.Surname)
+	return strings.TrimSpace(name)
+}
+
+// Conflict types
+type Conflict struct {
+	PersonID    int64
+	PersonName  string
+	Type        string
+	Description string
+	Severity    string // "Critical", "Warning", "Info"
+}
+
+var conflictsDialog fyne.Window
+
+func showConflictsReport(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
+	// Check if already open
+	if conflictsDialog != nil {
+		conflictsDialog.RequestFocus()
+		conflictsDialog.Show()
+		return
+	}
+
+	conflicts := detectConflicts(s)
+
+	// Filter checkbox state
+	showReviewed := false
+
+	// Function to rebuild the content
+	var content *fyne.Container
+	var scroll *container.Scroll
+	var rebuildContent func() // Declare first to allow recursive reference
+
+	rebuildContent = func() {
+		// Filter conflicts based on review status
+		filteredConflicts := []Conflict{}
+		reviewedCount := 0
+
+		for _, c := range conflicts {
+			isReviewed, _, _ := s.IsItemReviewed("conflict", c.PersonID, nil, c.Type)
+			if isReviewed {
+				reviewedCount++
+				if showReviewed {
+					filteredConflicts = append(filteredConflicts, c)
+				}
+			} else {
+				filteredConflicts = append(filteredConflicts, c)
+			}
+		}
+
+		// Group by severity
+		critical := []Conflict{}
+		warnings := []Conflict{}
+
+		for _, c := range filteredConflicts {
+			if c.Severity == "Critical" {
+				critical = append(critical, c)
+			} else {
+				warnings = append(warnings, c)
+			}
+		}
+
+		// Build content
+		content.Objects = nil // Clear existing content
+
+		if len(conflicts) == 0 {
+			content.Add(widget.NewLabel("✅ No data conflicts detected!"))
+			content.Add(widget.NewLabel("Your genealogy data is consistent."))
+		} else {
+			// Summary
+			summary := widget.NewLabelWithStyle(
+				fmt.Sprintf("Found %d conflicts (%d critical, %d warnings, %d reviewed)",
+					len(conflicts), len(critical)+len(warnings), len(filteredConflicts)-len(critical), reviewedCount),
+				fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+			content.Add(summary)
+			content.Add(widget.NewSeparator())
+
+			if len(filteredConflicts) == 0 {
+				content.Add(widget.NewLabel("All conflicts have been reviewed."))
+				content.Add(widget.NewLabel("Check 'Show Reviewed Items' to see them."))
+			} else {
+				// Critical issues
+				if len(critical) > 0 {
+					criticalLabel := widget.NewLabelWithStyle("🚨 Critical Issues:",
+						fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+					content.Add(criticalLabel)
+
+					for _, c := range critical {
+						addConflictItem(content, s, conflictsDialog, c, navigateFunc, rebuildContent)
+					}
+				}
+
+				// Warnings
+				if len(warnings) > 0 {
+					warningLabel := widget.NewLabelWithStyle("⚠️  Warnings:",
+						fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+					content.Add(warningLabel)
+
+					for _, c := range warnings {
+						addConflictItem(content, s, conflictsDialog, c, navigateFunc, rebuildContent)
+					}
+				}
+			}
+		}
+
+		content.Refresh()
+		if scroll != nil {
+			scroll.Refresh()
+		}
+	}
+
+	// Initialize content container
+	content = container.NewVBox()
+
+	// Create filter checkbox
+	showReviewedCheck := widget.NewCheck("Show Reviewed Items", func(checked bool) {
+		showReviewed = checked
+		rebuildContent()
+	})
+
+	// Initial build
+	rebuildContent()
+
+	scroll = container.NewVScroll(content)
+	scroll.SetMinSize(fyne.NewSize(600, 400))
+
+	mainContent := container.NewBorder(
+		container.NewVBox(showReviewedCheck, widget.NewSeparator()),
+		nil, nil, nil,
+		scroll,
+	)
+
+	conflictsDialog = fyne.CurrentApp().NewWindow("Conflicts Report")
+	conflictsDialog.SetContent(mainContent)
+	conflictsDialog.Resize(fyne.NewSize(750, 550))
+	conflictsDialog.SetOnClosed(func() {
+		conflictsDialog = nil
+	})
+	conflictsDialog.Show()
+}
+
+func addConflictItem(content *fyne.Container, s *store.Store, reportWindow fyne.Window, c Conflict, navigateFunc func(int64), refreshFunc func()) {
+	conflictCopy := c
+
+	// Check if reviewed
+	isReviewed, validatedItem, _ := s.IsItemReviewed("conflict", c.PersonID, nil, c.Type)
+
+	personBtn := widget.NewButton(c.PersonName, func() {
+		navigateFunc(conflictCopy.PersonID)
+	})
+
+	typeLabel := widget.NewLabel(fmt.Sprintf("  %s: %s", c.Type, c.Description))
+
+	if isReviewed && validatedItem != nil {
+		// Show review info with visual distinction
+		reviewLabel := widget.NewLabelWithStyle("✅ REVIEWED",
+			fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+		reviewInfo := widget.NewLabel(fmt.Sprintf("  Reviewed by %s: %s",
+			validatedItem.ReviewedBy, validatedItem.ValidationNote))
+		reviewInfo.TextStyle = fyne.TextStyle{Italic: true}
+
+		unmarkBtn := widget.NewButton("Remove Review Status", func() {
+			dialog.ShowConfirm("Remove Review Status",
+				"Are you sure you want to remove the review marking? This conflict will appear in reports again.",
+				func(confirmed bool) {
+					if confirmed {
+						if err := s.UnmarkAsReviewed("conflict", conflictCopy.PersonID, nil, conflictCopy.Type); err != nil {
+							dialog.ShowError(fmt.Errorf("Failed to unmark: %w", err), reportWindow)
+							return
+						}
+						dialog.ShowInformation("Review Removed", "The review status has been removed.", reportWindow)
+						refreshFunc()
+					}
+				}, reportWindow)
+		})
+
+		// Create a visually distinct container with background color
+		itemBox := container.NewVBox(
+			reviewLabel,
+			personBtn,
+			typeLabel,
+			reviewInfo,
+			unmarkBtn,
+		)
+
+		content.Add(itemBox)
+	} else {
+		// Show Mark as Reviewed button
+		reviewBtn := widget.NewButton("✓ Mark as Reviewed", func() {
+			showMarkAsReviewedDialog(reportWindow, s, "conflict", conflictCopy.PersonID, nil, conflictCopy.Type, refreshFunc)
+		})
+
+		itemBox := container.NewVBox(
+			personBtn,
+			typeLabel,
+			reviewBtn,
+		)
+		content.Add(itemBox)
+	}
+
+	content.Add(widget.NewSeparator())
+}
+
+func showMarkAsReviewedDialog(w fyne.Window, s *store.Store, itemType string, personID int64, relatedPersonID *int64, conflictType string, refreshFunc func()) {
+	// Prevent multiple dialogs from opening
+	if markAsReviewedDialogOpen {
+		return
+	}
+	markAsReviewedDialogOpen = true
+
+	nameEntry := widget.NewEntry()
+	nameEntry.SetPlaceHolder("Your name")
+
+	noteEntry := widget.NewMultiLineEntry()
+	noteEntry.SetPlaceHolder("Notes/explanation (e.g., 'Verified from parish records', 'Mother was indeed 14 years old')")
+	noteEntry.SetMinRowsVisible(3)
+
+	form := container.NewVBox(
+		widget.NewLabel("Mark this item as reviewed:"),
+		widget.NewSeparator(),
+		widget.NewLabel("Reviewed by:"),
+		nameEntry,
+		widget.NewLabel("Notes:"),
+		noteEntry,
+	)
+
+	dialog.ShowCustomConfirm("Mark as Reviewed", "Save", "Cancel", form, func(confirmed bool) {
+		markAsReviewedDialogOpen = false // Reset flag when dialog closes
+
+		if confirmed {
+			reviewedBy := strings.TrimSpace(nameEntry.Text)
+			note := strings.TrimSpace(noteEntry.Text)
+
+			if reviewedBy == "" {
+				dialog.ShowError(fmt.Errorf("Please enter your name"), w)
+				return
+			}
+
+			if err := s.MarkAsReviewed(itemType, personID, relatedPersonID, conflictType, note, reviewedBy); err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to mark as reviewed: %w", err), w)
+				return
+			}
+
+			dialog.ShowInformation("Marked as Reviewed", "This item has been marked as reviewed and will be hidden by default in future reports.", w)
+			refreshFunc()
+		}
+	}, w)
+}
+
+func detectConflicts(s *store.Store) []Conflict {
+	conflicts := []Conflict{}
+
+	people, err := s.GetPeople()
+	if err != nil {
+		return conflicts
+	}
+
+	for _, person := range people {
+		// Death before birth
+		if person.BirthDate != "" && person.DeathDate != "" {
+			birthTime, bErr := parseDate(person.BirthDate)
+			deathTime, dErr := parseDate(person.DeathDate)
+			if bErr == nil && dErr == nil && deathTime.Before(birthTime) {
+				conflicts = append(conflicts, Conflict{
+					PersonID:    person.ID,
+					PersonName:  formatPersonName(person),
+					Type:        "Death Before Birth",
+					Description: fmt.Sprintf("Died %s before birth %s", person.DeathDate, person.BirthDate),
+					Severity:    "Critical",
+				})
+			}
+		}
+
+		// Check relationships
+		rels, err := s.GetRelationshipsForPerson(person.ID)
+		if err != nil {
+			continue
+		}
+
+		for _, rel := range rels {
+			// Only check relationships where person is the subject
+			if rel.SubjectID != person.ID {
+				continue
+			}
+
+			// Marriage before birth
+			if rel.Type == "spouse" && rel.MarriageDate != "" && person.BirthDate != "" {
+				marriageTime, mErr := parseDate(rel.MarriageDate)
+				birthTime, bErr := parseDate(person.BirthDate)
+				if mErr == nil && bErr == nil && marriageTime.Before(birthTime) {
+					conflicts = append(conflicts, Conflict{
+						PersonID:    person.ID,
+						PersonName:  formatPersonName(person),
+						Type:        "Married Before Birth",
+						Description: fmt.Sprintf("Married %s before birth %s", rel.MarriageDate, person.BirthDate),
+						Severity:    "Critical",
+					})
+				}
+
+				// Married too young (< 13 years old)
+				if mErr == nil && bErr == nil {
+					age := int(marriageTime.Sub(birthTime).Hours() / 24 / 365.25)
+					if age < 13 {
+						conflicts = append(conflicts, Conflict{
+							PersonID:    person.ID,
+							PersonName:  formatPersonName(person),
+							Type:        "Married Too Young",
+							Description: fmt.Sprintf("Married at age %d (less than 13)", age),
+							Severity:    "Warning",
+						})
+					}
+				}
+			}
+
+			// Parent-child relationships
+			// Pattern: Type="child", SubjectID=parent, ObjectID=child (same as GetRelatedPeople)
+			if rel.Type != "child" || rel.SubjectID != person.ID {
+				continue
+			}
+
+			child, err := s.GetPersonByID(rel.ObjectID)
+			if err != nil || child == nil {
+				continue
+			}
+
+			// Now we have the child, check for conflicts
+			{
+
+				// Child born before parent
+				if person.BirthDate != "" && child.BirthDate != "" {
+					parentBirth, pErr := parseDate(person.BirthDate)
+					childBirth, cErr := parseDate(child.BirthDate)
+					if pErr == nil && cErr == nil && childBirth.Before(parentBirth) {
+						conflicts = append(conflicts, Conflict{
+							PersonID:   person.ID,
+							PersonName: formatPersonName(person),
+							Type:       "Child Born Before Parent",
+							Description: fmt.Sprintf("Child %s born %s before parent birth %s",
+								formatPersonName(*child), child.BirthDate, person.BirthDate),
+							Severity: "Critical",
+						})
+					}
+
+					// Parent too young (< 13)
+					if pErr == nil && cErr == nil {
+						parentAge := int(childBirth.Sub(parentBirth).Hours() / 24 / 365.25)
+						if parentAge < 13 {
+							conflicts = append(conflicts, Conflict{
+								PersonID:   person.ID,
+								PersonName: formatPersonName(person),
+								Type:       "Parent Too Young",
+								Description: fmt.Sprintf("Had child %s at age %d (less than 13)",
+									formatPersonName(*child), parentAge),
+								Severity: "Warning",
+							})
+						}
+
+						// Parent too old (women > 60, men > 80)
+						if (person.Gender == "Female" || person.Gender == "F") && parentAge > 60 {
+							conflicts = append(conflicts, Conflict{
+								PersonID:   person.ID,
+								PersonName: formatPersonName(person),
+								Type:       "Parent Too Old",
+								Description: fmt.Sprintf("Had child %s at age %d (female > 60)",
+									formatPersonName(*child), parentAge),
+								Severity: "Warning",
+							})
+						} else if (person.Gender == "Male" || person.Gender == "M") && parentAge > 80 {
+							conflicts = append(conflicts, Conflict{
+								PersonID:   person.ID,
+								PersonName: formatPersonName(person),
+								Type:       "Parent Too Old",
+								Description: fmt.Sprintf("Had child %s at age %d (male > 80)",
+									formatPersonName(*child), parentAge),
+								Severity: "Warning",
+							})
+						}
+					}
+				}
+
+				// Child born after parent died
+				if person.DeathDate != "" && child.BirthDate != "" {
+					parentDeath, pErr := parseDate(person.DeathDate)
+					childBirth, cErr := parseDate(child.BirthDate)
+					if pErr == nil && cErr == nil {
+						// Allow 9 months posthumous birth for fathers
+						maxPosthumous := time.Duration(0)
+						if person.Gender == "Male" || person.Gender == "M" {
+							maxPosthumous = 280 * 24 * time.Hour // ~9 months
+						}
+
+						if childBirth.After(parentDeath.Add(maxPosthumous)) {
+							conflicts = append(conflicts, Conflict{
+								PersonID:   person.ID,
+								PersonName: formatPersonName(person),
+								Type:       "Child Born After Parent Death",
+								Description: fmt.Sprintf("Child %s born %s after parent died %s",
+									formatPersonName(*child), child.BirthDate, person.DeathDate),
+								Severity: "Warning",
+							})
+						}
+					}
+				}
+			} // end of parent-child relationship checks block
+		}
+	}
+
+	return conflicts
+}
+
+func parseDate(dateStr string) (time.Time, error) {
+	formats := []string{
+		"2006-01-02",
+		"2006-01",
+		"2006",
+		"02 Jan 2006",
+		"January 2006",
+		"Jan 2006",
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse date: %s", dateStr)
+}
+
+// Duplicate pair
+type DuplicatePair struct {
+	Person1      store.Person
+	Person2      store.Person
+	NameScore    float64 // 0-100
+	DateScore    float64 // 0-100
+	OverallScore float64 // 0-100
+}
+
+var duplicatesDialog fyne.Window
+
+func showDuplicateDetectionReport(w fyne.Window, s *store.Store, navigateFunc func(int64), refreshFunc func()) {
+	// Check if already open
+	if duplicatesDialog != nil {
+		duplicatesDialog.RequestFocus()
+		duplicatesDialog.Show()
+		return
+	}
+
+	duplicates := detectDuplicates(s)
+
+	// Filter checkbox state
+	showReviewed := false
+
+	// Function to rebuild the content
+	var content *fyne.Container
+	var scroll *container.Scroll
+	var rebuildContent func() // Declare first to allow recursive reference
+
+	rebuildContent = func() {
+		// Filter duplicates based on review status
+		filteredDuplicates := []DuplicatePair{}
+		reviewedCount := 0
+
+		for _, dup := range duplicates {
+			relatedID := dup.Person2.ID
+			isReviewed, _, _ := s.IsItemReviewed("duplicate", dup.Person1.ID, &relatedID, "Duplicate")
+			if isReviewed {
+				reviewedCount++
+				if showReviewed {
+					filteredDuplicates = append(filteredDuplicates, dup)
+				}
+			} else {
+				filteredDuplicates = append(filteredDuplicates, dup)
+			}
+		}
+
+		// Build content
+		content.Objects = nil // Clear existing content
+
+		if len(duplicates) == 0 {
+			content.Add(widget.NewLabel("✅ No potential duplicates detected!"))
+			content.Add(widget.NewLabel("Your database appears to have no duplicate records."))
+		} else {
+			// Summary
+			summary := widget.NewLabelWithStyle(
+				fmt.Sprintf("Found %d potential duplicate pairs (%d reviewed)",
+					len(duplicates), reviewedCount),
+				fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+			content.Add(summary)
+			content.Add(widget.NewLabel("Click 'Compare' to view details and merge if needed."))
+			content.Add(widget.NewSeparator())
+
+			if len(filteredDuplicates) == 0 {
+				content.Add(widget.NewLabel("All duplicates have been reviewed."))
+				content.Add(widget.NewLabel("Check 'Show Reviewed Items' to see them."))
+			} else {
+				// Sort by overall score (highest first)
+				sort.Slice(filteredDuplicates, func(i, j int) bool {
+					return filteredDuplicates[i].OverallScore > filteredDuplicates[j].OverallScore
+				})
+
+				// Show each duplicate pair
+				for i, dup := range filteredDuplicates {
+					dupCopy := dup // Capture for closure
+					relatedID := dup.Person2.ID
+
+					scoreLabel := widget.NewLabelWithStyle(
+						fmt.Sprintf("Match Score: %.0f%%", dup.OverallScore),
+						fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+					person1Label := widget.NewLabel(fmt.Sprintf("  1. %s (ID: %d) - Born: %s",
+						formatPersonName(dup.Person1), dup.Person1.ID, dup.Person1.BirthDate))
+					person2Label := widget.NewLabel(fmt.Sprintf("  2. %s (ID: %d) - Born: %s",
+						formatPersonName(dup.Person2), dup.Person2.ID, dup.Person2.BirthDate))
+
+					// Check if reviewed
+					isReviewed, validatedItem, _ := s.IsItemReviewed("duplicate", dup.Person1.ID, &relatedID, "Duplicate")
+
+					var buttonBox *fyne.Container
+					if isReviewed && validatedItem != nil {
+						// Show review info with visual distinction
+						reviewLabel := widget.NewLabelWithStyle("✅ REVIEWED - Not a Duplicate",
+							fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+						reviewInfo := widget.NewLabel(fmt.Sprintf("  Reviewed by %s: %s",
+							validatedItem.ReviewedBy, validatedItem.ValidationNote))
+						reviewInfo.TextStyle = fyne.TextStyle{Italic: true}
+
+						viewBtn := widget.NewButton("View Details", func() {
+							showDuplicateComparisonDialog(w, s, dupCopy, navigateFunc, refreshFunc, func() {
+								duplicatesDialog.Close()
+								showDuplicateDetectionReport(w, s, navigateFunc, refreshFunc)
+							})
+						})
+
+						unmarkBtn := widget.NewButton("Remove Review Status", func() {
+							dialog.ShowConfirm("Remove Review Status",
+								"Are you sure you want to remove the review marking? This duplicate pair will appear in reports again.",
+								func(confirmed bool) {
+									if confirmed {
+										if err := s.UnmarkAsReviewed("duplicate", dupCopy.Person1.ID, &relatedID, "Duplicate"); err != nil {
+											dialog.ShowError(fmt.Errorf("Failed to unmark: %w", err), duplicatesDialog)
+											return
+										}
+										dialog.ShowInformation("Review Removed", "The review status has been removed.", duplicatesDialog)
+										rebuildContent()
+									}
+								}, duplicatesDialog)
+						})
+
+						buttonBox = container.NewVBox(
+							reviewLabel,
+							reviewInfo,
+							container.NewHBox(viewBtn, unmarkBtn),
+						)
+					} else {
+						compareBtn := widget.NewButton("Compare & Merge", func() {
+							showDuplicateComparisonDialog(w, s, dupCopy, navigateFunc, refreshFunc, func() {
+								duplicatesDialog.Close()
+								showDuplicateDetectionReport(w, s, navigateFunc, refreshFunc)
+							})
+						})
+
+						view1Btn := widget.NewButton("View #1", func() {
+							navigateFunc(dupCopy.Person1.ID)
+						})
+						view2Btn := widget.NewButton("View #2", func() {
+							navigateFunc(dupCopy.Person2.ID)
+						})
+
+						reviewBtn := widget.NewButton("✓ Not a Duplicate", func() {
+							showMarkAsReviewedDialog(duplicatesDialog, s, "duplicate", dupCopy.Person1.ID, &relatedID, "Duplicate", rebuildContent)
+						})
+
+						buttonBox = container.NewVBox(
+							container.NewHBox(compareBtn, view1Btn, view2Btn),
+							reviewBtn,
+						)
+					}
+
+					pairBox := container.NewVBox(
+						scoreLabel,
+						person1Label,
+						person2Label,
+						buttonBox,
+					)
+
+					content.Add(pairBox)
+					if i < len(filteredDuplicates)-1 {
+						content.Add(widget.NewSeparator())
+					}
+				}
+			}
+		}
+
+		content.Refresh()
+		if scroll != nil {
+			scroll.Refresh()
+		}
+	}
+
+	// Initialize content container
+	content = container.NewVBox()
+
+	// Create filter checkbox
+	showReviewedCheck := widget.NewCheck("Show Reviewed Items", func(checked bool) {
+		showReviewed = checked
+		rebuildContent()
+	})
+
+	// Initial build
+	rebuildContent()
+
+	scroll = container.NewVScroll(content)
+	scroll.SetMinSize(fyne.NewSize(700, 400))
+
+	mainContent := container.NewBorder(
+		container.NewVBox(showReviewedCheck, widget.NewSeparator()),
+		nil, nil, nil,
+		scroll,
+	)
+
+	duplicatesDialog = fyne.CurrentApp().NewWindow("Duplicate Detection")
+	duplicatesDialog.SetContent(mainContent)
+	duplicatesDialog.Resize(fyne.NewSize(850, 650))
+	duplicatesDialog.SetOnClosed(func() {
+		duplicatesDialog = nil
+	})
+	duplicatesDialog.Show()
+}
+
+func detectDuplicates(s *store.Store) []DuplicatePair {
+	duplicates := []DuplicatePair{}
+
+	people, err := s.GetPeople()
+	if err != nil {
+		return duplicates
+	}
+
+	// Compare each pair
+	for i := 0; i < len(people); i++ {
+		for j := i + 1; j < len(people); j++ {
+			p1 := people[i]
+			p2 := people[j]
+
+			nameScore := calculateNameSimilarity(p1, p2)
+			dateScore := calculateDateSimilarity(p1, p2)
+
+			// Overall score: weighted average (name 60%, date 40%)
+			overallScore := (nameScore * 0.6) + (dateScore * 0.4)
+
+			// Only report if score > 70%
+			if overallScore > 70 {
+				duplicates = append(duplicates, DuplicatePair{
+					Person1:      p1,
+					Person2:      p2,
+					NameScore:    nameScore,
+					DateScore:    dateScore,
+					OverallScore: overallScore,
+				})
+			}
+		}
+	}
+
+	return duplicates
+}
+
+func calculateNameSimilarity(p1, p2 store.Person) float64 {
+	// Normalize names (lowercase, trim)
+	name1 := strings.ToLower(strings.TrimSpace(p1.GivenName + " " + p1.Surname))
+	name2 := strings.ToLower(strings.TrimSpace(p2.GivenName + " " + p2.Surname))
+
+	// Exact match
+	if name1 == name2 {
+		return 100.0
+	}
+
+	// Levenshtein distance-based similarity
+	distance := levenshteinDistance(name1, name2)
+	maxLen := float64(max(len(name1), len(name2)))
+	if maxLen == 0 {
+		return 0
+	}
+
+	similarity := (1.0 - float64(distance)/maxLen) * 100.0
+	return math.Max(0, similarity)
+}
+
+func calculateDateSimilarity(p1, p2 store.Person) float64 {
+	// If both have no birth date, score 50 (neutral)
+	if p1.BirthDate == "" && p2.BirthDate == "" {
+		return 50.0
+	}
+
+	// If one has birth date and other doesn't, score 20 (low)
+	if p1.BirthDate == "" || p2.BirthDate == "" {
+		return 20.0
+	}
+
+	// Parse dates
+	t1, err1 := parseDate(p1.BirthDate)
+	t2, err2 := parseDate(p2.BirthDate)
+
+	if err1 != nil || err2 != nil {
+		return 20.0
+	}
+
+	// Exact match
+	if t1.Equal(t2) {
+		return 100.0
+	}
+
+	// Calculate day difference
+	daysDiff := math.Abs(t1.Sub(t2).Hours() / 24)
+
+	// Score based on proximity
+	if daysDiff < 1 {
+		return 100.0
+	} else if daysDiff < 7 {
+		return 90.0
+	} else if daysDiff < 30 {
+		return 80.0
+	} else if daysDiff < 365 {
+		return 70.0
+	} else if daysDiff < 365*2 {
+		return 50.0
+	} else if daysDiff < 365*5 {
+		return 30.0
+	} else {
+		return 10.0
+	}
+}
+
+func levenshteinDistance(s1, s2 string) int {
+	if len(s1) == 0 {
+		return len(s2)
+	}
+	if len(s2) == 0 {
+		return len(s1)
+	}
+
+	// Create matrix
+	matrix := make([][]int, len(s1)+1)
+	for i := range matrix {
+		matrix[i] = make([]int, len(s2)+1)
+		matrix[i][0] = i
+	}
+	for j := 0; j <= len(s2); j++ {
+		matrix[0][j] = j
+	}
+
+	// Fill matrix
+	for i := 1; i <= len(s1); i++ {
+		for j := 1; j <= len(s2); j++ {
+			cost := 1
+			if s1[i-1] == s2[j-1] {
+				cost = 0
+			}
+			matrix[i][j] = min(
+				matrix[i-1][j]+1,      // deletion
+				matrix[i][j-1]+1,      // insertion
+				matrix[i-1][j-1]+cost, // substitution
+			)
+		}
+	}
+
+	return matrix[len(s1)][len(s2)]
+}
+
+func showDuplicateComparisonDialog(w fyne.Window, s *store.Store, dup DuplicatePair,
+	navigateFunc func(int64), refreshFunc func(), closeParentFunc func()) {
+
+	p1 := dup.Person1
+	p2 := dup.Person2
+
+	title := widget.NewLabelWithStyle("Compare Potential Duplicates",
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	// Person 1 details
+	p1Box := container.NewVBox(
+		widget.NewLabelWithStyle(fmt.Sprintf("Person #1 (ID: %d)", p1.ID),
+			fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewLabel(fmt.Sprintf("Name: %s %s", p1.GivenName, p1.Surname)),
+		widget.NewLabel(fmt.Sprintf("Birth: %s %s", p1.BirthDate, p1.BirthPlace)),
+		widget.NewLabel(fmt.Sprintf("Death: %s %s", p1.DeathDate, p1.DeathPlace)),
+		widget.NewLabel(fmt.Sprintf("Gender: %s", p1.Gender)),
+	)
+
+	// Person 2 details
+	p2Box := container.NewVBox(
+		widget.NewLabelWithStyle(fmt.Sprintf("Person #2 (ID: %d)", p2.ID),
+			fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewLabel(fmt.Sprintf("Name: %s %s", p2.GivenName, p2.Surname)),
+		widget.NewLabel(fmt.Sprintf("Birth: %s %s", p2.BirthDate, p2.BirthPlace)),
+		widget.NewLabel(fmt.Sprintf("Death: %s %s", p2.DeathDate, p2.DeathPlace)),
+		widget.NewLabel(fmt.Sprintf("Gender: %s", p2.Gender)),
+	)
+
+	comparison := container.NewHBox(
+		container.NewVBox(p1Box),
+		widget.NewSeparator(),
+		container.NewVBox(p2Box),
+	)
+
+	// Scores
+	scoresBox := container.NewVBox(
+		widget.NewLabel(fmt.Sprintf("Name Similarity: %.0f%%", dup.NameScore)),
+		widget.NewLabel(fmt.Sprintf("Date Similarity: %.0f%%", dup.DateScore)),
+		widget.NewLabelWithStyle(fmt.Sprintf("Overall Match: %.0f%%", dup.OverallScore),
+			fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+	)
+
+	// Action buttons
+	mergeP1Btn := widget.NewButton("Keep #1, Delete #2", func() {
+		dialog.ShowConfirm("Merge Records",
+			fmt.Sprintf("This will:\n1. Keep %s (ID: %d)\n2. Transfer all relationships from #2 to #1\n3. Delete %s (ID: %d)\n\nContinue?",
+				formatPersonName(p1), p1.ID, formatPersonName(p2), p2.ID),
+			func(confirmed bool) {
+				if confirmed {
+					if err := mergePersons(s, p1.ID, p2.ID); err != nil {
+						dialog.ShowError(fmt.Errorf("Merge failed: %w", err), w)
+					} else {
+						dialog.ShowInformation("Merge Complete",
+							fmt.Sprintf("Successfully merged records. Kept %s (ID: %d)",
+								formatPersonName(p1), p1.ID), w)
+						refreshFunc()
+						closeParentFunc()
+					}
+				}
+			}, w)
+	})
+
+	mergeP2Btn := widget.NewButton("Keep #2, Delete #1", func() {
+		dialog.ShowConfirm("Merge Records",
+			fmt.Sprintf("This will:\n1. Keep %s (ID: %d)\n2. Transfer all relationships from #1 to #2\n3. Delete %s (ID: %d)\n\nContinue?",
+				formatPersonName(p2), p2.ID, formatPersonName(p1), p1.ID),
+			func(confirmed bool) {
+				if confirmed {
+					if err := mergePersons(s, p2.ID, p1.ID); err != nil {
+						dialog.ShowError(fmt.Errorf("Merge failed: %w", err), w)
+					} else {
+						dialog.ShowInformation("Merge Complete",
+							fmt.Sprintf("Successfully merged records. Kept %s (ID: %d)",
+								formatPersonName(p2), p2.ID), w)
+						refreshFunc()
+						closeParentFunc()
+					}
+				}
+			}, w)
+	})
+
+	notDuplicateBtn := widget.NewButton("Not Duplicates", func() {
+		// Just close the dialog
+	})
+
+	buttons := container.NewHBox(mergeP1Btn, mergeP2Btn, notDuplicateBtn)
+
+	content := container.NewVBox(
+		title,
+		widget.NewSeparator(),
+		comparison,
+		widget.NewSeparator(),
+		scoresBox,
+		widget.NewSeparator(),
+		buttons,
+	)
+
+	dialog.ShowCustom("Compare Duplicates", "Close", content, w)
+}
+
+func mergePersons(s *store.Store, keepID, deleteID int64) error {
+	// 1. Get all relationships for the person to be deleted
+	rels, err := s.GetRelationshipsForPerson(deleteID)
+	if err != nil {
+		return fmt.Errorf("failed to get relationships: %w", err)
+	}
+
+	// 2. Transfer relationships to the kept person
+	for _, rel := range rels {
+		// Create new relationship with keepID
+		var newSubjectID, newObjectID int64
+		if rel.SubjectID == deleteID {
+			newSubjectID = keepID
+			newObjectID = rel.ObjectID
+		} else {
+			newSubjectID = rel.SubjectID
+			newObjectID = keepID
+		}
+
+		// Check if relationship already exists to avoid duplicates
+		existingRels, _ := s.GetRelationshipsForPerson(keepID)
+		exists := false
+		for _, existing := range existingRels {
+			if (existing.SubjectID == newSubjectID && existing.ObjectID == newObjectID && existing.Type == rel.Type) ||
+				(existing.SubjectID == newObjectID && existing.ObjectID == newSubjectID && existing.Type == rel.Type) {
+				exists = true
+				break
+			}
+		}
+
+		if !exists {
+			newRel := &store.Relationship{
+				SubjectID:      newSubjectID,
+				ObjectID:       newObjectID,
+				Type:           rel.Type,
+				MarriageDate:   rel.MarriageDate,
+				MarriagePlace:  rel.MarriagePlace,
+				DivorceDate:    rel.DivorceDate,
+				SeparationDate: rel.SeparationDate,
+				EndReason:      rel.EndReason,
+			}
+			if err := s.CreateRelationship(newRel); err != nil {
+				return fmt.Errorf("failed to transfer relationship: %w", err)
+			}
+		}
+
+		// Delete old relationship
+		if err := s.DeleteRelationship(rel.SubjectID, rel.ObjectID, rel.Type); err != nil {
+			// Ignore errors for already deleted relationships
+			continue
+		}
+	}
+
+	// 3. Transfer media links
+	media, err := s.GetMediaForPerson(deleteID)
+	if err == nil {
+		for _, m := range media {
+			// Link to keepID
+			_ = s.LinkMediaToPerson(m.ID, keepID)
+			// Unlink from deleteID
+			_ = s.UnlinkMediaFromPerson(m.ID, deleteID)
+		}
+	}
+
+	// 4. Delete the duplicate person
+	if err := s.DeletePerson(deleteID); err != nil {
+		return fmt.Errorf("failed to delete person: %w", err)
+	}
+
+	return nil
+}
+
+// Descendant Report
+var descendantDialog fyne.Window
+
+func showDescendantReport(w fyne.Window, s *store.Store, rootPersonID int64, navigateFunc func(int64)) {
+	// Check if already open
+	if descendantDialog != nil {
+		descendantDialog.RequestFocus()
+		descendantDialog.Show()
+		return
+	}
+
+	if rootPersonID <= 0 {
+		dialog.ShowInformation("Descendant Report", "Please select a person first", w)
+		return
+	}
+
+	rootPerson, err := s.GetPersonByID(rootPersonID)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load person: %w", err), w)
+		return
+	}
+
+	// Build descendant tree
+	descendants := collectDescendants(s, rootPersonID, 0)
+
+	// Build content
+	content := container.NewVBox()
+
+	title := widget.NewLabelWithStyle(
+		fmt.Sprintf("Descendants of %s", formatPersonName(*rootPerson)),
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	content.Add(title)
+
+	if len(descendants) == 0 {
+		content.Add(widget.NewLabel("No descendants found."))
+	} else {
+		// Summary
+		summary := widget.NewLabel(fmt.Sprintf("Total descendants: %d", len(descendants)))
+		content.Add(summary)
+
+		// Count by generation
+		genCounts := make(map[int]int)
+		for _, d := range descendants {
+			genCounts[d.Generation]++
+		}
+		maxGen := 0
+		for gen := range genCounts {
+			if gen > maxGen {
+				maxGen = gen
+			}
+		}
+		genSummary := "Generations: "
+		for i := 1; i <= maxGen; i++ {
+			if i > 1 {
+				genSummary += ", "
+			}
+			genSummary += fmt.Sprintf("Gen %d: %d", i, genCounts[i])
+		}
+		content.Add(widget.NewLabel(genSummary))
+		content.Add(widget.NewSeparator())
+
+		// Display descendants by generation
+		for gen := 1; gen <= maxGen; gen++ {
+			genLabel := widget.NewLabelWithStyle(
+				fmt.Sprintf("Generation %d:", gen),
+				fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+			content.Add(genLabel)
+
+			for _, d := range descendants {
+				if d.Generation == gen {
+					dCopy := d
+					indent := strings.Repeat("  ", gen-1)
+					personBtn := widget.NewButton(
+						fmt.Sprintf("%s%s (b. %s)", indent, formatPersonName(d.Person), d.Person.BirthDate),
+						func() {
+							navigateFunc(dCopy.Person.ID)
+						})
+					content.Add(personBtn)
+				}
+			}
+			content.Add(widget.NewSeparator())
+		}
+	}
+
+	scroll := container.NewVScroll(content)
+	scroll.SetMinSize(fyne.NewSize(600, 400))
+
+	descendantDialog = fyne.CurrentApp().NewWindow("Descendant Report")
+	descendantDialog.SetContent(scroll)
+	descendantDialog.Resize(fyne.NewSize(700, 600))
+	descendantDialog.SetOnClosed(func() {
+		descendantDialog = nil
+	})
+	descendantDialog.Show()
+}
+
+type DescendantNode struct {
+	Person     store.Person
+	Generation int
+}
+
+func collectDescendants(s *store.Store, personID int64, generation int) []DescendantNode {
+	descendants := []DescendantNode{}
+
+	rels, err := s.GetRelationshipsForPerson(personID)
+	if err != nil {
+		return descendants
+	}
+
+	for _, rel := range rels {
+		if rel.Type == "child" && rel.SubjectID == personID {
+			child, err := s.GetPersonByID(rel.ObjectID)
+			if err != nil {
+				continue
+			}
+
+			descendants = append(descendants, DescendantNode{
+				Person:     *child,
+				Generation: generation + 1,
+			})
+
+			// Recursively collect children's descendants
+			childDescendants := collectDescendants(s, child.ID, generation+1)
+			descendants = append(descendants, childDescendants...)
+		}
+	}
+
+	return descendants
+}
+
+// Ancestor Report (Ahnentafel format)
+var ancestorDialog fyne.Window
+
+func showAncestorReport(w fyne.Window, s *store.Store, rootPersonID int64, navigateFunc func(int64)) {
+	// Check if already open
+	if ancestorDialog != nil {
+		ancestorDialog.RequestFocus()
+		ancestorDialog.Show()
+		return
+	}
+
+	if rootPersonID <= 0 {
+		dialog.ShowInformation("Ancestor Report", "Please select a person first", w)
+		return
+	}
+
+	rootPerson, err := s.GetPersonByID(rootPersonID)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load person: %w", err), w)
+		return
+	}
+
+	// Build ancestor tree in ahnentafel format
+	ancestors := collectAncestors(s, rootPersonID, 1)
+
+	// Build content
+	content := container.NewVBox()
+
+	title := widget.NewLabelWithStyle(
+		fmt.Sprintf("Ancestors of %s (Ahnentafel Numbering)", formatPersonName(*rootPerson)),
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	content.Add(title)
+
+	if len(ancestors) == 0 {
+		content.Add(widget.NewLabel("No ancestors found."))
+	} else {
+		// Summary
+		summary := widget.NewLabel(fmt.Sprintf("Total ancestors: %d", len(ancestors)))
+		content.Add(summary)
+
+		// Pedigree collapse detection
+		uniqueIDs := make(map[int64]bool)
+		collapseCount := 0
+		for _, a := range ancestors {
+			if uniqueIDs[a.Person.ID] {
+				collapseCount++
+			}
+			uniqueIDs[a.Person.ID] = true
+		}
+		if collapseCount > 0 {
+			collapseLabel := widget.NewLabelWithStyle(
+				fmt.Sprintf("⚠️ Pedigree collapse detected: %d ancestors appear multiple times", collapseCount),
+				fyne.TextAlignLeading, fyne.TextStyle{Italic: true})
+			content.Add(collapseLabel)
+		}
+
+		content.Add(widget.NewSeparator())
+
+		// Display ancestors in ahnentafel order
+		// Sort by ahnentafel number
+		sort.Slice(ancestors, func(i, j int) bool {
+			return ancestors[i].AhnentafelNumber < ancestors[j].AhnentafelNumber
+		})
+
+		for _, a := range ancestors {
+			aCopy := a
+			generation := int(math.Log2(float64(a.AhnentafelNumber))) + 1
+			relationship := getAhnentafelRelationship(a.AhnentafelNumber)
+
+			personBtn := widget.NewButton(
+				fmt.Sprintf("%d. %s (b. %s) - %s [Gen %d]",
+					a.AhnentafelNumber, formatPersonName(a.Person), a.Person.BirthDate, relationship, generation),
+				func() {
+					navigateFunc(aCopy.Person.ID)
+				})
+			content.Add(personBtn)
+		}
+	}
+
+	scroll := container.NewVScroll(content)
+	scroll.SetMinSize(fyne.NewSize(700, 400))
+
+	ancestorDialog = fyne.CurrentApp().NewWindow("Ancestor Report")
+	ancestorDialog.SetContent(scroll)
+	ancestorDialog.Resize(fyne.NewSize(800, 600))
+	ancestorDialog.SetOnClosed(func() {
+		ancestorDialog = nil
+	})
+	ancestorDialog.Show()
+}
+
+type AncestorNode struct {
+	Person           store.Person
+	AhnentafelNumber int
+}
+
+func collectAncestors(s *store.Store, personID int64, ahnentafelNum int) []AncestorNode {
+	ancestors := []AncestorNode{}
+
+	// Use the same method that Family View uses - GetRelatedPeople
+	parents, err := s.GetRelatedPeople(personID, "parent")
+	if err != nil {
+		return ancestors
+	}
+
+	var father, mother *store.Person
+
+	// Separate parents by gender (check both "M"/"Male" and "F"/"Female")
+	for i := range parents {
+		parent := &parents[i]
+
+		if (parent.Gender == "Male" || parent.Gender == "M") && father == nil {
+			father = parent
+		} else if (parent.Gender == "Female" || parent.Gender == "F") && mother == nil {
+			mother = parent
+		}
+	}
+
+	// Father has ahnentafel number 2*n
+	if father != nil {
+		fatherNum := ahnentafelNum * 2
+		ancestors = append(ancestors, AncestorNode{
+			Person:           *father,
+			AhnentafelNumber: fatherNum,
+		})
+		// Recursively collect father's ancestors
+		fatherAncestors := collectAncestors(s, father.ID, fatherNum)
+		ancestors = append(ancestors, fatherAncestors...)
+	}
+
+	// Mother has ahnentafel number 2*n + 1
+	if mother != nil {
+		motherNum := ahnentafelNum*2 + 1
+		ancestors = append(ancestors, AncestorNode{
+			Person:           *mother,
+			AhnentafelNumber: motherNum,
+		})
+		// Recursively collect mother's ancestors
+		motherAncestors := collectAncestors(s, mother.ID, motherNum)
+		ancestors = append(ancestors, motherAncestors...)
+	}
+
+	return ancestors
+}
+
+func getAhnentafelRelationship(num int) string {
+	if num == 1 {
+		return "Self"
+	} else if num == 2 {
+		return "Father"
+	} else if num == 3 {
+		return "Mother"
+	} else if num >= 4 && num <= 7 {
+		if num%2 == 0 {
+			return "Paternal Grandfather/Grandmother"
+		}
+		return "Maternal Grandfather/Grandmother"
+	} else if num >= 8 && num <= 15 {
+		return "Great-Grandparent"
+	} else if num >= 16 && num <= 31 {
+		return "2nd Great-Grandparent"
+	} else if num >= 32 && num <= 63 {
+		return "3rd Great-Grandparent"
+	}
+	generations := int(math.Log2(float64(num)))
+	return fmt.Sprintf("%dth Great-Grandparent", generations-2)
+}
+
+// Timeline View
+var timelineDialog fyne.Window
+
+func showTimelineView(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
+	// Check if already open
+	if timelineDialog != nil {
+		timelineDialog.RequestFocus()
+		timelineDialog.Show()
+		return
+	}
+
+	// Collect all events (births, deaths, marriages)
+	events := collectTimelineEvents(s)
+
+	// Build content
+	content := container.NewVBox()
+
+	title := widget.NewLabelWithStyle("Timeline of Life Events",
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	content.Add(title)
+
+	if len(events) == 0 {
+		content.Add(widget.NewLabel("No events with dates found."))
+	} else {
+		// Summary
+		summary := widget.NewLabel(fmt.Sprintf("Total events: %d (births: %d, deaths: %d, marriages: %d)",
+			len(events), countEventType(events, "Birth"), countEventType(events, "Death"), countEventType(events, "Marriage")))
+		content.Add(summary)
+
+		// Date range
+		if len(events) > 0 {
+			earliest := events[0].Date
+			latest := events[len(events)-1].Date
+			rangeLabel := widget.NewLabel(fmt.Sprintf("Date range: %s - %s", earliest, latest))
+			content.Add(rangeLabel)
+		}
+
+		content.Add(widget.NewSeparator())
+
+		// Display events chronologically
+		currentYear := ""
+		for _, event := range events {
+			eCopy := event
+
+			// Year separator
+			year := extractYear(event.Date)
+			if year != currentYear {
+				currentYear = year
+				yearLabel := widget.NewLabelWithStyle(currentYear,
+					fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+				content.Add(yearLabel)
+			}
+
+			// Event icon
+			icon := ""
+			switch event.Type {
+			case "Birth":
+				icon = "👶"
+			case "Death":
+				icon = "✝"
+			case "Marriage":
+				icon = "💒"
+			}
+
+			eventBtn := widget.NewButton(
+				fmt.Sprintf("%s %s - %s: %s (%s)",
+					icon, event.Date, event.Type, event.PersonName, event.Place),
+				func() {
+					navigateFunc(eCopy.PersonID)
+				})
+			content.Add(eventBtn)
+		}
+	}
+
+	scroll := container.NewVScroll(content)
+	scroll.SetMinSize(fyne.NewSize(700, 400))
+
+	timelineDialog = fyne.CurrentApp().NewWindow("Timeline View")
+	timelineDialog.SetContent(scroll)
+	timelineDialog.Resize(fyne.NewSize(900, 600))
+	timelineDialog.SetOnClosed(func() {
+		timelineDialog = nil
+	})
+	timelineDialog.Show()
+}
+
+type TimelineEvent struct {
+	PersonID   int64
+	PersonName string
+	Type       string // "Birth", "Death", "Marriage"
+	Date       string
+	Place      string
+}
+
+func collectTimelineEvents(s *store.Store) []TimelineEvent {
+	events := []TimelineEvent{}
+
+	people, err := s.GetPeople()
+	if err != nil {
+		return events
+	}
+
+	for _, person := range people {
+		name := formatPersonName(person)
+
+		// Birth events
+		if person.BirthDate != "" {
+			events = append(events, TimelineEvent{
+				PersonID:   person.ID,
+				PersonName: name,
+				Type:       "Birth",
+				Date:       person.BirthDate,
+				Place:      person.BirthPlace,
+			})
+		}
+
+		// Death events
+		if person.DeathDate != "" {
+			events = append(events, TimelineEvent{
+				PersonID:   person.ID,
+				PersonName: name,
+				Type:       "Death",
+				Date:       person.DeathDate,
+				Place:      person.DeathPlace,
+			})
+		}
+
+		// Marriage events
+		rels, err := s.GetRelationshipsForPerson(person.ID)
+		if err == nil {
+			for _, rel := range rels {
+				if rel.Type == "spouse" && rel.MarriageDate != "" && rel.SubjectID == person.ID {
+					spouse, err := s.GetPersonByID(rel.ObjectID)
+					if err == nil {
+						events = append(events, TimelineEvent{
+							PersonID:   person.ID,
+							PersonName: fmt.Sprintf("%s & %s", name, formatPersonName(*spouse)),
+							Type:       "Marriage",
+							Date:       rel.MarriageDate,
+							Place:      rel.MarriagePlace,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	// Sort by date
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].Date < events[j].Date
+	})
+
+	return events
+}
+
+func countEventType(events []TimelineEvent, eventType string) int {
+	count := 0
+	for _, e := range events {
+		if e.Type == eventType {
+			count++
+		}
+	}
+	return count
+}
+
+func extractYear(dateStr string) string {
+	// Extract year from date string (YYYY-MM-DD or YYYY)
+	if len(dateStr) >= 4 {
+		return dateStr[:4]
+	}
+	return dateStr
+}
+
+// Reviewed Items Management Report
+var reviewedItemsDialog fyne.Window
+var markAsReviewedDialogOpen bool
+
+func showReviewedItemsReport(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
+	// Check if already open
+	if reviewedItemsDialog != nil {
+		reviewedItemsDialog.RequestFocus()
+		reviewedItemsDialog.Show()
+		return
+	}
+
+	// Function to rebuild the content
+	var content *fyne.Container
+	var scroll *container.Scroll
+	var rebuildContent func() // Declare first to allow recursive reference
+
+	rebuildContent = func() {
+		validatedItems, err := s.GetAllValidatedItems()
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to load reviewed items: %w", err), w)
+			return
+		}
+
+		// Build content
+		content.Objects = nil // Clear existing content
+
+		if len(validatedItems) == 0 {
+			content.Add(widget.NewLabel("No reviewed items yet."))
+			content.Add(widget.NewLabel("Mark conflicts or duplicates as reviewed to see them here."))
+		} else {
+			// Summary
+			summary := widget.NewLabelWithStyle(
+				fmt.Sprintf("Total reviewed items: %d", len(validatedItems)),
+				fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+			content.Add(summary)
+			content.Add(widget.NewSeparator())
+
+			// Group by type
+			conflictItems := []store.ValidatedItem{}
+			duplicateItems := []store.ValidatedItem{}
+
+			for _, item := range validatedItems {
+				if item.ItemType == "conflict" {
+					conflictItems = append(conflictItems, item)
+				} else if item.ItemType == "duplicate" {
+					duplicateItems = append(duplicateItems, item)
+				}
+			}
+
+			// Show conflicts
+			if len(conflictItems) > 0 {
+				conflictLabel := widget.NewLabelWithStyle(
+					fmt.Sprintf("Reviewed Conflicts (%d):", len(conflictItems)),
+					fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+				content.Add(conflictLabel)
+
+				for _, item := range conflictItems {
+					addReviewedItemDisplay(content, s, w, item, navigateFunc, rebuildContent)
+				}
+
+				content.Add(widget.NewSeparator())
+			}
+
+			// Show duplicates
+			if len(duplicateItems) > 0 {
+				dupLabel := widget.NewLabelWithStyle(
+					fmt.Sprintf("Reviewed Duplicates (%d):", len(duplicateItems)),
+					fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+				content.Add(dupLabel)
+
+				for _, item := range duplicateItems {
+					addReviewedItemDisplay(content, s, w, item, navigateFunc, rebuildContent)
+				}
+			}
+		}
+
+		content.Refresh()
+		if scroll != nil {
+			scroll.Refresh()
+		}
+	}
+
+	// Initialize content container
+	content = container.NewVBox()
+
+	// Initial build
+	rebuildContent()
+
+	scroll = container.NewVScroll(content)
+	scroll.SetMinSize(fyne.NewSize(700, 400))
+
+	reviewedItemsDialog = fyne.CurrentApp().NewWindow("Reviewed Items Management")
+	reviewedItemsDialog.SetContent(scroll)
+	reviewedItemsDialog.Resize(fyne.NewSize(800, 600))
+	reviewedItemsDialog.SetOnClosed(func() {
+		reviewedItemsDialog = nil
+	})
+	reviewedItemsDialog.Show()
+}
+
+func addReviewedItemDisplay(content *fyne.Container, s *store.Store, w fyne.Window, item store.ValidatedItem, navigateFunc func(int64), refreshFunc func()) {
+	itemCopy := item
+
+	// Get person name
+	person, err := s.GetPersonByID(item.PersonID)
+	if err != nil {
+		content.Add(widget.NewLabel(fmt.Sprintf("Error loading person %d", item.PersonID)))
+		return
+	}
+
+	personName := formatPersonName(*person)
+
+	// Build display
+	typeLabel := widget.NewLabelWithStyle(
+		fmt.Sprintf("%s - %s", item.ConflictType, personName),
+		fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	reviewInfo := widget.NewLabel(fmt.Sprintf("  Reviewed by: %s", item.ReviewedBy))
+	noteInfo := widget.NewLabel(fmt.Sprintf("  Note: %s", item.ValidationNote))
+	dateInfo := widget.NewLabel(fmt.Sprintf("  Date: %s", item.ValidatedAt.Format("2006-01-02 15:04")))
+
+	viewBtn := widget.NewButton("View Person", func() {
+		navigateFunc(itemCopy.PersonID)
+	})
+
+	unmarkBtn := widget.NewButton("Unmark", func() {
+		dialog.ShowConfirm("Unmark as Reviewed",
+			"Are you sure you want to remove the review marking from this item? It will appear in reports again.",
+			func(confirmed bool) {
+				if confirmed {
+					if err := s.UnmarkAsReviewed(itemCopy.ItemType, itemCopy.PersonID, itemCopy.RelatedPersonID, itemCopy.ConflictType); err != nil {
+						dialog.ShowError(fmt.Errorf("Failed to unmark: %w", err), w)
+						return
+					}
+					dialog.ShowInformation("Unmarked", "The item has been unmarked and will appear in reports again.", w)
+					refreshFunc()
+				}
+			}, w)
+	})
+
+	buttonBox := container.NewHBox(viewBtn, unmarkBtn)
+
+	itemBox := container.NewVBox(
+		typeLabel,
+		reviewInfo,
+		noteInfo,
+		dateInfo,
+		buttonBox,
+	)
+
+	content.Add(itemBox)
+	content.Add(widget.NewSeparator())
+}
+
+// Mass Mark as Living Report
+var massMarkLivingDialog fyne.Window
+
+func showMassMarkLivingReport(w fyne.Window, s *store.Store, refreshFunc func()) {
+	// Check if already open
+	if massMarkLivingDialog != nil {
+		massMarkLivingDialog.RequestFocus()
+		massMarkLivingDialog.Show()
+		return
+	}
+
+	people, err := s.GetPeople()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load people: %w", err), w)
+		return
+	}
+
+	// Find people who might be living but aren't marked as such
+	type candidatePerson struct {
+		person store.Person
+		age    int
+	}
+
+	var allCandidates []candidatePerson
+	currentYear := time.Now().Year()
+
+	for _, p := range people {
+		// Skip if already marked as living
+		if p.IsLiving {
+			continue
+		}
+
+		// Skip if has death date
+		if p.DeathDate != "" {
+			continue
+		}
+
+		// Check birth date
+		if p.BirthDate != "" {
+			birthYear := parseBirthYear(p.BirthDate)
+			if birthYear > 0 {
+				age := currentYear - birthYear
+				// Likely still living if younger than 120
+				if age >= 0 && age < 120 {
+					allCandidates = append(allCandidates, candidatePerson{p, age})
+				}
+			}
+		}
+	}
+
+	// State variables
+	filterText := ""
+	sortAlphabetically := true // true = A-Z, false = by age
+
+	// Track selections
+	selections := make(map[int64]bool)
+	checkboxes := make(map[int64]*widget.Check)
+
+	// Build content container and scroll
+	var content *fyne.Container
+	var scroll *container.Scroll
+	var rebuildContent func()
+
+	rebuildContent = func() {
+		// Filter candidates
+		var candidates []candidatePerson
+		for _, cand := range allCandidates {
+			personName := strings.ToLower(formatPersonName(cand.person))
+			if filterText == "" || strings.Contains(personName, strings.ToLower(filterText)) {
+				candidates = append(candidates, cand)
+			}
+		}
+
+		// Sort candidates
+		if sortAlphabetically {
+			sort.Slice(candidates, func(i, j int) bool {
+				nameI := formatPersonName(candidates[i].person)
+				nameJ := formatPersonName(candidates[j].person)
+				return strings.ToLower(nameI) < strings.ToLower(nameJ)
+			})
+		} else {
+			sort.Slice(candidates, func(i, j int) bool {
+				return candidates[i].age < candidates[j].age
+			})
+		}
+
+		// Clear and rebuild content
+		content.Objects = nil
+		checkboxes = make(map[int64]*widget.Check) // Reset checkboxes
+
+		// Title
+		title := widget.NewLabelWithStyle("Mark as Living (Bulk Update)",
+			fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		content.Add(title)
+		content.Add(widget.NewSeparator())
+
+		if len(allCandidates) == 0 {
+			content.Add(widget.NewLabel("✅ No candidates found!"))
+			content.Add(widget.NewLabel("All people who appear to be living are already marked as such."))
+		} else if len(candidates) == 0 {
+			content.Add(widget.NewLabel(fmt.Sprintf("No matches for filter \"%s\"", filterText)))
+			content.Add(widget.NewLabel(fmt.Sprintf("Total candidates: %d", len(allCandidates))))
+		} else {
+			// Summary
+			summary := widget.NewLabel(fmt.Sprintf("Showing %d of %d people who may be living but are not marked as such:",
+				len(candidates), len(allCandidates)))
+			content.Add(summary)
+			content.Add(widget.NewSeparator())
+
+			// Select All / Deselect All / Mark Selected buttons
+			selectAllBtn := widget.NewButton("Select All Visible", func() {
+				for _, cand := range candidates {
+					if check, ok := checkboxes[cand.person.ID]; ok {
+						check.SetChecked(true)
+						selections[cand.person.ID] = true
+					}
+				}
+			})
+
+			deselectAllBtn := widget.NewButton("Deselect All", func() {
+				for id, check := range checkboxes {
+					check.SetChecked(false)
+					selections[id] = false
+				}
+			})
+
+			markBtn := widget.NewButton("✓ Mark Selected as Living", func() {
+				selectedCount := 0
+				for _, selected := range selections {
+					if selected {
+						selectedCount++
+					}
+				}
+
+				if selectedCount == 0 {
+					dialog.ShowInformation("No Selection", "Please select at least one person to mark as living.", massMarkLivingDialog)
+					return
+				}
+
+				dialog.ShowConfirm("Confirm Bulk Update",
+					fmt.Sprintf("Are you sure you want to mark %d people as living?", selectedCount),
+					func(confirmed bool) {
+						if confirmed {
+							updatedCount := 0
+							for id, selected := range selections {
+								if selected {
+									person, err := s.GetPersonByID(id)
+									if err == nil {
+										person.IsLiving = true
+										if err := s.UpdatePerson(person); err == nil {
+											updatedCount++
+										}
+									}
+								}
+							}
+
+							dialog.ShowInformation("Success",
+								fmt.Sprintf("Successfully marked %d people as living.", updatedCount),
+								massMarkLivingDialog)
+
+							// Refresh and close
+							refreshFunc()
+							massMarkLivingDialog.Close()
+						}
+					}, massMarkLivingDialog)
+			})
+
+			selectionBox := container.NewHBox(selectAllBtn, deselectAllBtn, markBtn)
+			content.Add(selectionBox)
+			content.Add(widget.NewSeparator())
+
+			// Add each candidate
+			for _, cand := range candidates {
+				candCopy := cand // Capture for closure
+
+				// Restore previous selection state if it exists
+				previouslySelected := selections[cand.person.ID]
+
+				check := widget.NewCheck("", func(checked bool) {
+					selections[candCopy.person.ID] = checked
+				})
+				check.SetChecked(previouslySelected)
+				checkboxes[cand.person.ID] = check
+
+				nameLabel := widget.NewLabel(fmt.Sprintf("%s (age %d, born %s)",
+					formatPersonName(cand.person), cand.age, cand.person.BirthDate))
+
+				personBox := container.NewHBox(check, nameLabel)
+				content.Add(personBox)
+			}
+		}
+
+		content.Refresh()
+		if scroll != nil {
+			scroll.Refresh()
+		}
+	}
+
+	// Initialize content
+	content = container.NewVBox()
+
+	// Filter input
+	filterEntry := widget.NewEntry()
+	filterEntry.SetPlaceHolder("Filter by name...")
+	filterEntry.OnChanged = func(text string) {
+		filterText = text
+		rebuildContent()
+	}
+
+	// Sort options
+	sortRadio := widget.NewRadioGroup([]string{"Sort Alphabetically (A-Z)", "Sort by Age (youngest first)"}, func(value string) {
+		sortAlphabetically = (value == "Sort Alphabetically (A-Z)")
+		rebuildContent()
+	})
+	sortRadio.SetSelected("Sort Alphabetically (A-Z)")
+
+	// Initial build
+	rebuildContent()
+
+	scroll = container.NewVScroll(content)
+	scroll.SetMinSize(fyne.NewSize(700, 400))
+
+	// Main layout with controls at top
+	mainContent := container.NewBorder(
+		container.NewVBox(
+			filterEntry,
+			sortRadio,
+			widget.NewSeparator(),
+		),
+		nil, nil, nil,
+		scroll,
+	)
+
+	massMarkLivingDialog = fyne.CurrentApp().NewWindow("Mark as Living (Bulk)")
+	massMarkLivingDialog.SetContent(mainContent)
+	massMarkLivingDialog.Resize(fyne.NewSize(850, 700))
+	massMarkLivingDialog.SetOnClosed(func() {
+		massMarkLivingDialog = nil
+	})
+	massMarkLivingDialog.Show()
+}
+
+// Geographic Distribution Report
+var geographicDialog fyne.Window
+
+func showGeographicDistributionReport(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
+	// Check if already open
+	if geographicDialog != nil {
+		geographicDialog.RequestFocus()
+		geographicDialog.Show()
+		return
+	}
+
+	people, err := s.GetPeople()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load people: %w", err), w)
+		return
+	}
+
+	// Collect birth and death locations
+	birthLocations := make(map[string][]store.Person)
+	deathLocations := make(map[string][]store.Person)
+
+	for _, p := range people {
+		birthPlace := strings.TrimSpace(p.BirthPlace)
+		if birthPlace != "" && birthPlace != "Unknown" {
+			birthLocations[birthPlace] = append(birthLocations[birthPlace], p)
+		}
+
+		deathPlace := strings.TrimSpace(p.DeathPlace)
+		if deathPlace != "" && deathPlace != "Unknown" && !p.IsLiving {
+			deathLocations[deathPlace] = append(deathLocations[deathPlace], p)
+		}
+	}
+
+	// State variables for filtering and sorting
+	filterText := ""
+	sortByCount := true // true = by count, false = alphabetical
+	showBirths := true
+	showDeaths := true
+
+	// Location stat struct
+	type locationStat struct {
+		place  string
+		people []store.Person
+		count  int
+	}
+
+	// Build content container and scroll
+	var content *fyne.Container
+	var scroll *container.Scroll
+	var rebuildContent func()
+
+	rebuildContent = func() {
+		// Filter and sort birth locations
+		var birthStats []locationStat
+		for place, peopleList := range birthLocations {
+			if filterText == "" || strings.Contains(strings.ToLower(place), strings.ToLower(filterText)) {
+				birthStats = append(birthStats, locationStat{place, peopleList, len(peopleList)})
+			}
+		}
+
+		if sortByCount {
+			sort.Slice(birthStats, func(i, j int) bool {
+				return birthStats[i].count > birthStats[j].count
+			})
+		} else {
+			sort.Slice(birthStats, func(i, j int) bool {
+				return strings.ToLower(birthStats[i].place) < strings.ToLower(birthStats[j].place)
+			})
+		}
+
+		// Filter and sort death locations
+		var deathStats []locationStat
+		for place, peopleList := range deathLocations {
+			if filterText == "" || strings.Contains(strings.ToLower(place), strings.ToLower(filterText)) {
+				deathStats = append(deathStats, locationStat{place, peopleList, len(peopleList)})
+			}
+		}
+
+		if sortByCount {
+			sort.Slice(deathStats, func(i, j int) bool {
+				return deathStats[i].count > deathStats[j].count
+			})
+		} else {
+			sort.Slice(deathStats, func(i, j int) bool {
+				return strings.ToLower(deathStats[i].place) < strings.ToLower(deathStats[j].place)
+			})
+		}
+
+		// Clear and rebuild content
+		content.Objects = nil
+
+		// Title
+		title := widget.NewLabelWithStyle("🗺️  Geographic Distribution: Birth & Death Locations",
+			fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		content.Add(title)
+		content.Add(widget.NewSeparator())
+
+		// Summary
+		summary := widget.NewLabel(fmt.Sprintf("Total: %d birth locations, %d death locations (showing: %d birth, %d death)",
+			len(birthLocations), len(deathLocations), len(birthStats), len(deathStats)))
+		content.Add(summary)
+		content.Add(widget.NewSeparator())
+
+		// Birth Locations Section
+		if showBirths {
+			if len(birthStats) > 0 {
+				birthSection := widget.NewLabelWithStyle("🏠 Birth Locations:",
+					fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+				content.Add(birthSection)
+
+				for _, stat := range birthStats {
+					statCopy := stat // Capture for closure
+
+					placeLabel := widget.NewLabelWithStyle(
+						fmt.Sprintf("%s (%d people)", stat.place, stat.count),
+						fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+					expandBtn := widget.NewButton("Show People", func() {
+						showLocationPeopleDialog(geographicDialog, statCopy.place, "Born", statCopy.people, navigateFunc)
+					})
+
+					placeBox := container.NewVBox(placeLabel, expandBtn)
+					content.Add(placeBox)
+				}
+				content.Add(widget.NewSeparator())
+			} else if filterText != "" {
+				content.Add(widget.NewLabel("No birth locations match the filter."))
+				content.Add(widget.NewSeparator())
+			} else {
+				content.Add(widget.NewLabel("No birth locations recorded."))
+				content.Add(widget.NewSeparator())
+			}
+		}
+
+		// Death Locations Section
+		if showDeaths {
+			if len(deathStats) > 0 {
+				deathSection := widget.NewLabelWithStyle("⚰️  Death Locations:",
+					fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+				content.Add(deathSection)
+
+				for _, stat := range deathStats {
+					statCopy := stat // Capture for closure
+
+					placeLabel := widget.NewLabelWithStyle(
+						fmt.Sprintf("%s (%d people)", stat.place, stat.count),
+						fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+					expandBtn := widget.NewButton("Show People", func() {
+						showLocationPeopleDialog(geographicDialog, statCopy.place, "Died", statCopy.people, navigateFunc)
+					})
+
+					placeBox := container.NewVBox(placeLabel, expandBtn)
+					content.Add(placeBox)
+				}
+			} else if filterText != "" {
+				content.Add(widget.NewLabel("No death locations match the filter."))
+			} else {
+				content.Add(widget.NewLabel("No death locations recorded."))
+			}
+		}
+
+		content.Refresh()
+		if scroll != nil {
+			scroll.Refresh()
+		}
+	}
+
+	// Initialize content
+	content = container.NewVBox()
+
+	// Filter input
+	filterEntry := widget.NewEntry()
+	filterEntry.SetPlaceHolder("Filter by location name...")
+	filterEntry.OnChanged = func(text string) {
+		filterText = text
+		rebuildContent()
+	}
+
+	// Sort options
+	sortRadio := widget.NewRadioGroup([]string{"Sort by Count (most common first)", "Sort Alphabetically"}, func(value string) {
+		sortByCount = (value == "Sort by Count (most common first)")
+		rebuildContent()
+	})
+	sortRadio.SetSelected("Sort by Count (most common first)")
+
+	// Show/Hide options
+	showBirthsCheck := widget.NewCheck("Show Birth Locations", func(checked bool) {
+		showBirths = checked
+		rebuildContent()
+	})
+	showBirthsCheck.SetChecked(true)
+
+	showDeathsCheck := widget.NewCheck("Show Death Locations", func(checked bool) {
+		showDeaths = checked
+		rebuildContent()
+	})
+	showDeathsCheck.SetChecked(true)
+
+	displayOptions := container.NewHBox(showBirthsCheck, showDeathsCheck)
+
+	// Initial build
+	rebuildContent()
+
+	scroll = container.NewVScroll(content)
+	scroll.SetMinSize(fyne.NewSize(700, 400))
+
+	// Main layout with controls at top
+	mainContent := container.NewBorder(
+		container.NewVBox(
+			filterEntry,
+			sortRadio,
+			displayOptions,
+			widget.NewSeparator(),
+		),
+		nil, nil, nil,
+		scroll,
+	)
+
+	geographicDialog = fyne.CurrentApp().NewWindow("Geographic Distribution Report")
+	geographicDialog.SetContent(mainContent)
+	geographicDialog.Resize(fyne.NewSize(850, 700))
+	geographicDialog.SetOnClosed(func() {
+		geographicDialog = nil
+	})
+	geographicDialog.Show()
+}
+
+func showLocationPeopleDialog(parentWindow fyne.Window, place string, eventType string, people []store.Person, navigateFunc func(int64)) {
+	content := container.NewVBox()
+
+	title := widget.NewLabelWithStyle(
+		fmt.Sprintf("People %s in: %s", eventType, place),
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	content.Add(title)
+	content.Add(widget.NewSeparator())
+
+	// Add each person
+	for _, p := range people {
+		personCopy := p // Capture for closure
+
+		nameBtn := widget.NewButton(formatPersonName(p), func() {
+			navigateFunc(personCopy.ID)
+		})
+
+		dateInfo := ""
+		if eventType == "Born" && p.BirthDate != "" {
+			dateInfo = fmt.Sprintf("  Born: %s", p.BirthDate)
+		} else if eventType == "Died" && p.DeathDate != "" {
+			dateInfo = fmt.Sprintf("  Died: %s", p.DeathDate)
+		}
+
+		personBox := container.NewVBox(
+			nameBtn,
+			widget.NewLabel(dateInfo),
+		)
+		content.Add(personBox)
+		content.Add(widget.NewSeparator())
+	}
+
+	scroll := container.NewVScroll(content)
+	scroll.SetMinSize(fyne.NewSize(500, 400))
+
+	dialog.ShowCustom(fmt.Sprintf("%s in %s", eventType, place), "Close", scroll, parentWindow)
+}
+
+func min(a, b, c int) int {
+	if a < b && a < c {
+		return a
+	}
+	if b < c {
+		return b
+	}
+	return c
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

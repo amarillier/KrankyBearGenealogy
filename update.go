@@ -50,9 +50,18 @@ func showUpdateDialog(a fyne.App, message string, updateAvailable bool) {
 		releaseLink := widget.NewHyperlink("Download Latest Release", releaseURL)
 		releaseLink.Alignment = fyne.TextAlignCenter
 
-		notesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/main/ReleaseNotes.txt")
+		notesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/ReleaseNotes.txt")
 		notesLink := widget.NewHyperlink("View Release Notes", notesURL)
 		notesLink.Alignment = fyne.TextAlignCenter
+
+		// Links - update URLs for your project
+		licenseURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/LICENSE")
+		licenseLink := widget.NewHyperlink("License Information", licenseURL)
+		licenseLink.Alignment = fyne.TextAlignCenter
+
+		githubURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy")
+		githubLink := widget.NewHyperlink("GitHub Repository", githubURL)
+		githubLink.Alignment = fyne.TextAlignCenter
 
 		content = container.NewVBox(
 			container.NewCenter(icon),
@@ -61,6 +70,8 @@ func showUpdateDialog(a fyne.App, message string, updateAvailable bool) {
 			widget.NewSeparator(),
 			container.NewCenter(releaseLink),
 			container.NewCenter(notesLink),
+			container.NewCenter(licenseLink),
+			container.NewCenter(githubLink),
 		)
 	} else {
 		// Create releases link for "up to date" message
@@ -68,23 +79,35 @@ func showUpdateDialog(a fyne.App, message string, updateAvailable bool) {
 		releasesLink := widget.NewHyperlink("View Releases", releasesURL)
 		releasesLink.Alignment = fyne.TextAlignCenter
 
+		// Links - update URLs for your project
+		licenseURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/LICENSE")
+		licenseLink := widget.NewHyperlink("License Information", licenseURL)
+		licenseLink.Alignment = fyne.TextAlignCenter
+
+		githubURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy")
+		githubLink := widget.NewHyperlink("GitHub Repository", githubURL)
+		githubLink.Alignment = fyne.TextAlignCenter
+
 		content = container.NewVBox(
 			container.NewCenter(icon),
 			widget.NewSeparator(),
 			messageLabel,
 			widget.NewSeparator(),
 			container.NewCenter(releasesLink),
+			container.NewCenter(licenseLink),
+			container.NewCenter(githubLink),
 		)
 	}
 
 	updateWindow.SetContent(container.NewPadded(content))
-	updateWindow.Resize(fyne.NewSize(450, 300))
+	updateWindow.Resize(fyne.NewSize(550, 300))
 
 	updateWindow.SetCloseIntercept(func() {
 		updateWindow.Hide()
 	})
 
 	updateWindow.Show()
+	updateWindow.RequestFocus() // Bring window to front
 }
 
 // "Now this is not the end. It is not even the beginning of the end. But it is, perhaps, the end of the beginning." Winston Churchill, November 10, 1942

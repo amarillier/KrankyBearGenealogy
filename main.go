@@ -15,13 +15,13 @@ import (
 	"genealogy/config"
 	"genealogy/store"
 	"genealogy/ui"
-	
+
 	updatechecker "github.com/amarillier/go-update-checker"
 )
 
 const (
 	// appName    = "KrankyBear Genealogy"
-	appVersion = "1.0.0" // see FyneApp.toml
+	appVersion = "1.1.0" // see FyneApp.toml
 	appAuthor  = "Allan Marillier"
 )
 
@@ -36,10 +36,10 @@ var updateWindow fyne.Window
 func main() {
 	// Create Fyne application
 	a := app.NewWithID("com.github.amarillier.KrankyBearGenealogy")
-	
+
 	// Load theme preference
 	loadTheme(a)
-	
+
 	// Load config to get last database
 	cfg, err := config.Load()
 	if err != nil {
@@ -87,7 +87,7 @@ func main() {
 	// Save this database as the last used
 	cfg.AddRecentDatabase(dbPath)
 	_ = cfg.Save()
-	
+
 	// Check for updates at startup
 	updtmsg, updateAvail := updateChecker("amarillier", "KrankyBearGenealogy", appName, "https://github.com/amarillier/KrankyBearGenealogy/releases/latest")
 	if updateAvail {
@@ -98,7 +98,7 @@ func main() {
 	if desk, ok := a.(desktop.App); ok {
 		desk.SetSystemTrayIcon(resourceKrankyBearGenealogy64Png)
 	}
-	
+
 	// Pass theme and dialog functions to UI
 	ui.SetThemeFunctions(
 		func() { setLightTheme(a) },
@@ -113,7 +113,7 @@ func main() {
 			showUpdateDialog(a, updtmsg, updateAvail)
 		},
 	)
-	
+
 	ui.RunApp(a, s, cfg, dbPath)
 }
 
