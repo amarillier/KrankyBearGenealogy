@@ -98,3 +98,15 @@ type Media struct {
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
+
+// ValidatedItem represents a conflict or duplicate that has been reviewed and validated.
+type ValidatedItem struct {
+	ID              int64     `json:"id"`
+	ItemType        string    `json:"item_type"`         // "conflict", "duplicate"
+	PersonID        int64     `json:"person_id"`
+	RelatedPersonID *int64    `json:"related_person_id"` // For duplicates or relationship conflicts
+	ConflictType    string    `json:"conflict_type"`     // "Parent Too Young", "Duplicate", etc.
+	ValidationNote  string    `json:"validation_note"`
+	ReviewedBy      string    `json:"reviewed_by"`
+	ValidatedAt     time.Time `json:"validated_at"`
+}

@@ -153,12 +153,26 @@ func (s *Store) InitSchema() error {
             FOREIGN KEY(media_id) REFERENCES media(id) ON DELETE CASCADE,
             UNIQUE(person_id, media_id)
         );`,
+		`CREATE TABLE IF NOT EXISTS validated_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_type TEXT NOT NULL,
+            person_id INTEGER NOT NULL,
+            related_person_id INTEGER,
+            conflict_type TEXT NOT NULL,
+            validation_note TEXT,
+            reviewed_by TEXT,
+            validated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(person_id) REFERENCES persons(id) ON DELETE CASCADE,
+            UNIQUE(item_type, person_id, related_person_id, conflict_type)
+        );`,
 		`CREATE INDEX IF NOT EXISTS idx_person_name ON persons(surname, given_name);`,
 		`CREATE INDEX IF NOT EXISTS idx_relationship_subject ON relationships(subject_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_relationship_object ON relationships(object_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_events_person ON events(person_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_person_media_person ON person_media(person_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_person_media_media ON person_media(media_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_validated_items_person ON validated_items(person_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_validated_items_type ON validated_items(item_type, conflict_type);`,
 	}
 
 	tx, err := s.DB.Begin()
@@ -610,6 +624,51 @@ func getInverseRelationType(relType string) string {
 	}
 }
 
+// GetRelationshipsForPerson returns all relationships for a specific person (either as subject or object).
+func (s *Store) GetRelationshipsForPerson(personID int64) ([]Relationship, error) {
+	rows, err := s.DB.Query(`SELECT id,subject_id,object_id,type,marriage_date,marriage_place,divorce_date,separation_date,end_reason,created_at FROM relationships WHERE subject_id = ? OR object_id = ?`, personID, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Relationship
+	for rows.Next() {
+		var r Relationship
+		var marriageDate sql.NullString
+		var marriagePlace sql.NullString
+		var divorceDate sql.NullString
+		var separationDate sql.NullString
+		var endReason sql.NullString
+		var created sql.NullString
+		if err := rows.Scan(&r.ID, &r.SubjectID, &r.ObjectID, &r.Type, &marriageDate, &marriagePlace, &divorceDate, &separationDate, &endReason, &created); err != nil {
+			return nil, err
+		}
+		if marriageDate.Valid {
+			r.MarriageDate = marriageDate.String
+		}
+		if marriagePlace.Valid {
+			r.MarriagePlace = marriagePlace.String
+		}
+		if divorceDate.Valid {
+			r.DivorceDate = divorceDate.String
+		}
+		if separationDate.Valid {
+			r.SeparationDate = separationDate.String
+		}
+		if endReason.Valid {
+			r.EndReason = endReason.String
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// DeleteRelationship deletes a specific relationship.
+func (s *Store) DeleteRelationship(subjectID, objectID int64, relType string) error {
+	_, err := s.DB.Exec(`DELETE FROM relationships WHERE subject_id = ? AND object_id = ? AND type = ?`, subjectID, objectID, relType)
+	return err
+}
+
 // GetRelationships returns all relationships.
 func (s *Store) GetRelationships() ([]Relationship, error) {
 	rows, err := s.DB.Query(`SELECT id,subject_id,object_id,type,marriage_date,marriage_place,divorce_date,separation_date,end_reason,created_at FROM relationships`)
@@ -652,6 +711,13 @@ func (s *Store) GetRelationships() ([]Relationship, error) {
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// GetRelationshipCount returns the total number of relationships in the database
+func (s *Store) GetRelationshipCount() (int, error) {
+	var count int
+	err := s.DB.QueryRow(`SELECT COUNT(*) FROM relationships`).Scan(&count)
+	return count, err
 }
 
 // GetRelationshipsBetween returns relationships between two specific people of a certain type
@@ -1258,4 +1324,130 @@ func (s *Store) GetAllMedia() ([]Media, error) {
 		out = append(out, m)
 	}
 	return out, nil
+}
+
+// =============== Validated Items Functions ===============
+
+// MarkAsReviewed marks a conflict or duplicate as reviewed/validated.
+func (s *Store) MarkAsReviewed(itemType string, personID int64, relatedPersonID *int64, conflictType, note, reviewedBy string) error {
+	var relID sql.NullInt64
+	if relatedPersonID != nil {
+		relID.Int64 = *relatedPersonID
+		relID.Valid = true
+	}
+	
+	_, err := s.DB.Exec(`
+		INSERT OR REPLACE INTO validated_items 
+		(item_type, person_id, related_person_id, conflict_type, validation_note, reviewed_by, validated_at)
+		VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	`, itemType, personID, relID, conflictType, note, reviewedBy)
+	
+	return err
+}
+
+// UnmarkAsReviewed removes a validated item marking.
+func (s *Store) UnmarkAsReviewed(itemType string, personID int64, relatedPersonID *int64, conflictType string) error {
+	var relID sql.NullInt64
+	if relatedPersonID != nil {
+		relID.Int64 = *relatedPersonID
+		relID.Valid = true
+	}
+	
+	_, err := s.DB.Exec(`
+		DELETE FROM validated_items 
+		WHERE item_type = ? AND person_id = ? AND 
+		      (related_person_id IS ? OR (related_person_id IS NULL AND ? IS NULL)) AND 
+		      conflict_type = ?
+	`, itemType, personID, relID, relID, conflictType)
+	
+	return err
+}
+
+// IsItemReviewed checks if a specific item has been reviewed.
+func (s *Store) IsItemReviewed(itemType string, personID int64, relatedPersonID *int64, conflictType string) (bool, *ValidatedItem, error) {
+	var relID sql.NullInt64
+	if relatedPersonID != nil {
+		relID.Int64 = *relatedPersonID
+		relID.Valid = true
+	}
+	
+	row := s.DB.QueryRow(`
+		SELECT id, item_type, person_id, related_person_id, conflict_type, validation_note, reviewed_by, validated_at
+		FROM validated_items
+		WHERE item_type = ? AND person_id = ? AND 
+		      ((related_person_id = ? AND ? IS NOT NULL) OR (related_person_id IS NULL AND ? IS NULL)) AND 
+		      conflict_type = ?
+	`, itemType, personID, relID, relID, relID, conflictType)
+	
+	var v ValidatedItem
+	var validatedAt, note, reviewedBy sql.NullString
+	var relatedID sql.NullInt64
+	
+	err := row.Scan(&v.ID, &v.ItemType, &v.PersonID, &relatedID, &v.ConflictType, &note, &reviewedBy, &validatedAt)
+	if err == sql.ErrNoRows {
+		return false, nil, nil
+	}
+	if err != nil {
+		return false, nil, err
+	}
+	
+	if relatedID.Valid {
+		v.RelatedPersonID = &relatedID.Int64
+	}
+	if note.Valid {
+		v.ValidationNote = note.String
+	}
+	if reviewedBy.Valid {
+		v.ReviewedBy = reviewedBy.String
+	}
+	if validatedAt.Valid {
+		if t, err := time.Parse(time.RFC3339, validatedAt.String); err == nil {
+			v.ValidatedAt = t
+		}
+	}
+	
+	return true, &v, nil
+}
+
+// GetAllValidatedItems returns all reviewed items.
+func (s *Store) GetAllValidatedItems() ([]ValidatedItem, error) {
+	rows, err := s.DB.Query(`
+		SELECT id, item_type, person_id, related_person_id, conflict_type, validation_note, reviewed_by, validated_at
+		FROM validated_items
+		ORDER BY validated_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var items []ValidatedItem
+	for rows.Next() {
+		var v ValidatedItem
+		var validatedAt, note, reviewedBy sql.NullString
+		var relatedID sql.NullInt64
+		
+		if err := rows.Scan(&v.ID, &v.ItemType, &v.PersonID, &relatedID, &v.ConflictType, &note, &reviewedBy, &validatedAt); err != nil {
+			return nil, err
+		}
+		
+		if relatedID.Valid {
+			v.RelatedPersonID = &relatedID.Int64
+		}
+		if note.Valid {
+			v.ValidationNote = note.String
+		}
+		if reviewedBy.Valid {
+			v.ReviewedBy = reviewedBy.String
+		}
+		if validatedAt.Valid {
+			if t, err := time.Parse(time.RFC3339, validatedAt.String); err == nil {
+				v.ValidatedAt = t
+			}
+		}
+		
+		items = append(items, v)
+	}
+	
+	return items, rows.Err()
 }

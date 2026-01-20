@@ -1,6 +1,45 @@
 KrankyBear Genealogy - Release Notes
 
-1.0.0 - January 2026 - First Public Release
+1.1.0 - January 20, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Major update with advanced reporting, data validation, and workflow improvements!
+
+⌨️  Keyboard Shortcuts:
+  • 20+ keyboard shortcuts for common actions (Cmd/Ctrl + key)
+  • Fully customizable shortcut preferences
+  • Conflict detection prevents duplicate key assignments
+  • Access: Settings → Keyboard Shortcuts (Cmd/Ctrl+K)
+
+🔍 Data Quality & Validation:
+  • Conflicts Report: Detects impossible dates and relationships
+  • Duplicate Detection: Intelligent matching with merge capability
+  • Review/Validation System: Mark conflicts and duplicates as reviewed
+  • Reviewed Items Report: Manage and unmark reviewed items
+  • Filter controls to show/hide reviewed data
+
+📊 Enhanced Reports:
+  • Ancestor Report: Ahnentafel numbering with pedigree collapse detection
+  • Descendant Report: Generation counts with interactive navigation
+  • Timeline View: Chronological display of all life events
+  • Geographic Distribution: Birth/death locations with filtering and sorting
+  • Statistics Dashboard: Oldest living/deceased, average lifespan, and more
+
+✅ Bulk Operations:
+  • Mass "Mark as Living": Identify and bulk-update living status
+  • Smart filtering by name with selection preservation
+  • Sort by name or age for easy review
+  • Select All/Deselect All for efficient workflow
+
+🗺️  Geographic Features:
+  • Location-based reports for births and deaths
+  • Filter by location name
+  • Sort by frequency or alphabetically
+  • Interactive "Show People" for each location
+  • Toggle birth/death location visibility
+
+
+
+1.0.0 - January 18, 2026 - First Public Release
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 This is the first official public release of KrankyBear Genealogy!
 
@@ -48,4 +87,4 @@ Report issues: https://github.com/amarillier/KrankyBearGenealogy/issues
   • GEDCOM merge with conflict resolution
   • Advanced visualizations (fan charts, maps)
   • Performance optimizations for large databases
-  • Keyboard shortcuts and advanced search
+  • Advanced search

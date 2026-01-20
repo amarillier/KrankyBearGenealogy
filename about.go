@@ -80,6 +80,7 @@ func showAbout(a fyne.App) {
 	})
 
 	aboutWindow.Show()
+	aboutWindow.RequestFocus() // Bring window to front
 }
 
 // "Now this is not the end. It is not even the beginning of the end. But it is, perhaps, the end of the beginning." Winston Churchill, November 10, 1942

@@ -223,3 +223,19 @@ See [LICENSE](LICENSE) file for details.
 **⚠️ Important**: Always backup your database regularly! Use the built-in backup feature or keep exported GEDCOM files as backups.
 
 *Built with ❤️ for genealogy enthusiasts*
+
+
+## 💾 Other Data Management Notes
+### Importing from Gramps (Old BSDDB Format)
+
+If you have an old Gramps database in BSDDB format (pre-SQLite):
+
+1. Install Gramps 3.x in a virtual machine or container
+2. Open your old database in Gramps 3.x
+3. Export to GEDCOM format (File → Export → GEDCOM)
+4. Import the GEDCOM file into KrankyBear Genealogy
+
+Note: Gramps themselves may have deprecated BSDDB format and be unable to
+reliably convert it, or you may see database corruption erorr messages.
+GEDCOM export from an old Gramps version is the standard migration path
+recommended by the Gramps project.
