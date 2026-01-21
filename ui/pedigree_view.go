@@ -258,6 +258,11 @@ func (pv *PedigreeView) buildPedigreeChart() fyne.CanvasObject {
 func (pv *PedigreeView) makePersonBox(p *store.Person, isCurrent bool) fyne.CanvasObject {
 	nameText := fmt.Sprintf("%s %s", p.GivenName, p.Surname)
 	
+	// Check if person has media and add indicator
+	if media, err := pv.store.GetMediaForPerson(p.ID); err == nil && len(media) > 0 {
+		nameText = "📷 " + nameText
+	}
+	
 	var dateText string
 	if p.BirthDate != "" {
 		dateText = "b. " + p.BirthDate

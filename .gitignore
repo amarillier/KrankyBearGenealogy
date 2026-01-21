@@ -8,6 +8,9 @@
 # Test files
 test/*
 *.log
+sampledata/*shm
+sampledata/*wal
+
 
 # IDE and editor files
 .vscode/

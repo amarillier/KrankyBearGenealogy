@@ -179,6 +179,10 @@ No registration, no tracking, no phone-home (except manual update checks).
 	helpLabel.Wrapping = fyne.TextWrapWord
 
 	// Links - update URLs for your project
+	releaseNotesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/ReleaseNotes.txt")
+	releaseNotesLink := widget.NewHyperlink("View Release Notes", releaseNotesURL)
+	releaseNotesLink.Alignment = fyne.TextAlignCenter
+
 	githubURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy")
 	githubLink := widget.NewHyperlink("Visit GitHub Repository", githubURL)
 	githubLink.Alignment = fyne.TextAlignCenter
@@ -199,7 +203,7 @@ No registration, no tracking, no phone-home (except manual update checks).
 
 	footer := container.NewVBox(
 		widget.NewSeparator(),
-		container.NewCenter(container.NewHBox(githubLink, licenseLink)),
+		container.NewCenter(container.NewHBox(releaseNotesLink, githubLink, licenseLink)),
 	)
 
 	content := container.NewBorder(header, footer, nil, nil, scrollContent)

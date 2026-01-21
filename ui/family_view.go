@@ -211,6 +211,11 @@ func (fv *FamilyView) makePersonCard(p store.Person, clickable bool) fyne.Canvas
 	if p.Gender != "" {
 		nameText = fmt.Sprintf("%s (%s)", nameText, p.Gender)
 	}
+	
+	// Check if person has media and add indicator
+	if media, err := fv.store.GetMediaForPerson(p.ID); err == nil && len(media) > 0 {
+		nameText = "📷 " + nameText
+	}
 
 	dateInfo := ""
 	if p.BirthDate != "" {
@@ -261,6 +266,13 @@ func (fv *FamilyView) makeCurrentPersonCard(p store.Person) fyne.CanvasObject {
 	nameText := fmt.Sprintf("%s %s", p.GivenName, p.Surname)
 	if p.Gender != "" {
 		nameText += fmt.Sprintf(" (%s)", p.Gender)
+	}
+	
+	// Check if person has media
+	personMedia, _ := fv.store.GetMediaForPerson(p.ID)
+	hasMedia := len(personMedia) > 0
+	if hasMedia {
+		nameText = "📷 " + nameText
 	}
 
 	nameLabel := widget.NewLabel(nameText)
@@ -328,6 +340,11 @@ func (fv *FamilyView) makeCurrentPersonCard(p store.Person) fyne.CanvasObject {
 func (fv *FamilyView) makeSpouseCard(si store.SpouseInfo) fyne.CanvasObject {
 	p := si.Person
 	nameText := fmt.Sprintf("%s %s", p.GivenName, p.Surname)
+	
+	// Check if spouse has media and add indicator
+	if media, err := fv.store.GetMediaForPerson(p.ID); err == nil && len(media) > 0 {
+		nameText = "📷 " + nameText
+	}
 
 	// Build marriage info with all dates
 	var marriageInfo []string
