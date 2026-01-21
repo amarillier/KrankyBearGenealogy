@@ -79,6 +79,10 @@ func showUpdateDialog(a fyne.App, message string, updateAvailable bool) {
 		releasesLink := widget.NewHyperlink("View Releases", releasesURL)
 		releasesLink.Alignment = fyne.TextAlignCenter
 
+		notesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/ReleaseNotes.txt")
+		notesLink := widget.NewHyperlink("View Release Notes", notesURL)
+		notesLink.Alignment = fyne.TextAlignCenter
+
 		// Links - update URLs for your project
 		licenseURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/LICENSE")
 		licenseLink := widget.NewHyperlink("License Information", licenseURL)
@@ -94,6 +98,7 @@ func showUpdateDialog(a fyne.App, message string, updateAvailable bool) {
 			messageLabel,
 			widget.NewSeparator(),
 			container.NewCenter(releasesLink),
+			container.NewCenter(notesLink),
 			container.NewCenter(licenseLink),
 			container.NewCenter(githubLink),
 		)

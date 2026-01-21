@@ -185,10 +185,16 @@ func (iv *IndividualView) createTable() fyne.CanvasObject {
 			p := iv.people[i]
 			label := o.(*widget.Label)
 			
+			// Check if person has media and add indicator
+			fullName := p.GivenName + " " + p.Surname
+			if media, err := iv.store.GetMediaForPerson(p.ID); err == nil && len(media) > 0 {
+				fullName = "📷 " + fullName
+			}
+			
 			// Don't truncate - show full data with proper spacing
-			row := fmt.Sprintf("%-6d  %-40s  %-6s  %-20s  %-40s  %-20s  %-40s",
+			row := fmt.Sprintf("%-6d  %-42s  %-6s  %-20s  %-40s  %-20s  %-40s",
 				i+1,
-				p.GivenName+" "+p.Surname,
+				fullName,
 				p.Gender,
 				p.BirthDate,
 				p.BirthPlace,

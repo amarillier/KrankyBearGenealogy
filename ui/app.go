@@ -16,9 +16,11 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 
 	"genealogy/config"
+	"genealogy/demo"
 	"genealogy/importer"
 	"genealogy/store"
 )
@@ -144,6 +146,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	var peopleList *widget.List
 	var searchEntry *widget.Entry
 	var tabs *container.AppTabs
+	var viewMediaBtn *widget.Button // Forward declare for use in navigation
 
 	// Edit person handler
 	// Forward declare refresh function
@@ -184,6 +187,15 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		if err != nil {
 			dialog.ShowError(err, w)
 			return
+		}
+
+		// Update View Media button visibility based on whether person has media
+		if viewMediaBtn != nil {
+			if media, err := getStore().GetMediaForPerson(personID); err == nil && len(media) > 0 {
+				viewMediaBtn.Show()
+			} else {
+				viewMediaBtn.Hide()
+			}
 		}
 
 		// Update current view (check tabs is initialized)
@@ -377,6 +389,15 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 				go cfg.Save() // Save in background
 			}
 
+			// Update View Media button visibility based on whether person has media
+			if viewMediaBtn != nil {
+				if media, err := getStore().GetMediaForPerson(personID); err == nil && len(media) > 0 {
+					viewMediaBtn.Show()
+				} else {
+					viewMediaBtn.Hide()
+				}
+			}
+
 			// Update all views
 			familyView.SetPerson(person)
 			pedigreeView.SetPerson(person)
@@ -457,63 +478,99 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		}
 	}
 
-	// Menu buttons
+	// Function to reload the app with a different database
+	// (Defined early so import buttons can reference it)
+	var reloadWithDatabase func(string, ...bool)
+	reloadWithDatabase = func(newDBPath string, silent ...bool) {
+		showSuccessDialog := true
+		if len(silent) > 0 && silent[0] {
+			showSuccessDialog = false
+		}
+		// Save the new database path to config
+		cfg.LastDatabase = newDBPath
+		cfg.AddRecentDatabase(newDBPath)
+		if err := cfg.Save(); err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to save config: %w", err), w)
+			return
+		}
+
+		// Keep reference to old store to close it AFTER everything is set up
+		oldStore := getStore()
+
+		// Open new database
+		newStore, err := store.Open(newDBPath)
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to open database: %w", err), w)
+			return
+		}
+
+		// Initialize schema for new database
+		if err := newStore.InitSchema(); err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to initialize schema: %w", err), w)
+			newStore.Close()
+			return
+		}
+
+		if err := newStore.MigrateSchema(); err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to migrate schema: %w", err), w)
+			newStore.Close()
+			return
+		}
+
+		// Update store reference (this updates all closures!)
+		storeRef[0] = newStore
+		dbPath = newDBPath
+
+		// Update window title
+		w.SetTitle(fmt.Sprintf("KrankyBear Genealogy - %s", filepath.Base(dbPath)))
+
+		// Recreate views with new store
+		familyView = NewFamilyView(getStore(), w, navigateToPerson)
+		pedigreeView = NewPedigreeView(getStore(), w, navigateToPerson, editPerson)
+		individualView = NewIndividualView(getStore(), w, navigateToPerson, editPerson)
+		individualView.SetSwitchHandlers(switchToFamily, switchToPedigree)
+
+		// Update tabs with new views
+		tabs.Items[0].Content = familyView
+		tabs.Items[1].Content = pedigreeView
+		tabs.Items[2].Content = individualView
+		tabs.Refresh()
+
+		// Reload all data
+		refreshPeopleList()
+
+		// Reset to first person or clear view
+		if len(people) > 0 {
+			navigateToPerson(people[0].ID)
+		} else {
+			currentPersonID = 0
+			familyView.SetPerson(nil)
+			pedigreeView.SetPerson(nil)
+			individualView.SetPerson(nil)
+		}
+
+		// NOW close the old database after everything is set up
+		if oldStore != nil {
+			oldStore.Close()
+		}
+
+		if showSuccessDialog {
+			dialog.ShowInformation("Database Loaded",
+				fmt.Sprintf("Successfully switched to:\n%s", filepath.Base(newDBPath)), w)
+		}
+	}
+
+	// Menu buttons for import/export (defined after reloadWithDatabase)
 	importBtn := widget.NewButton("Import GEDCOM", func() {
-		fd := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
-			if err != nil || r == nil {
-				return
-			}
-			path := r.URI().Path()
-			r.Close()
-			if err := importer.Import(path, getStore()); err != nil {
-				dialog.ShowError(err, w)
-				return
-			}
-			dialog.ShowInformation("Import", "Import completed successfully", w)
-			refreshAll()
-		}, w)
-		fd.SetFilter(storageFilter{ext: ".ged"})
-		fd.Show()
+		showImportOptionsDialog(w, cfg, dbPath, getStore, reloadWithDatabase, refreshAll, ".ged", "GEDCOM", importer.Import)
 	})
 
 	importGenoProBtn := widget.NewButton("Import GenoPro", func() {
-		fd := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
-			if err != nil || r == nil {
-				return
-			}
-			path := r.URI().Path()
-			r.Close()
-			if err := importer.ImportGenoPro(path, getStore()); err != nil {
-				dialog.ShowError(err, w)
-				return
-			}
-			dialog.ShowInformation("Import", "GenoPro import completed successfully", w)
-			refreshAll()
-		}, w)
-		fd.SetFilter(storageFilter{ext: ".gno"})
-		fd.Show()
+		showImportOptionsDialog(w, cfg, dbPath, getStore, reloadWithDatabase, refreshAll, ".gno", "GenoPro", importer.ImportGenoPro)
 	})
 
 	importGrampsBtn := widget.NewButton("Import Gramps", func() {
-		fd := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
-			if err != nil || r == nil {
-				return
-			}
-			path := r.URI().Path()
-			r.Close()
-
-			// Show progress dialog
-			dialog.ShowInformation("Importing", "Importing from Gramps database...\nThis may take a moment.", w)
-
-			if err := importer.ImportGramps(path, getStore()); err != nil {
-				dialog.ShowError(fmt.Errorf("Gramps import failed: %w", err), w)
-				return
-			}
-			dialog.ShowInformation("Import", "Gramps import completed successfully", w)
-			refreshAll()
-		}, w)
-		fd.SetFilter(storageFilter{ext: ".db"})
-		fd.Show()
+		showImportOptionsDialog(w, cfg, dbPath, getStore, reloadWithDatabase, refreshAll, ".db", "Gramps", importer.ImportGramps)
 	})
 
 	exportBtn := widget.NewButton("Export GEDCOM", func() {
@@ -585,79 +642,16 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		showMediaLibrary(w, getStore())
 	})
 
-	// Function to reload the app with a different database
-	reloadWithDatabase := func(newDBPath string) {
-		// Save the new database path to config
-		cfg.LastDatabase = newDBPath
-		cfg.AddRecentDatabase(newDBPath)
-		if err := cfg.Save(); err != nil {
-			dialog.ShowError(fmt.Errorf("Failed to save config: %w", err), w)
-			return
+	// View Media button - will be shown/hidden based on current person's media
+	viewMediaBtn = widget.NewButton("📷 View Media", func() {
+		if currentPersonID > 0 {
+			person, err := getStore().GetPersonByID(currentPersonID)
+			if err == nil {
+				showMediaManager(w, getStore(), currentPersonID, fmt.Sprintf("%s %s", person.GivenName, person.Surname))
+			}
 		}
-
-		// Keep reference to old store to close it AFTER everything is set up
-		oldStore := getStore()
-
-		// Open new database
-		newStore, err := store.Open(newDBPath)
-		if err != nil {
-			dialog.ShowError(fmt.Errorf("Failed to open database: %w", err), w)
-			return
-		}
-
-		// Initialize schema for new database
-		if err := newStore.InitSchema(); err != nil {
-			dialog.ShowError(fmt.Errorf("Failed to initialize schema: %w", err), w)
-			newStore.Close()
-			return
-		}
-
-		if err := newStore.MigrateSchema(); err != nil {
-			dialog.ShowError(fmt.Errorf("Failed to migrate schema: %w", err), w)
-			newStore.Close()
-			return
-		}
-
-		// Update store reference (this updates all closures!)
-		storeRef[0] = newStore
-		dbPath = newDBPath
-
-		// Update window title
-		w.SetTitle(fmt.Sprintf("KrankyBear Genealogy - %s", filepath.Base(dbPath)))
-
-		// Recreate views with new store
-		familyView = NewFamilyView(getStore(), w, navigateToPerson)
-		pedigreeView = NewPedigreeView(getStore(), w, navigateToPerson, editPerson)
-		individualView = NewIndividualView(getStore(), w, navigateToPerson, editPerson)
-		individualView.SetSwitchHandlers(switchToFamily, switchToPedigree)
-
-		// Update tabs with new views
-		tabs.Items[0].Content = familyView
-		tabs.Items[1].Content = pedigreeView
-		tabs.Items[2].Content = individualView
-		tabs.Refresh()
-
-		// Reload all data
-		refreshPeopleList()
-
-		// Reset to first person or clear view
-		if len(people) > 0 {
-			navigateToPerson(people[0].ID)
-		} else {
-			currentPersonID = 0
-			familyView.SetPerson(nil)
-			pedigreeView.SetPerson(nil)
-			individualView.SetPerson(nil)
-		}
-
-		// NOW close the old database after everything is set up
-		if oldStore != nil {
-			oldStore.Close()
-		}
-
-		dialog.ShowInformation("Database Loaded",
-			fmt.Sprintf("Successfully switched to:\n%s", filepath.Base(newDBPath)), w)
-	}
+	})
+	viewMediaBtn.Hide() // Initially hidden
 
 	openDatabaseBtn := widget.NewButton("Open Database...", func() {
 		fd := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
@@ -714,7 +708,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	})
 
 	backupBtn := widget.NewButton("Backup Database", func() {
-		showBackupDialog(w, dbPath)
+		showBackupDialog(w, dbPath, getStore)
 	})
 
 	restoreBtn := widget.NewButton("Restore Database", func() {
@@ -757,7 +751,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	})
 
 	// Top toolbar - simplified, most actions moved to menus
-	toolbar := container.NewHBox(focusPersonBtn, addPersonBtn, deletePersonBtn, addMediaBtn, mediaLibraryBtn)
+	toolbar := container.NewHBox(focusPersonBtn, addPersonBtn, deletePersonBtn, addMediaBtn, mediaLibraryBtn, viewMediaBtn)
 
 	// Status bar for statistics and relationship info
 	statusLabel := widget.NewLabel("Ready")
@@ -817,16 +811,16 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 
 	// Main split: left panel (people index) and tabbed views
 	split := container.NewHSplit(leftPanel, tabs)
-	split.SetOffset(0.2) // 20% for the index, 80% for views
+	split.SetOffset(0.3) // 30% for the index, 70% for views (more space for names and easier to resize)
 
 	// Main layout with status bar at bottom
 	content := container.NewBorder(toolbar, statusLabel, nil, nil, split)
 
 	w.SetContent(content)
-	w.Resize(fyne.NewSize(1200, 800))
+	w.Resize(fyne.NewSize(1400, 850)) // Increased default size for better usability
 
 	// Setup system tray and menus (if supported)
-	setupMenus(a, w, cfg, newDatabaseBtn, openDatabaseBtn, backupBtn, restoreBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn, dataQualityBtn, livingStatusBtn, conflictsBtn, duplicatesBtn, descendantBtn, ancestorBtn, timelineBtn, settingsBtn, getStore, navigateToPerson, refreshAll, func() int64 { return currentPersonID })
+	setupMenus(a, w, cfg, newDatabaseBtn, openDatabaseBtn, backupBtn, restoreBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn, dataQualityBtn, livingStatusBtn, conflictsBtn, duplicatesBtn, descendantBtn, ancestorBtn, timelineBtn, settingsBtn, getStore, navigateToPerson, refreshAll, func() int64 { return currentPersonID }, reloadWithDatabase)
 
 	// Statistics dashboard button (for keyboard shortcut)
 	statsBtn := widget.NewButton("Statistics", func() {
@@ -841,7 +835,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 }
 
 // setupMenus creates the system tray and window menus
-func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBBtn, backupBtn, restoreBtn, importBtn, importGNOBtn, importGrampsBtn, exportBtn, dataQBtn, livingStatusBtn, conflictsBtn, duplicatesBtn, descendantBtn, ancestorBtn, timelineBtn, settingsBtn *widget.Button, getStore func() *store.Store, navigateToPerson func(int64), refreshAll func(), getCurrentPersonID func() int64) {
+func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBBtn, backupBtn, restoreBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn, dataQBtn, livingStatusBtn, conflictsBtn, duplicatesBtn, descendantBtn, ancestorBtn, timelineBtn, settingsBtn *widget.Button, getStore func() *store.Store, navigateToPerson func(int64), refreshAll func(), getCurrentPersonID func() int64, reloadWithDatabase func(string, ...bool)) {
 	desk, ok := a.(desktop.App)
 	if !ok {
 		return // System tray not supported on this platform
@@ -863,6 +857,44 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	openDB := fyne.NewMenuItem("Open Database...", func() {
 		openDBBtn.OnTapped()
 	})
+
+	// Recent Files submenu
+	recentFiles := fyne.NewMenuItem("Recent Files", nil)
+	recentFilesMenu := fyne.NewMenu("")
+
+	// Populate recent files from config
+	if len(cfg.RecentDatabases) > 0 {
+		for _, dbPath := range cfg.RecentDatabases {
+			// Capture dbPath in closure
+			path := dbPath
+			menuLabel := filepath.Base(path)
+
+			// Add full path as hint if name is generic
+			if menuLabel == "genealogy.db" || strings.Contains(menuLabel, "genealogy") {
+				menuLabel = fmt.Sprintf("%s  (%s)", filepath.Base(path), filepath.Dir(path))
+			}
+
+			recentItem := fyne.NewMenuItem(menuLabel, func() {
+				// Check if file exists
+				if _, err := os.Stat(path); err != nil {
+					dialog.ShowError(fmt.Errorf("Database not found: %s", path), w)
+					return
+				}
+
+				// Switch to this database
+				reloadWithDatabase(path)
+			})
+			recentFilesMenu.Items = append(recentFilesMenu.Items, recentItem)
+		}
+	} else {
+		// No recent files
+		noRecent := fyne.NewMenuItem("(no recent files)", func() {})
+		noRecent.Disabled = true
+		recentFilesMenu.Items = append(recentFilesMenu.Items, noRecent)
+	}
+
+	recentFiles.ChildMenu = recentFilesMenu
+
 	backup := fyne.NewMenuItem("Backup Database...", func() {
 		backupBtn.OnTapped()
 	})
@@ -873,7 +905,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		importBtn.OnTapped()
 	})
 	importGNO := fyne.NewMenuItem("Import GenoPro...", func() {
-		importGNOBtn.OnTapped()
+		importGenoProBtn.OnTapped()
 	})
 	importGramps := fyne.NewMenuItem("Import Gramps...", func() {
 		importGrampsBtn.OnTapped()
@@ -980,11 +1012,14 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 			ShowHelpFunc()
 		}
 	})
+	loadDemo := fyne.NewMenuItem("Load Demo Database", func() {
+		showLoadDemoDialog(w, cfg, reloadWithDatabase)
+	})
 
 	// System tray menu with proper submenus using ChildMenu
 	// Create File submenu
 	fileSubMenu := fyne.NewMenu("File",
-		newDB, openDB,
+		newDB, openDB, recentFiles,
 		fyne.NewMenuItemSeparator(),
 		backup, restore,
 		fyne.NewMenuItemSeparator(),
@@ -1035,7 +1070,9 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	helpSubMenu := fyne.NewMenu("Help",
 		about,
 		updtchk,
-		help)
+		help,
+		fyne.NewMenuItemSeparator(),
+		loadDemo)
 	helpMenuItem := fyne.NewMenuItem("Help", nil)
 	helpMenuItem.ChildMenu = helpSubMenu
 
@@ -1054,7 +1091,8 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	// Icon is set from main package, we just set up the menu here
 
 	// Setup main menu bar (for window menu bar with submenus)
-	fileMenu := fyne.NewMenu("File", newDB, openDB, backup, restore, fyne.NewMenuItemSeparator(),
+	fileMenu := fyne.NewMenu("File", newDB, openDB, recentFiles, fyne.NewMenuItemSeparator(),
+		backup, restore, fyne.NewMenuItemSeparator(),
 		importGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(), quit)
 	mediaMenu := fyne.NewMenu("Media", mediaLibraryMenuItem, addMediaMenuItem)
 	reportsMenu := fyne.NewMenu("Reports", statistics, dataQuality, livingStatus, conflictsReport, duplicatesReport,
@@ -1062,7 +1100,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		fyne.NewMenuItemSeparator(), massMarkLivingReport, reviewedItemsReport)
 	settingsMenu := fyne.NewMenu("Settings", settingsDialog, keyboardShortcuts, fyne.NewMenuItemSeparator(),
 		settingsLight, settingsDark, settingsSystem)
-	helpMenu := fyne.NewMenu("Help", about, updtchk, help)
+	helpMenu := fyne.NewMenu("Help", about, updtchk, help, fyne.NewMenuItemSeparator(), loadDemo)
 	cmenu := fyne.NewMainMenu(fileMenu, mediaMenu, reportsMenu, settingsMenu, helpMenu)
 	w.SetMainMenu(cmenu)
 }
@@ -2789,6 +2827,243 @@ func getInLawRelationship(s *store.Store, fromID, toID int64) string {
 }
 
 // showExportOptionsDialog displays options for GEDCOM export
+// showImportOptionsDialog displays a dialog to choose import destination
+func showImportOptionsDialog(w fyne.Window, cfg *config.Config, dbPath string, getStore func() *store.Store,
+	reloadWithDatabase func(string, ...bool), refreshAll func(), fileExt string, formatName string,
+	importFunc func(string, *store.Store) error) {
+
+	importDestination := "current" // "current" or "new"
+
+	radio := widget.NewRadioGroup([]string{
+		"Import into current database",
+		"Create new database and import",
+	}, func(selected string) {
+		if selected == "Import into current database" {
+			importDestination = "current"
+		} else {
+			importDestination = "new"
+		}
+	})
+	radio.Selected = "Import into current database"
+	radio.Horizontal = false
+
+	content := container.NewVBox(
+		widget.NewLabel(fmt.Sprintf("Where would you like to import this %s file?", formatName)),
+		widget.NewSeparator(),
+		radio,
+	)
+
+	dialog.ShowCustomConfirm("Import Options", "Continue", "Cancel", content, func(proceed bool) {
+		if !proceed {
+			return
+		}
+
+		if importDestination == "new" {
+			// First, prompt for the file to import
+			importFd := dialog.NewFileOpen(func(r fyne.URIReadCloser, importErr error) {
+				if importErr != nil || r == nil {
+					return
+				}
+				importPath := r.URI().Path()
+				r.Close()
+
+				// Suggest database name based on import file name
+				importFileName := filepath.Base(importPath)
+				suggestedDBName := strings.TrimSuffix(importFileName, filepath.Ext(importFileName)) + ".db"
+
+				// Now prompt for new database location
+				dbFd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+					if err != nil || uc == nil {
+						return
+					}
+					newDBPath := uc.URI().Path()
+					uc.Close()
+
+					// Ensure .db extension
+					if !strings.HasSuffix(newDBPath, ".db") {
+						newDBPath += ".db"
+					}
+
+					// Create new database
+					newStore, err := store.Open(newDBPath)
+					if err != nil {
+						dialog.ShowError(fmt.Errorf("Failed to create new database: %w", err), w)
+						return
+					}
+
+					// Initialize schema
+					if err := newStore.InitSchema(); err != nil {
+						newStore.Close()
+						dialog.ShowError(fmt.Errorf("Failed to initialize database: %w", err), w)
+						return
+					}
+
+					// Run migrations
+					if err := newStore.MigrateSchema(); err != nil {
+						newStore.Close()
+						dialog.ShowError(fmt.Errorf("Failed to migrate database: %w", err), w)
+						return
+					}
+
+					// Import into the NEW database (before switching to it)
+					if err := importFunc(importPath, newStore); err != nil {
+						newStore.Close()
+						dialog.ShowError(fmt.Errorf("%s import failed: %w", formatName, err), w)
+						return
+					}
+
+					// Close the new store before reloading
+					newStore.Close()
+
+					// NOW switch to the new database (which now has imported data)
+					// Pass true to suppress the "Database Loaded" dialog
+					reloadWithDatabase(newDBPath, true)
+
+					// Show import success message
+					dialog.ShowInformation("Import Complete",
+						fmt.Sprintf("✅ New database created and %s file imported successfully!\n\nDatabase: %s\n\nRecords imported - no sample data needed.", formatName, filepath.Base(newDBPath)), w)
+				}, w)
+
+				dbFd.SetFileName(suggestedDBName)
+				dbFd.Show()
+			}, w)
+			importFd.SetFilter(storageFilter{ext: fileExt})
+			importFd.Show()
+		} else {
+			// Import into current database
+			fd := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
+				if err != nil || r == nil {
+					return
+				}
+				importPath := r.URI().Path()
+				r.Close()
+
+				// Show progress for Gramps (can be slow)
+				if formatName == "Gramps" {
+					dialog.ShowInformation("Importing", "Importing from Gramps database...\nThis may take a moment.", w)
+				}
+
+				if err := importFunc(importPath, getStore()); err != nil {
+					dialog.ShowError(fmt.Errorf("%s import failed: %w", formatName, err), w)
+					return
+				}
+				dialog.ShowInformation("Import Complete", fmt.Sprintf("%s file imported successfully!", formatName), w)
+				refreshAll()
+			}, w)
+			fd.SetFilter(storageFilter{ext: fileExt})
+			fd.Show()
+		}
+	}, w)
+}
+
+// showLoadDemoDialog loads the demo database for new users to explore
+func showLoadDemoDialog(w fyne.Window, cfg *config.Config, reloadWithDatabase func(string, ...bool)) {
+	// Show information about what the demo contains
+	content := widget.NewLabel(
+		"Generate a demo database?\n\n" +
+			"The demo database contains:\n" +
+			"  • 40 people across 5 generations\n" +
+			"  • Multiple marriages & divorces\n" +
+			"  • Living people with contact info\n" +
+			"  • Geographic diversity\n" +
+			"  • Example data quality issues\n\n" +
+			"This will help you explore all the features\n" +
+			"of KrankyBear Genealogy!\n\n" +
+			"Click OK to choose where to save the demo database.")
+	content.Wrapping = fyne.TextWrapWord
+
+	dialog.ShowCustomConfirm("Load Demo Database", "OK", "Cancel", content, func(proceed bool) {
+		if !proceed {
+			return
+		}
+
+		// Show save file dialog
+		saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
+			if err != nil || writer == nil {
+				return
+			}
+			defer writer.Close()
+
+			demoDestPath := writer.URI().Path()
+
+			// Remove old demo if it exists
+			os.Remove(demoDestPath)
+
+			// Create new demo database
+			demoStore, err := store.Open(demoDestPath)
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to create demo database: %w", err), w)
+				return
+			}
+
+			// Initialize schema
+			if err := demoStore.InitSchema(); err != nil {
+				demoStore.Close()
+				dialog.ShowError(fmt.Errorf("Failed to initialize demo database: %w", err), w)
+				return
+			}
+
+			// Run migrations (adds marriage-related columns to relationships table)
+			if err := demoStore.MigrateSchema(); err != nil {
+				demoStore.Close()
+				dialog.ShowError(fmt.Errorf("Failed to migrate demo database: %w", err), w)
+				return
+			}
+
+			// Generate demo data
+			focusPersonID, err := demo.GenerateDemoData(demoStore)
+			if err != nil {
+				demoStore.Close()
+				dialog.ShowError(fmt.Errorf("Failed to generate demo data: %w", err), w)
+				return
+			}
+
+			// Close the demo database
+			demoStore.Close()
+
+			// Set Michael Harrison as the focus person for this database
+			cfg.SetFocusUserForDatabase(demoDestPath, focusPersonID)
+			cfg.OpenWithFocusUser = true
+			cfg.Save()
+
+			// Switch to the demo database (silently, we'll show our own message)
+			reloadWithDatabase(demoDestPath, true)
+
+			// Show welcome message
+			welcomeMsg := fmt.Sprintf(
+				"✅ Demo database generated!\n\n"+
+					"📍 Location: %s\n\n"+
+					"👋 Welcome! This database contains the Harrison family tree "+
+					"spanning 5 generations.\n\n"+
+					"👤 Focus Person: Michael Harrison\n"+
+					"   (Notice he has 2 marriages!)\n\n"+
+					"📷 Note: Media files are not included in this generated demo.\n"+
+					"   To get the full demo with photos & documents, download\n"+
+					"   demo.db from the GitHub repository.\n\n"+
+					"🎯 Try these features:\n"+
+					"  • Browse the family tree in all 3 views\n"+
+					"  • Try Reports → Data Quality Report\n"+
+					"  • Check Reports → Conflicts Report\n"+
+					"  • Use Reports → Statistics Dashboard\n"+
+					"  • Press G to return to Michael Harrison\n"+
+					"  • Use Add Media to attach your own photos\n\n"+
+					"💡 This demo showcases all the features you can use\n"+
+					"for your own family history!",
+				demoDestPath)
+
+			dialog.ShowInformation("Demo Loaded", welcomeMsg, w)
+		}, w)
+
+		// Set suggested filename
+		saveDialog.SetFileName("demo.db")
+
+		// Set filter to show .db files
+		saveDialog.SetFilter(storage.NewExtensionFileFilter([]string{".db"}))
+
+		saveDialog.Show()
+	}, w)
+}
+
 func showExportOptionsDialog(w fyne.Window, cfg *config.Config, dbPath string, getStore func() *store.Store, currentPersonID *int64) {
 	// Get current person's name for display
 	var currentPersonName string
@@ -2857,78 +3132,451 @@ func showExportOptionsDialog(w fyne.Window, cfg *config.Config, dbPath string, g
 }
 
 // showBackupDialog creates a timestamped zip backup of the current database
-func showBackupDialog(w fyne.Window, dbPath string) {
+func showBackupDialog(w fyne.Window, dbPath string, getStore func() *store.Store) {
+	s := getStore()
+
+	// Calculate database-stored media size
+	dbStoredCount, totalDBMediaSize := calculateDatabaseMediaSize(s)
+
+	// Calculate external media count and size
+	externalCount, totalExternalSize, externalPaths := calculateExternalMediaSize(s)
+
+	// Format sizes for display
+	dbMediaSizeStr := formatFileSize(totalDBMediaSize)
+	externalMediaSizeStr := formatFileSize(totalExternalSize)
+
 	// Generate backup filename with timestamp
 	baseName := strings.TrimSuffix(filepath.Base(dbPath), filepath.Ext(dbPath))
 	timestamp := time.Now().Format("01-02-2006") // MM-DD-YYYY
 	defaultFileName := fmt.Sprintf("%s-%s.zip", baseName, timestamp)
 
-	fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
-		if err != nil || uc == nil {
+	// Create checkboxes for backup options
+	includeDBMedia := false
+	includeExternalMedia := false
+
+	// Database-stored media checkbox
+	dbMediaCheck := widget.NewCheck(
+		fmt.Sprintf("Extract Database-Stored Media (separate ZIP, %d files, ~%s)", dbStoredCount, dbMediaSizeStr),
+		func(checked bool) {
+			includeDBMedia = checked
+		})
+
+	// External media checkbox
+	externalMediaCheck := widget.NewCheck(
+		fmt.Sprintf("Include External Media Files (separate ZIP, %d files, ~%s)", externalCount, externalMediaSizeStr),
+		func(checked bool) {
+			includeExternalMedia = checked
+		})
+
+	// Warning labels
+	warningLabel := widget.NewLabel("")
+	warningLabel.Wrapping = fyne.TextWrapWord
+
+	if totalDBMediaSize > 100*1024*1024 { // > 100MB
+		warningLabel.SetText("⚠️  Database media is large. Extraction may take time.")
+		warningLabel.Importance = widget.WarningImportance
+	}
+
+	externalWarningLabel := widget.NewLabel("")
+	externalWarningLabel.Wrapping = fyne.TextWrapWord
+
+	if totalExternalSize > 500*1024*1024 { // > 500MB
+		externalWarningLabel.SetText("⚠️  External media is very large. Backup will take significant time.")
+		externalWarningLabel.Importance = widget.WarningImportance
+	} else if externalCount > 0 {
+		externalWarningLabel.SetText("External files will be copied from their current locations. Missing files will be skipped with warnings.")
+	}
+
+	infoLabel := widget.NewLabel("Database backup includes all data (including stored media BLOBs).\nOptional: Extract media to separate ZIPs for easier access.")
+	infoLabel.Wrapping = fyne.TextWrapWord
+
+	content := container.NewVBox(
+		infoLabel,
+		widget.NewSeparator(),
+		dbMediaCheck,
+		warningLabel,
+		widget.NewSeparator(),
+		externalMediaCheck,
+		externalWarningLabel,
+	)
+
+	dialog.ShowCustomConfirm("Backup Database", "Backup", "Cancel", content, func(ok bool) {
+		if !ok {
 			return
 		}
-		backupPath := uc.URI().Path()
-		uc.Close()
 
-		// Create zip file
-		zipFile, err := os.Create(backupPath)
-		if err != nil {
-			dialog.ShowError(fmt.Errorf("Failed to create backup file: %w", err), w)
-			return
+		fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+			if err != nil || uc == nil {
+				return
+			}
+			backupPath := uc.URI().Path()
+			uc.Close()
+
+			// Backup database
+			if err := backupDatabase(dbPath, backupPath); err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to backup database: %w", err), w)
+				return
+			}
+
+			resultMsg := fmt.Sprintf("✅ Database backed up to:\n%s", backupPath)
+
+			// Backup database-stored media if requested
+			if includeDBMedia && dbStoredCount > 0 {
+				dbMediaBackupPath := strings.TrimSuffix(backupPath, filepath.Ext(backupPath)) + "-media-database.zip"
+				if err := backupDatabaseMedia(s, dbMediaBackupPath); err != nil {
+					dialog.ShowError(fmt.Errorf("Database backup succeeded, but media extraction failed: %w", err), w)
+					return
+				}
+				resultMsg += fmt.Sprintf("\n\n✅ Database media extracted to:\n%s", dbMediaBackupPath)
+			}
+
+			// Backup external media if requested
+			if includeExternalMedia && externalCount > 0 {
+				externalMediaBackupPath := strings.TrimSuffix(backupPath, filepath.Ext(backupPath)) + "-media-external.zip"
+				skipped, copyErr := backupExternalMedia(s, externalMediaBackupPath, externalPaths)
+				if copyErr != nil {
+					dialog.ShowError(fmt.Errorf("Database backup succeeded, but external media backup failed: %w", copyErr), w)
+					return
+				}
+				if skipped > 0 {
+					resultMsg += fmt.Sprintf("\n\n✅ External media backed up to:\n%s\n⚠️  %d files were missing/skipped", externalMediaBackupPath, skipped)
+				} else {
+					resultMsg += fmt.Sprintf("\n\n✅ External media backed up to:\n%s", externalMediaBackupPath)
+				}
+			}
+
+			dialog.ShowInformation("Backup Complete", resultMsg, w)
+		}, w)
+
+		fd.SetFileName(defaultFileName)
+		fd.Show()
+	}, w)
+}
+
+// backupDatabase creates a zip backup of the database file
+func backupDatabase(dbPath, backupPath string) error {
+	// Create zip file
+	zipFile, err := os.Create(backupPath)
+	if err != nil {
+		return fmt.Errorf("failed to create backup file: %w", err)
+	}
+	defer zipFile.Close()
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	// Open the database file
+	dbFile, err := os.Open(dbPath)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer dbFile.Close()
+
+	// Get file info
+	dbFileInfo, err := dbFile.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to get database info: %w", err)
+	}
+
+	// Create zip entry header
+	header, err := zip.FileInfoHeader(dbFileInfo)
+	if err != nil {
+		return fmt.Errorf("failed to create zip header: %w", err)
+	}
+	header.Name = filepath.Base(dbPath)
+	header.Method = zip.Deflate
+
+	// Create writer for this file in the zip
+	writer, err := zipWriter.CreateHeader(header)
+	if err != nil {
+		return fmt.Errorf("failed to create zip entry: %w", err)
+	}
+
+	// Copy database to zip
+	_, err = io.Copy(writer, dbFile)
+	if err != nil {
+		return fmt.Errorf("failed to write database to backup: %w", err)
+	}
+
+	return nil
+}
+
+// backupDatabaseMedia creates a separate zip backup of all media files stored in the database as BLOBs
+func backupDatabaseMedia(s *store.Store, mediaBackupPath string) error {
+	// Query to get database-stored media with full_image BLOB data
+	rows, err := s.DB.Query(`
+		SELECT id, media_type, mime_type, full_image
+		FROM media
+		WHERE is_external = 0 AND full_image IS NOT NULL AND LENGTH(full_image) > 0
+		ORDER BY id
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to query media: %w", err)
+	}
+	defer rows.Close()
+
+	// Create media zip file
+	zipFile, err := os.Create(mediaBackupPath)
+	if err != nil {
+		return fmt.Errorf("failed to create media backup file: %w", err)
+	}
+	defer zipFile.Close()
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	// Process each media file
+	for rows.Next() {
+		var mediaID int64
+		var mediaType, mimeType string
+		var fullImage []byte
+
+		if err := rows.Scan(&mediaID, &mediaType, &mimeType, &fullImage); err != nil {
+			return fmt.Errorf("failed to scan media row: %w", err)
 		}
-		defer zipFile.Close()
 
-		zipWriter := zip.NewWriter(zipFile)
-		defer zipWriter.Close()
-
-		// Open the database file
-		dbFile, err := os.Open(dbPath)
-		if err != nil {
-			dialog.ShowError(fmt.Errorf("Failed to open database: %w", err), w)
-			return
+		// Create a safe filename - use MimeType to determine extension
+		ext := ""
+		switch {
+		case strings.Contains(mimeType, "jpeg") || strings.Contains(mimeType, "jpg"):
+			ext = ".jpg"
+		case strings.Contains(mimeType, "png"):
+			ext = ".png"
+		case strings.Contains(mimeType, "gif"):
+			ext = ".gif"
+		case strings.Contains(mimeType, "pdf"):
+			ext = ".pdf"
+		case strings.Contains(mimeType, "video"):
+			ext = ".mp4"
+		case strings.Contains(mimeType, "word"):
+			ext = ".docx"
+		case strings.Contains(mimeType, "excel") || strings.Contains(mimeType, "spreadsheet"):
+			ext = ".xlsx"
+		case strings.Contains(mimeType, "powerpoint") || strings.Contains(mimeType, "presentation"):
+			ext = ".pptx"
+		default:
+			// Fallback to media type
+			switch mediaType {
+			case "image":
+				ext = ".jpg"
+			case "pdf":
+				ext = ".pdf"
+			case "video":
+				ext = ".mp4"
+			case "document":
+				ext = ".doc"
+			default:
+				ext = ".dat"
+			}
 		}
-		defer dbFile.Close()
+		safeFileName := fmt.Sprintf("media_%d%s", mediaID, ext)
 
-		// Get file info
-		dbFileInfo, err := dbFile.Stat()
-		if err != nil {
-			dialog.ShowError(fmt.Errorf("Failed to get database info: %w", err), w)
-			return
+		// Create zip entry
+		header := &zip.FileHeader{
+			Name:   safeFileName,
+			Method: zip.Deflate,
 		}
 
-		// Create zip entry header
-		header, err := zip.FileInfoHeader(dbFileInfo)
-		if err != nil {
-			dialog.ShowError(fmt.Errorf("Failed to create zip header: %w", err), w)
-			return
-		}
-		header.Name = filepath.Base(dbPath)
-		header.Method = zip.Deflate
-
-		// Create writer for this file in the zip
 		writer, err := zipWriter.CreateHeader(header)
 		if err != nil {
-			dialog.ShowError(fmt.Errorf("Failed to create zip entry: %w", err), w)
-			return
+			return fmt.Errorf("failed to create zip entry for %s: %w", safeFileName, err)
 		}
 
-		// Copy database to zip
-		_, err = io.Copy(writer, dbFile)
+		// Write media data to zip
+		_, err = writer.Write(fullImage)
 		if err != nil {
-			dialog.ShowError(fmt.Errorf("Failed to write database to backup: %w", err), w)
-			return
+			return fmt.Errorf("failed to write media %s to backup: %w", safeFileName, err)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating media rows: %w", err)
+	}
+
+	return nil
+}
+
+// backupExternalMedia creates a separate zip backup of all external media files
+// Returns the number of files skipped (missing/inaccessible) and any fatal error
+func backupExternalMedia(s *store.Store, mediaBackupPath string, externalPaths []string) (skippedCount int, err error) {
+	// Create media zip file
+	zipFile, err := os.Create(mediaBackupPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create external media backup file: %w", err)
+	}
+	defer zipFile.Close()
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	skippedCount = 0
+
+	// Query external media with their IDs and paths
+	rows, queryErr := s.DB.Query(`
+		SELECT id, external_path, media_type, mime_type
+		FROM media
+		WHERE is_external = 1 AND external_path IS NOT NULL AND external_path != ''
+		ORDER BY id
+	`)
+	if queryErr != nil {
+		return 0, fmt.Errorf("failed to query external media: %w", queryErr)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var mediaID int64
+		var externalPath, mediaType, mimeType string
+
+		if err := rows.Scan(&mediaID, &externalPath, &mediaType, &mimeType); err != nil {
+			return skippedCount, fmt.Errorf("failed to scan external media row: %w", err)
 		}
 
-		dialog.ShowInformation("Backup Complete",
-			fmt.Sprintf("Database backed up successfully to:\n%s", backupPath), w)
-	}, w)
+		// Check if file exists
+		fileInfo, statErr := os.Stat(externalPath)
+		if statErr != nil {
+			// File doesn't exist or is inaccessible - skip with warning
+			skippedCount++
+			continue
+		}
 
-	fd.SetFileName(defaultFileName)
-	fd.Show()
+		// Read the external file
+		fileData, readErr := os.ReadFile(externalPath)
+		if readErr != nil {
+			// Can't read file - skip with warning
+			skippedCount++
+			continue
+		}
+
+		// Create a safe filename preserving original extension
+		originalFileName := filepath.Base(externalPath)
+		ext := filepath.Ext(originalFileName)
+		if ext == "" {
+			// Determine extension from mime type if not in filename
+			switch {
+			case strings.Contains(mimeType, "jpeg") || strings.Contains(mimeType, "jpg"):
+				ext = ".jpg"
+			case strings.Contains(mimeType, "png"):
+				ext = ".png"
+			case strings.Contains(mimeType, "gif"):
+				ext = ".gif"
+			case strings.Contains(mimeType, "pdf"):
+				ext = ".pdf"
+			case strings.Contains(mimeType, "video"):
+				ext = ".mp4"
+			case strings.Contains(mimeType, "word"):
+				ext = ".docx"
+			case strings.Contains(mimeType, "excel") || strings.Contains(mimeType, "spreadsheet"):
+				ext = ".xlsx"
+			case strings.Contains(mimeType, "powerpoint") || strings.Contains(mimeType, "presentation"):
+				ext = ".pptx"
+			default:
+				ext = ".dat"
+			}
+		}
+
+		safeFileName := fmt.Sprintf("external_%d_%s%s", mediaID, strings.TrimSuffix(originalFileName, ext), ext)
+
+		// Create zip entry with file modification time
+		header := &zip.FileHeader{
+			Name:     safeFileName,
+			Method:   zip.Deflate,
+			Modified: fileInfo.ModTime(),
+		}
+
+		writer, createErr := zipWriter.CreateHeader(header)
+		if createErr != nil {
+			return skippedCount, fmt.Errorf("failed to create zip entry for %s: %w", safeFileName, createErr)
+		}
+
+		// Write file data to zip
+		_, writeErr := writer.Write(fileData)
+		if writeErr != nil {
+			return skippedCount, fmt.Errorf("failed to write external media %s to backup: %w", safeFileName, writeErr)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return skippedCount, fmt.Errorf("error iterating external media rows: %w", err)
+	}
+
+	return skippedCount, nil
+}
+
+// calculateDatabaseMediaSize calculates the total size and count of database-stored media
+// without loading all the BLOB data into memory
+func calculateDatabaseMediaSize(s *store.Store) (count int, totalSize int64) {
+	// Query to count and sum the size of database-stored media (not external)
+	// We use LENGTH(full_image) to get the size of the BLOB without loading it
+	row := s.DB.QueryRow(`
+		SELECT COUNT(*), COALESCE(SUM(LENGTH(full_image)), 0)
+		FROM media
+		WHERE is_external = 0 AND full_image IS NOT NULL AND LENGTH(full_image) > 0
+	`)
+
+	err := row.Scan(&count, &totalSize)
+	if err != nil {
+		// If error, return 0,0 - backup will still work, just won't show accurate size
+		return 0, 0
+	}
+
+	return count, totalSize
+}
+
+// calculateExternalMediaSize calculates the total size and count of external media files
+func calculateExternalMediaSize(s *store.Store) (count int, totalSize int64, paths []string) {
+	// Query external media paths
+	rows, err := s.DB.Query(`
+		SELECT external_path
+		FROM media
+		WHERE is_external = 1 AND external_path IS NOT NULL AND external_path != ''
+		ORDER BY id
+	`)
+	if err != nil {
+		return 0, 0, nil
+	}
+	defer rows.Close()
+
+	paths = []string{}
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			continue
+		}
+
+		// Check if file exists and get size
+		if info, err := os.Stat(path); err == nil {
+			totalSize += info.Size()
+			count++
+			paths = append(paths, path)
+		}
+		// If file doesn't exist, we don't count it (will be skipped with warning during backup)
+	}
+
+	return count, totalSize, paths
+}
+
+// formatFileSize formats bytes into human-readable sizes
+func formatFileSize(bytes int64) string {
+	const (
+		KB = 1024
+		MB = 1024 * KB
+		GB = 1024 * MB
+	)
+
+	switch {
+	case bytes >= GB:
+		return fmt.Sprintf("%.2f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%.2f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%.2f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d bytes", bytes)
+	}
 }
 
 // showRestoreDialog restores a database from a zip backup
-func showRestoreDialog(w fyne.Window, currentDBPath string, reloadFunc func(string)) {
+func showRestoreDialog(w fyne.Window, currentDBPath string, reloadFunc func(string, ...bool)) {
 	fd := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
 		if err != nil || r == nil {
 			return

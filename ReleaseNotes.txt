@@ -1,5 +1,46 @@
 KrankyBear Genealogy - Release Notes
 
+1.1.1 - January 21, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Quality-of-life improvements, enhanced backup options, and better demo experience!
+
+💾 Enhanced Backup & Import:
+  • Improved backup mechanism with comprehensive media handling:
+    - Option to extract database media to separate ZIP file
+    - Option to backup all externally-linked media to another ZIP
+    - Three-layer backup strategy for maximum data security
+  • Flexible import workflow:
+    - Import to new database (creates fresh .db file)
+    - Merge import into current database (preserves existing data)
+    - Clearer dialogs guide you through the process
+
+📂 Recent Files Menu:
+  • Quick access to 10 most recently used databases
+  • Faster workflow when managing multiple family trees
+  • Accessible from File menu
+
+🎬 Improved Demo Database:
+  • Built-in demo generation (Help → Load Demo Database)
+  • Sample Harrison family tree (40 people, 5 generations)
+  • Michael Harrison set as focus person (showcases multiple marriages)
+  • Demo corrected for date consistency
+  • Full demo with photos/documents available for download separately
+    (keeps application download size small)
+
+📷 Media Discovery Features:
+  • Visual indicators: 📷 emoji appears next to people who have media
+  • Indicators shown in all views (Family, Pedigree, Individual)
+  • Dynamic "View Media" button in toolbar (only when person has media)
+  • Makes it easy to see who has photos/documents at a glance
+
+🎨 UI Improvements:
+  • Increased default window size (1400x850) for better usability
+  • Split pane defaults to 30% (was 25%) - more room for names
+  • Better layout prevents toolbar crowding
+  • Media button moved to toolbar for consistent access
+
+
+
 1.1.0 - January 20, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━
 Major update with advanced reporting, data validation, and workflow improvements!

@@ -49,6 +49,10 @@ func showAbout(a fyne.App) {
 	author.Alignment = fyne.TextAlignCenter
 
 	// Links - update URLs for your project
+	releaseNotesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/ReleaseNotes.txt")
+	releaseNotesLink := widget.NewHyperlink("View Release Notes", releaseNotesURL)
+	releaseNotesLink.Alignment = fyne.TextAlignCenter
+
 	licenseURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/main/LICENSE")
 	licenseLink := widget.NewHyperlink("License Information", licenseURL)
 	licenseLink.Alignment = fyne.TextAlignCenter
@@ -68,6 +72,7 @@ func showAbout(a fyne.App) {
 		copyright,
 		author,
 		widget.NewSeparator(),
+		container.NewCenter(releaseNotesLink),
 		container.NewCenter(licenseLink),
 		container.NewCenter(githubLink),
 	)
