@@ -246,7 +246,7 @@ func (pv *PedigreeView) buildPedigreeChart() fyne.CanvasObject {
 	chart := container.NewHBox(gen1Col, gen2Col, gen3Col, gen4Col)
 	
 	title := widget.NewLabelWithStyle(
-		fmt.Sprintf("Pedigree Chart for %s %s", person.GivenName, person.Surname),
+		fmt.Sprintf("Pedigree Chart for %s", formatPersonName(*person)),
 		fyne.TextAlignCenter,
 		fyne.TextStyle{Bold: true},
 	)
@@ -256,13 +256,33 @@ func (pv *PedigreeView) buildPedigreeChart() fyne.CanvasObject {
 
 // makePersonBox creates a clickable box for a person.
 func (pv *PedigreeView) makePersonBox(p *store.Person, isCurrent bool) fyne.CanvasObject {
-	nameText := fmt.Sprintf("%s %s", p.GivenName, p.Surname)
+	nameText := formatPersonName(*p)
 	
 	// Check if person has media and add indicator
 	if media, err := pv.store.GetMediaForPerson(p.ID); err == nil && len(media) > 0 {
 		nameText = "📷 " + nameText
 	}
 	
+	// Add bookmark indicator if bookmarked
+	if p.Bookmarked {
+		nameText = "★ " + nameText
+	}
+	
+	// Add todo indicator if person has pending todos
+	if count, _ := pv.store.CountPendingTodosForPerson(p.ID); count > 0 {
+		nameText = "📝 " + nameText
+	}
+	
+	// Add source indicator if person has citations
+	if count, _ := pv.store.CountCitationsForPerson(p.ID); count > 0 {
+		nameText = "📚 " + nameText
+	}
+
+	// Add research log indicator if person has research logs
+	if count, _ := pv.store.CountResearchLogsForPerson(p.ID); count > 0 {
+		nameText = "🔍 " + nameText
+	}
+
 	var dateText string
 	if p.BirthDate != "" {
 		dateText = "b. " + p.BirthDate

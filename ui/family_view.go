@@ -20,13 +20,13 @@ import (
 // FamilyView displays a person with their parents, spouse, and children in a PAF-style layout.
 type FamilyView struct {
 	widget.BaseWidget
-	store          *store.Store
-	currentPerson  *store.Person
-	currentSpouse  *store.Person      // Currently displayed spouse (for multi-marriage support)
+	store           *store.Store
+	currentPerson   *store.Person
+	currentSpouse   *store.Person     // Currently displayed spouse (for multi-marriage support)
 	currentMarriage *store.SpouseInfo // Currently displayed marriage details
-	window         fyne.Window
-	onNavigate     func(personID int64)
-	content        *fyne.Container
+	window          fyne.Window
+	onNavigate      func(personID int64)
+	content         *fyne.Container
 }
 
 // NewFamilyView creates a new family view widget.
@@ -73,20 +73,47 @@ func (fv *FamilyView) refresh() {
 
 	// Get all spouses
 	allSpouses, _ := fv.store.GetSpouses(p.ID)
-	
-	// If we don't have a current spouse selected, select the first one (or most recent)
+
+	// If we don't have a current spouse selected, select the most relevant one
 	if fv.currentSpouse == nil && len(allSpouses) > 0 {
-		// Default to first marriage (chronologically by marriage date)
-		sort.Slice(allSpouses, func(i, j int) bool {
-			date1 := parseDateForSort(allSpouses[i].MarriageDate)
-			date2 := parseDateForSort(allSpouses[j].MarriageDate)
+		// Separate current marriages (no end date/reason) from ended marriages
+		var currentMarriages []store.SpouseInfo
+		var endedMarriages []store.SpouseInfo
+		
+		for _, spouse := range allSpouses {
+			if spouse.DivorceDate == "" && spouse.SeparationDate == "" && spouse.EndReason == "" {
+				currentMarriages = append(currentMarriages, spouse)
+			} else {
+				endedMarriages = append(endedMarriages, spouse)
+			}
+		}
+		
+		// Default to most recent current marriage, or most recent ended marriage
+		var selectedSpouses []store.SpouseInfo
+		if len(currentMarriages) > 0 {
+			selectedSpouses = currentMarriages
+		} else {
+			selectedSpouses = endedMarriages
+		}
+		
+		// Sort by marriage date (most recent first)
+		sort.Slice(selectedSpouses, func(i, j int) bool {
+			date1 := parseDateForSort(selectedSpouses[i].MarriageDate)
+			date2 := parseDateForSort(selectedSpouses[j].MarriageDate)
 			if !date1.IsZero() && !date2.IsZero() {
-				return date1.Before(date2)
+				return date1.After(date2) // Most recent first
+			}
+			if !date1.IsZero() && date2.IsZero() {
+				return true // Dated marriage comes before undated
+			}
+			if date1.IsZero() && !date2.IsZero() {
+				return false // Undated marriage comes after dated
 			}
 			return false
 		})
-		fv.currentMarriage = &allSpouses[0]
-		fv.currentSpouse = &allSpouses[0].Spouse
+		
+		fv.currentMarriage = &selectedSpouses[0]
+		fv.currentSpouse = &selectedSpouses[0].Spouse
 	}
 
 	// --- PARENTS SECTION ---
@@ -108,7 +135,7 @@ func (fv *FamilyView) refresh() {
 			}
 			return false
 		})
-		
+
 		for _, parent := range parents {
 			parentsBox.Add(fv.makePersonCard(parent, true))
 		}
@@ -122,28 +149,48 @@ func (fv *FamilyView) refresh() {
 
 	// --- SPOUSE SECTION (SINGLE SPOUSE) ---
 	spouseBox := container.NewVBox()
-	
-	// Add buttons: "Other Marriages" and "Edit Marriage"
-	spouseHeaderBox := container.NewHBox(
+
+	// Row 1: Spouse label and marriage-related buttons
+	spouseHeaderRow1 := container.NewHBox(
 		widget.NewLabelWithStyle("Spouse", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 	)
-	
+
 	if len(allSpouses) > 1 {
 		otherMarriagesBtn := widget.NewButton("Other Marriages...", func() {
 			fv.showOtherMarriagesDialog(allSpouses)
 		})
-		spouseHeaderBox.Add(otherMarriagesBtn)
+		spouseHeaderRow1.Add(otherMarriagesBtn)
 	}
-	
+
 	if fv.currentSpouse != nil && fv.currentMarriage != nil {
 		editMarriageBtn := widget.NewButton("Edit Marriage...", func() {
 			fv.showEditMarriageDialog(fv.currentMarriage, fv.currentSpouse.ID)
 		})
-		spouseHeaderBox.Add(editMarriageBtn)
+		spouseHeaderRow1.Add(editMarriageBtn)
 	}
-	
-	spouseBox.Add(spouseHeaderBox)
-	
+
+	// Row 2: Person research and management buttons
+	spouseHeaderRow2 := container.NewHBox(
+		// Add Manage To-Do button (always visible for current person)
+		widget.NewButton("📝 Manage To-Do", func() {
+			personName := formatPersonName(*p)
+			showTodoManager(fv.window, fv.store, p.ID, personName)
+		}),
+		// Add Manage Sources button (always visible for current person)
+		widget.NewButton("📚 Manage Sources", func() {
+			personName := formatPersonName(*p)
+			showCitationManager(fv.window, fv.store, p.ID, personName)
+		}),
+		// Add Research Log button (always visible for current person)
+		widget.NewButton("🔍 Research Log", func() {
+			personName := formatPersonName(*p)
+			showResearchLogForPerson(fv.window, fv.store, p.ID, personName)
+		}),
+	)
+
+	spouseBox.Add(spouseHeaderRow1)
+	spouseBox.Add(spouseHeaderRow2)
+
 	if fv.currentSpouse == nil {
 		spouseBox.Add(widget.NewLabel("No spouse recorded"))
 	} else {
@@ -163,7 +210,7 @@ func (fv *FamilyView) refresh() {
 		// No spouse, show all children
 		children, _ = fv.store.GetRelatedPeople(p.ID, "child")
 	}
-	
+
 	if len(children) == 0 {
 		childrenBox.Add(widget.NewLabel("No children recorded"))
 	} else {
@@ -171,7 +218,7 @@ func (fv *FamilyView) refresh() {
 		sort.Slice(children, func(i, j int) bool {
 			date1 := parseDateForSort(children[i].BirthDate)
 			date2 := parseDateForSort(children[j].BirthDate)
-			
+
 			if !date1.IsZero() && !date2.IsZero() {
 				return date1.Before(date2)
 			}
@@ -183,7 +230,7 @@ func (fv *FamilyView) refresh() {
 			}
 			return false
 		})
-		
+
 		for i, child := range children {
 			childCard := container.NewHBox(
 				widget.NewLabel(fmt.Sprintf("%d.", i+1)),
@@ -194,8 +241,8 @@ func (fv *FamilyView) refresh() {
 	}
 
 	// PAF-style Layout: Parents on right, Person and Spouse on left, Children below
-	topRow := container.New(layout.NewGridLayout(2), 
-		container.NewVBox(personBox, widget.NewSeparator(), spouseBox), 
+	topRow := container.New(layout.NewGridLayout(2),
+		container.NewVBox(personBox, widget.NewSeparator(), spouseBox),
 		parentsBox)
 
 	fv.content.Add(topRow)
@@ -207,14 +254,34 @@ func (fv *FamilyView) refresh() {
 
 // makePersonCard creates a clickable card for a person with basic info.
 func (fv *FamilyView) makePersonCard(p store.Person, clickable bool) fyne.CanvasObject {
-	nameText := fmt.Sprintf("%s %s", p.GivenName, p.Surname)
+	nameText := formatPersonName(p)
 	if p.Gender != "" {
 		nameText = fmt.Sprintf("%s (%s)", nameText, p.Gender)
 	}
-	
+
 	// Check if person has media and add indicator
 	if media, err := fv.store.GetMediaForPerson(p.ID); err == nil && len(media) > 0 {
 		nameText = "📷 " + nameText
+	}
+
+	// Add bookmark indicator if bookmarked
+	if p.Bookmarked {
+		nameText = "★ " + nameText
+	}
+
+	// Add todo indicator if person has pending todos
+	if count, err := fv.store.CountPendingTodosForPerson(p.ID); err == nil && count > 0 {
+		nameText = "📝 " + nameText
+	}
+
+	// Add source indicator if person has citations
+	if count, err := fv.store.CountCitationsForPerson(p.ID); err == nil && count > 0 {
+		nameText = "📚 " + nameText
+	}
+
+	// Add research log indicator if person has research logs
+	if count, err := fv.store.CountResearchLogsForPerson(p.ID); err == nil && count > 0 {
+		nameText = "🔍 " + nameText
 	}
 
 	dateInfo := ""
@@ -263,16 +330,36 @@ func (fv *FamilyView) makePersonCard(p store.Person, clickable bool) fyne.Canvas
 
 // makeCurrentPersonCard creates the card for the currently displayed person (with edit button).
 func (fv *FamilyView) makeCurrentPersonCard(p store.Person) fyne.CanvasObject {
-	nameText := fmt.Sprintf("%s %s", p.GivenName, p.Surname)
+	nameText := formatPersonName(p)
 	if p.Gender != "" {
 		nameText += fmt.Sprintf(" (%s)", p.Gender)
 	}
-	
+
 	// Check if person has media
 	personMedia, _ := fv.store.GetMediaForPerson(p.ID)
 	hasMedia := len(personMedia) > 0
 	if hasMedia {
 		nameText = "📷 " + nameText
+	}
+
+	// Add bookmark indicator if bookmarked
+	if p.Bookmarked {
+		nameText = "★ " + nameText
+	}
+
+	// Add todo indicator if person has pending todos
+	if count, _ := fv.store.CountPendingTodosForPerson(p.ID); count > 0 {
+		nameText = "📝 " + nameText
+	}
+
+	// Add source indicator if person has citations
+	if count, _ := fv.store.CountCitationsForPerson(p.ID); count > 0 {
+		nameText = "📚 " + nameText
+	}
+
+	// Add research log indicator if person has research logs
+	if count, _ := fv.store.CountResearchLogsForPerson(p.ID); count > 0 {
+		nameText = "🔍 " + nameText
 	}
 
 	nameLabel := widget.NewLabel(nameText)
@@ -326,7 +413,7 @@ func (fv *FamilyView) makeCurrentPersonCard(p store.Person) fyne.CanvasObject {
 	addChildBtn := widget.NewButton("Add Child", func() {
 		fv.addChildDialog()
 	})
-	
+
 	deleteBtn := widget.NewButton("Delete Person", func() {
 		fv.deletePersonDialog(&p)
 	})
@@ -339,11 +426,31 @@ func (fv *FamilyView) makeCurrentPersonCard(p store.Person) fyne.CanvasObject {
 // makeSpouseCard creates a card for a spouse with marriage info.
 func (fv *FamilyView) makeSpouseCard(si store.SpouseInfo) fyne.CanvasObject {
 	p := si.Person
-	nameText := fmt.Sprintf("%s %s", p.GivenName, p.Surname)
-	
+	nameText := formatPersonName(p)
+
 	// Check if spouse has media and add indicator
 	if media, err := fv.store.GetMediaForPerson(p.ID); err == nil && len(media) > 0 {
 		nameText = "📷 " + nameText
+	}
+
+	// Add bookmark indicator if bookmarked
+	if p.Bookmarked {
+		nameText = "★ " + nameText
+	}
+
+	// Add todo indicator if person has pending todos
+	if count, _ := fv.store.CountPendingTodosForPerson(p.ID); count > 0 {
+		nameText = "📝 " + nameText
+	}
+
+	// Add source indicator if person has citations
+	if count, _ := fv.store.CountCitationsForPerson(p.ID); count > 0 {
+		nameText = "📚 " + nameText
+	}
+
+	// Add research log indicator if person has research logs
+	if count, _ := fv.store.CountResearchLogsForPerson(p.ID); count > 0 {
+		nameText = "🔍 " + nameText
 	}
 
 	// Build marriage info with all dates
@@ -355,7 +462,7 @@ func (fv *FamilyView) makeSpouseCard(si store.SpouseInfo) fyne.CanvasObject {
 		}
 		marriageInfo = append(marriageInfo, marr)
 	}
-	
+
 	// Show divorce/separation if applicable
 	if si.DivorceDate != "" {
 		div := "Divorce: " + si.DivorceDate
@@ -408,7 +515,7 @@ func (fv *FamilyView) makeSpouseCardWithMarriage(spouse store.Person, marriage *
 		// No marriage info, just show basic person info
 		return fv.makePersonCard(spouse, true)
 	}
-	
+
 	// Use existing makeSpouseCard logic
 	si := store.SpouseInfo{
 		Spouse:         spouse,
@@ -427,7 +534,7 @@ func (fv *FamilyView) showOtherMarriagesDialog(allSpouses []store.SpouseInfo) {
 	// Create a list widget to show all marriages
 	var items []string
 	for _, si := range allSpouses {
-		item := fmt.Sprintf("%s %s", si.Spouse.GivenName, si.Spouse.Surname)
+		item := formatPersonName(si.Spouse)
 		if si.MarriageDate != "" {
 			item += fmt.Sprintf(" - Marriage: %s", si.MarriageDate)
 		}
@@ -438,7 +545,7 @@ func (fv *FamilyView) showOtherMarriagesDialog(allSpouses []store.SpouseInfo) {
 		}
 		items = append(items, item)
 	}
-	
+
 	list := widget.NewList(
 		func() int {
 			return len(items)
@@ -450,12 +557,12 @@ func (fv *FamilyView) showOtherMarriagesDialog(allSpouses []store.SpouseInfo) {
 			item.(*widget.Label).SetText(items[id])
 		},
 	)
-	
+
 	var selectedID int = -1
 	list.OnSelected = func(id widget.ListItemID) {
 		selectedID = int(id)
 	}
-	
+
 	// Highlight current marriage
 	for i, si := range allSpouses {
 		if fv.currentSpouse != nil && si.Spouse.ID == fv.currentSpouse.ID {
@@ -463,16 +570,16 @@ func (fv *FamilyView) showOtherMarriagesDialog(allSpouses []store.SpouseInfo) {
 			break
 		}
 	}
-	
+
 	content := container.NewBorder(
 		widget.NewLabel("Select which marriage to view:"),
 		nil, nil, nil,
 		container.NewScroll(list),
 	)
-	
+
 	d := dialog.NewCustom("Other Marriages", "Close", content, fv.window)
 	d.Resize(fyne.NewSize(500, 300))
-	
+
 	list.OnSelected = func(id widget.ListItemID) {
 		selectedID = int(id)
 		// Switch to selected marriage
@@ -481,7 +588,7 @@ func (fv *FamilyView) showOtherMarriagesDialog(allSpouses []store.SpouseInfo) {
 		fv.refresh()
 		d.Hide()
 	}
-	
+
 	d.Show()
 }
 
@@ -530,26 +637,26 @@ func (fv *FamilyView) addRelationshipDialog(relType string) {
 			dialog.ShowError(err, fv.window)
 			return
 		}
-		dialog.ShowInformation("Success", 
+		dialog.ShowInformation("Success",
 			fmt.Sprintf("%s created and linked successfully!", strings.Title(relType)), fv.window)
 		fv.refresh()
 	})
 }
 
 // showPersonSelectionDialog shows a searchable dialog to select or create a person.
-func showPersonSelectionDialog(w fyne.Window, s *store.Store, availablePeople []store.Person, 
+func showPersonSelectionDialog(w fyne.Window, s *store.Store, availablePeople []store.Person,
 	title string, onSelect func(int64), onCreateAndLink func(*store.Person)) {
-	
+
 	// Filtered list
 	filteredPeople := make([]store.Person, len(availablePeople))
 	copy(filteredPeople, availablePeople)
-	
+
 	var selectedIndex int = -1
-	
+
 	// Search entry
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Search by name...")
-	
+
 	// Person list
 	personList := widget.NewList(
 		func() int { return len(filteredPeople) },
@@ -558,20 +665,20 @@ func showPersonSelectionDialog(w fyne.Window, s *store.Store, availablePeople []
 			if i >= len(filteredPeople) {
 				return
 			}
-			p := filteredPeople[i]
-			label := o.(*widget.Label)
-			text := fmt.Sprintf("%s %s", p.GivenName, p.Surname)
-			if p.BirthDate != "" {
-				text += fmt.Sprintf(" (b. %s)", p.BirthDate)
+		p := filteredPeople[i]
+		label := o.(*widget.Label)
+		text := formatPersonName(p)
+		if p.BirthDate != "" {
+			text += fmt.Sprintf(" (b. %s)", p.BirthDate)
 			}
 			label.SetText(text)
 		},
 	)
-	
+
 	personList.OnSelected = func(i int) {
 		selectedIndex = i
 	}
-	
+
 	// Update filter function
 	updateFilter := func(searchText string) {
 		filteredPeople = filteredPeople[:0]
@@ -587,12 +694,12 @@ func showPersonSelectionDialog(w fyne.Window, s *store.Store, availablePeople []
 		personList.UnselectAll()
 		personList.Refresh()
 	}
-	
+
 	searchEntry.OnChanged = updateFilter
-	
+
 	// Declare dialog reference (will be set below)
 	var d dialog.Dialog
-	
+
 	// Create new person button
 	createNewBtn := widget.NewButton("Create New Person", func() {
 		// Show person dialog, then call onCreateAndLink
@@ -618,11 +725,11 @@ func showPersonSelectionDialog(w fyne.Window, s *store.Store, availablePeople []
 			}
 		})
 	})
-	
+
 	// Layout
 	listContainer := container.NewBorder(searchEntry, createNewBtn, nil, nil, personList)
 	listContainer.Resize(fyne.NewSize(400, 400))
-	
+
 	d = dialog.NewCustomConfirm(title, "Link Selected", "Cancel", listContainer, func(ok bool) {
 		if !ok {
 			return
@@ -635,26 +742,26 @@ func showPersonSelectionDialog(w fyne.Window, s *store.Store, availablePeople []
 			dialog.ShowInformation("Selection Required", "Please select a person or create a new one", w)
 		}
 	}, w)
-	
+
 	d.Resize(fyne.NewSize(450, 500))
 	d.Show()
 }
 
 // showPersonSelectionDialogWithMarriage shows a searchable dialog with marriage fields.
 func showPersonSelectionDialogWithMarriage(w fyne.Window, s *store.Store, availablePeople []store.Person,
-	relationshipType *widget.Select, marriageDate, marriagePlace, divorceDate, separationDate *widget.Entry, 
+	relationshipType *widget.Select, marriageDate, marriagePlace, divorceDate, separationDate *widget.Entry,
 	endReason *widget.Select, onSelect func(int64), onCreateAndLink func(*store.Person)) {
-	
+
 	// Filtered list
 	filteredPeople := make([]store.Person, len(availablePeople))
 	copy(filteredPeople, availablePeople)
-	
+
 	var selectedIndex int = -1
-	
+
 	// Search entry
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Search by name...")
-	
+
 	// Person list
 	personList := widget.NewList(
 		func() int { return len(filteredPeople) },
@@ -663,20 +770,20 @@ func showPersonSelectionDialogWithMarriage(w fyne.Window, s *store.Store, availa
 			if i >= len(filteredPeople) {
 				return
 			}
-			p := filteredPeople[i]
-			label := o.(*widget.Label)
-			text := fmt.Sprintf("%s %s", p.GivenName, p.Surname)
-			if p.BirthDate != "" {
-				text += fmt.Sprintf(" (b. %s)", p.BirthDate)
+		p := filteredPeople[i]
+		label := o.(*widget.Label)
+		text := formatPersonName(p)
+		if p.BirthDate != "" {
+			text += fmt.Sprintf(" (b. %s)", p.BirthDate)
 			}
 			label.SetText(text)
 		},
 	)
-	
+
 	personList.OnSelected = func(i int) {
 		selectedIndex = i
 	}
-	
+
 	// Update filter function
 	updateFilter := func(searchText string) {
 		filteredPeople = filteredPeople[:0]
@@ -692,12 +799,12 @@ func showPersonSelectionDialogWithMarriage(w fyne.Window, s *store.Store, availa
 		personList.UnselectAll()
 		personList.Refresh()
 	}
-	
+
 	searchEntry.OnChanged = updateFilter
-	
+
 	// Declare dialog reference (will be set below)
 	var d dialog.Dialog
-	
+
 	// Create new person button
 	createNewBtn := widget.NewButton("Create New Person", func() {
 		showPersonDialog(w, s, nil, func() {
@@ -721,7 +828,7 @@ func showPersonSelectionDialogWithMarriage(w fyne.Window, s *store.Store, availa
 			}
 		})
 	})
-	
+
 	// Marriage/Relationship info section
 	marriageSection := container.NewVBox(
 		widget.NewSeparator(),
@@ -739,12 +846,12 @@ func showPersonSelectionDialogWithMarriage(w fyne.Window, s *store.Store, availa
 			widget.NewLabel("End Reason:"), endReason,
 		),
 	)
-	
+
 	// Layout
 	topSection := container.NewBorder(searchEntry, nil, nil, nil, personList)
 	mainContent := container.NewBorder(topSection, container.NewVBox(createNewBtn, marriageSection), nil, nil, nil)
 	mainContent.Resize(fyne.NewSize(400, 500))
-	
+
 	d = dialog.NewCustomConfirm("Add Spouse", "Link Selected", "Cancel", mainContent, func(ok bool) {
 		if !ok {
 			return
@@ -757,7 +864,7 @@ func showPersonSelectionDialogWithMarriage(w fyne.Window, s *store.Store, availa
 			dialog.ShowInformation("Selection Required", "Please select a person or create a new one", w)
 		}
 	}, w)
-	
+
 	d.Resize(fyne.NewSize(500, 700))
 	d.Show()
 }
@@ -790,7 +897,7 @@ func (fv *FamilyView) selectSpouseForChild(spouses []store.SpouseInfo) {
 	// Build options for each marriage
 	opts := []string{}
 	for i, si := range spouses {
-		label := fmt.Sprintf("%d. %s %s", i+1, si.Person.GivenName, si.Person.Surname)
+		label := fmt.Sprintf("%d. %s", i+1, formatPersonName(si.Person))
 		if si.MarriageDate != "" {
 			label += fmt.Sprintf(" (m. %s", si.MarriageDate)
 			if si.DivorceDate != "" {
@@ -893,7 +1000,7 @@ func (fv *FamilyView) addChildWithSpouse(spouses []store.SpouseInfo) {
 		}
 
 		// Link child to selected spouse(s)
-		parentNames := []string{fv.currentPerson.GivenName + " " + fv.currentPerson.Surname}
+		parentNames := []string{formatPersonName(*fv.currentPerson)}
 		for _, si := range spouses {
 			spouseRel := &store.Relationship{
 				SubjectID: si.Person.ID,
@@ -901,7 +1008,7 @@ func (fv *FamilyView) addChildWithSpouse(spouses []store.SpouseInfo) {
 				Type:      "child",
 			}
 			_ = fv.store.CreateRelationship(spouseRel)
-			parentNames = append(parentNames, si.Person.GivenName+" "+si.Person.Surname)
+			parentNames = append(parentNames, formatPersonName(si.Person))
 		}
 
 		if len(spouses) > 0 {
@@ -939,13 +1046,13 @@ func (fv *FamilyView) addSpouseDialog() {
 	// Relationship type
 	relationshipType := widget.NewSelect([]string{"spouse", "partner", "cohabitation", "other"}, func(string) {})
 	relationshipType.SetSelected("spouse") // Default to spouse
-	
+
 	// Marriage/Union info fields
 	marriageDate := widget.NewEntry()
 	marriageDate.SetPlaceHolder("YYYY-MM-DD or DD MMM YYYY")
 	marriagePlace := widget.NewEntry()
 	marriagePlace.SetPlaceHolder("City, Country")
-	
+
 	// End of marriage fields
 	divorceDate := widget.NewEntry()
 	divorceDate.SetPlaceHolder("YYYY-MM-DD or DD MMM YYYY")
@@ -953,7 +1060,7 @@ func (fv *FamilyView) addSpouseDialog() {
 	separationDate.SetPlaceHolder("YYYY-MM-DD or DD MMM YYYY")
 	endReason := widget.NewSelect([]string{"", "divorce", "separation", "death", "annulment", "other"}, func(string) {})
 
-	showPersonSelectionDialogWithMarriage(fv.window, fv.store, availablePeople, 
+	showPersonSelectionDialogWithMarriage(fv.window, fv.store, availablePeople,
 		relationshipType, marriageDate, marriagePlace, divorceDate, separationDate, endReason,
 		func(selectedID int64) {
 			// Create relationship with union info
@@ -1038,7 +1145,7 @@ func (fv *FamilyView) showEditMarriageDialog(marriage *store.SpouseInfo, spouseI
 			// Find the existing relationship (try "spouse" type first, then "partner")
 			var rels []store.Relationship
 			var err error
-			
+
 			// Try to find any spouse/partner relationship
 			for _, relType := range []string{"spouse", "partner", "cohabitation"} {
 				rels, err = fv.store.GetRelationshipsBetween(fv.currentPerson.ID, spouseID, relType)
@@ -1046,7 +1153,7 @@ func (fv *FamilyView) showEditMarriageDialog(marriage *store.SpouseInfo, spouseI
 					break
 				}
 			}
-			
+
 			if err != nil || len(rels) == 0 {
 				dialog.ShowError(fmt.Errorf("Could not find relationship to update"), fv.window)
 				return
@@ -1078,7 +1185,7 @@ func (fv *FamilyView) showEditMarriageDialog(marriage *store.SpouseInfo, spouseI
 			}
 
 			dialog.ShowInformation("Success", "Marriage details updated successfully!", fv.window)
-			
+
 			// Update the current marriage info and refresh view
 			marriage.MarriageDate = rel.MarriageDate
 			marriage.MarriagePlace = rel.MarriagePlace
@@ -1104,22 +1211,22 @@ func parseDateForSort(dateStr string) time.Time {
 	if dateStr == "" {
 		return time.Time{} // Zero time
 	}
-	
+
 	// Try common date formats
 	formats := []string{
-		"2 Jan 2006",    // DD MMM YYYY
-		"02 Jan 2006",   // DD MMM YYYY (with leading zero)
-		"2006-01-02",    // YYYY-MM-DD
-		"2006",          // YYYY only
-		"Jan 2006",      // MMM YYYY
+		"2 Jan 2006",  // DD MMM YYYY
+		"02 Jan 2006", // DD MMM YYYY (with leading zero)
+		"2006-01-02",  // YYYY-MM-DD
+		"2006",        // YYYY only
+		"Jan 2006",    // MMM YYYY
 	}
-	
+
 	for _, format := range formats {
 		if t, err := time.Parse(format, dateStr); err == nil {
 			return t
 		}
 	}
-	
+
 	return time.Time{} // Failed to parse, return zero time
 }
 
@@ -1128,7 +1235,7 @@ func (fv *FamilyView) deletePersonDialog(person *store.Person) {
 	if person == nil {
 		return
 	}
-	
+
 	// Build warning message with relationship count
 	relationships, _ := fv.store.GetRelationships()
 	relCount := 0
@@ -1137,27 +1244,27 @@ func (fv *FamilyView) deletePersonDialog(person *store.Person) {
 			relCount++
 		}
 	}
-	
-	warningMsg := fmt.Sprintf("Are you sure you want to delete:\n\n%s %s\n\n", 
-		person.GivenName, person.Surname)
-	
+
+	warningMsg := fmt.Sprintf("Are you sure you want to delete:\n\n%s\n\n",
+		formatPersonName(*person))
+
 	if relCount > 0 {
 		warningMsg += fmt.Sprintf("This will also remove %d relationship(s) involving this person.\n\n", relCount)
 	}
-	
+
 	warningMsg += "This action cannot be undone."
-	
+
 	dialog.ShowConfirm("Delete Person", warningMsg, func(confirmed bool) {
 		if !confirmed {
 			return
 		}
-		
+
 		// Delete the person (database will cascade delete relationships)
 		if err := fv.store.DeletePerson(person.ID); err != nil {
 			dialog.ShowError(err, fv.window)
 			return
 		}
-		
+
 		// Refresh the view - navigate to first available person
 		people, err := fv.store.GetPeople()
 		if err != nil || len(people) == 0 {
@@ -1165,12 +1272,12 @@ func (fv *FamilyView) deletePersonDialog(person *store.Person) {
 			fv.SetPerson(nil)
 			return
 		}
-		
+
 		// Navigate to first person
 		fv.SetPerson(&people[0])
-		
-		dialog.ShowInformation("Deleted", 
-			fmt.Sprintf("%s %s has been deleted successfully.", person.GivenName, person.Surname), 
+
+		dialog.ShowInformation("Deleted",
+			fmt.Sprintf("%s has been deleted successfully.", formatPersonName(*person)),
 			fv.window)
 	}, fv.window)
 }

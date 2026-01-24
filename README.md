@@ -4,7 +4,7 @@
 
 A modern, cross-platform genealogy application originally inspired by Personal Ancestral File (PAF) which was discontinued in 2013, built with Go and Fyne.
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.1-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 
 ## Overview
@@ -12,6 +12,9 @@ A modern, cross-platform genealogy application originally inspired by Personal A
 KrankyBear Genealogy is a fast, modern alternative to discontinued genealogy applications like PAF. Unlike legacy software with dated interfaces and sluggish performance, it delivers a responsive, contemporary experience that genealogy enthusiasts deserve. Built with Go and Fyne, it combines the proven features of classic genealogy software with modern UX design and cross-platform compatibility (Windows, macOS, Linux).
 
 Currently in active development with regular feature additions, it already matches—and in many areas surpasses—the capabilities of established genealogy applications. Future plans include mobile companion apps for iOS and Android. 
+
+- **🆓 100% Free** - Open source, no restrictions
+- **🌍 Cross-Platform** - Windows, macOS, Linux
 
 ## Key Features
 
@@ -33,7 +36,14 @@ Currently in active development with regular feature additions, it already match
 - **Multiple Marriages**: Track multiple spouses with marriage dates, places, and end reasons
 - **Relationship Types**: Marriage, cohabitation, partner, or other informal relationships
 - **Auto-Navigation**: Click any person to view their record in all views
-- **Relationship Calculator**: Shows relationship to focus person (cousin, uncle, in-law, etc.)
+- **Relationship Calculator**: 
+  - Calculate relationships between any two people in the database
+  - Detects direct relationships (parent/child, grandparent/grandchild, great-grandparent/great-grandchild)
+  - Identifies cousins (1st, 2nd, 3rd + "removed" variations)
+  - Recognizes collateral relationships (aunt/uncle, niece/nephew, great-aunt/uncle)
+  - Displays in-law relationships with descriptive context
+  - Shows common ancestors and line of descent
+  - For 4+ generation ancestor tracking, use Pedigree View
 
 ### 📸 Media Management ✨ **NEW**
 - **Photo & Document Storage**: Attach images, PDFs, videos, Office documents
@@ -48,10 +58,26 @@ Currently in active development with regular feature additions, it already match
 - **Thumbnail Generation**: Fast loading with automatic thumbnails
 - **Broken Link Detection**: Visual warnings for missing external files
 
-### 📋 Contact Information
+### 📋 Contact Information & Names
+- **Preferred Name/Nickname Field**: Display "GivenName (Preferred) Surname" format for nicknames, middle names, or stage names
 - Address, City, State/Province, Postal Code, Country
 - Email and Phone
 - Searchable and exportable
+
+### 🔧 Database Maintenance ✨ **NEW IN v1.2**
+- **Comprehensive Maintenance Tools**: Separate window with three tabs (Statistics, Maintenance, Analysis)
+- **Statistics**: Real-time database size, record counts, and data quality issue detection
+- **Maintenance Operations**:
+  - Vacuum Database: Optimize and reclaim unused space
+  - Check Integrity: Verify database is not corrupted
+  - Remove Orphaned Media: Clean up unlinked media files
+  - Remove Orphaned Relationships: Fix broken relationship links
+  - Remove Duplicate Relationships: Clean up duplicate entries
+- **Analysis Tools**:
+  - Find Unused Sources: Identify sources with no citations
+  - Optimize Query Performance: Update SQLite statistics
+- **Keyboard Shortcut**: Cmd/Ctrl+L
+- **User-Friendly**: Asynchronous operations, detailed reports, resizable window
 
 ### 📊 Reports
 - **Data Quality Report**: Interactive report showing incomplete records
@@ -79,8 +105,20 @@ Download the latest release for your platform from the [Releases](https://github
 1. Launch the application
 2. The app creates an empty database on first run
 3. Choose to:
+   - **Load Demo Database** (Help → Load Demo Database) - Try out features with a sample family tree
    - **Import existing data** (GEDCOM, GenoPro, or Gramps)
    - **Start fresh** by adding your first person
+
+### Demo Database
+
+Want to explore features before entering your own data? Load the built-in demo database:
+- **Help → Load Demo Database** to create a sample family tree
+- **Almost 50 people** across 5-6 generations (1850s-2020s)
+- Includes **preferred names/nicknames** (Mike, Bill, Beth, Chris)
+- **Geographic diversity**: USA + international (Latvia)
+- **Easter egg**: Stanley Yelnats family from "Holes" - four generations of the palindrome name!
+- Demonstrates all features: multiple marriages, media, citations, research logs, bookmarks, and more
+- Perfect for testing and learning the application
 
 ### Building from Source
 
@@ -102,11 +140,11 @@ go build -mod=mod -ldflags="-s -w" -trimpath -o genealogy .
 - **Media Library**: Browse and manage all media
 
 ### Menus
-- **File**: New Database, Open Database, Import/Export, Backup/Restore
-- **Reports**: Data Quality Report, Living Status Report
-- **Media**: Media Library, Add Media
-- **Settings**: Configure focus user and preferences
-- **Help**: About, Help, Check for Update
+- **File**: New Database, Open Database, Import/Export, Backup/Restore, Database Maintenance
+- **Reports**: Statistics Dashboard, Data Quality, Living Status, Conflicts, Duplicates, Timeline, and more
+- **Media**: Media Library, Add Media, Sources Library, Research Log
+- **Settings**: Configure focus user, preferences, keyboard shortcuts, themes
+- **Help**: About, Help, Check for Update, Load Demo Database
 
 ### Working with People
 - **Filter/Search**: Type in left panel to filter by name
@@ -178,21 +216,25 @@ The SQLite database includes:
 
 ## Roadmap
 
-**Completed (v1.0)**
-- ✅ Three-view interface
+**Completed (v1.0-1.2)**
+- ✅ Three-view interface (Family, Pedigree, Individual)
 - ✅ GEDCOM, GenoPro, Gramps import
 - ✅ Media management (photos, documents, videos)
 - ✅ Multiple marriage support
-- ✅ Relationship calculator
-- ✅ Data quality reports
+- ✅ Relationship calculator (independent and focus-based)
+- ✅ Comprehensive reports (data quality, conflicts, timeline, statistics, duplicates, geographic)
+- ✅ Research tools (research log, source citations, to-do lists)
+- ✅ Recent people tracking & bookmarks
+- ✅ Keyboard shortcuts (22 customizable shortcuts)
+- ✅ Preferred name/nickname field
 - ✅ Backup/restore
 
-**Coming Soon (v1.1+)**
-- 📊 Additional reports (timeline, statistics, duplicates)
-- 🔍 Research tools (research log, source citations)
+**Coming Soon (v1.3+)**
+- 🔧 Database maintenance tools (vacuum, integrity check, orphan removal)
 - 🤝 GEDCOM merge and conflict resolution
-- 💡 Keyboard shortcuts and advanced search
+- 🔍 Advanced search with multi-field filters
 - 🎨 Enhanced visualizations (fan charts, maps)
+- 📄 Report export (PDF, CSV, HTML)
 
 See [ROADMAP.md](docs/ROADMAP.md) for complete future plans.
 

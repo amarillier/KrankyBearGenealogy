@@ -1,5 +1,266 @@
 KrankyBear Genealogy - Release Notes
 
+1.2.1 - January 24, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Preferred names, improved demo database, and enhanced name display!
+
+✨ Preferred Name Field:
+  • Add a preferred name or nickname for any person
+  • Display format: "GivenName (Preferred) Surname"
+  • Perfect for:
+    - Legal middle name or nickname used as first name (e.g., "Stanley (Caveman) Yelnats")
+    - Nicknames (e.g., "William (Bill) Smith")
+    - Shortened names (e.g., "Elizabeth (Beth) Johnson")
+    - Stage/pen names (e.g., "Samuel (Mark Twain) Clemens")
+  • Shows consistently throughout the entire application:
+    - Family View (all people displayed)
+    - Pedigree View (all ancestors)
+    - Individual View (table listing)
+    - All dialogs and reports
+    - Left panel people list
+  • Optional field - leave blank if not needed
+  • Flexible usage for any "commonly known as" scenario
+
+🎭 Demo Database Updates:
+  • Enhanced demo database with 48 people (up from 40)
+  • Now includes preferred name examples:
+    - William (Bill) Foster, Elizabeth (Beth) Morrison
+    - Michael (Mike) Harrison, Christopher (Chris) Chen
+  • Easter egg: Stanley Yelnats family line from "Holes"!
+    - Four generations named Stanley Yelnats (palindrome!)
+    - Family history traces back to Latvia (Elya Yelnats, b. 1850)
+    - Married into Harrison family (Stanley IV marries Esther Ruth Harrison)
+    - Multi-generational naming tradition with biographical notes
+  • Geographic expansion: Now includes Latvia + USA locations
+  • Demonstrates international immigration patterns
+  • Load via Help → Load Demo Database
+
+🎨 UI/UX Improvements:
+  • Improved Family View button layout:
+    - Reorganized buttons into two logical rows
+    - Row 1: Spouse label, Other Marriages, Edit Marriage (marriage-related controls)
+    - Row 2: Manage To-Do, Manage Sources, Research Log (person research tools)
+    - Fixes display width issues when viewing people with multiple marriages
+    - Allows proper resizing of the left panel
+  • Smart marriage prioritization:
+    - When navigating to a person with multiple marriages, now defaults to showing:
+      * Current marriage (no divorce/separation/end reason) - most relevant
+      * If all marriages ended, shows the most recent one
+    - Previous behavior showed oldest marriage first (usually ended)
+    - More intuitive and contextually relevant display
+
+🔧 Database Maintenance Tools (Phase 9):
+  • Comprehensive database maintenance and analysis window
+  • Access via File → Database Maintenance... or Cmd/Ctrl+L
+  • Three-tab interface for statistics, maintenance, and analysis:
+  
+  📊 Statistics Tab:
+    - Real-time database file size and statistics
+    - Record counts (people, relationships, media, sources, citations, research logs, to-dos)
+    - Data quality issue detection (orphaned media, broken relationships, unused sources)
+    - Refresh button for updated stats
+  
+  🔧 Maintenance Tab:
+    - Vacuum Database: Optimize and reclaim unused space
+    - Check Integrity: Verify database is not corrupted
+    - Remove Orphaned Media: Clean up media not linked to anyone
+    - Remove Orphaned Relationships: Fix broken relationship links
+    - Remove Duplicate Relationships: Clean up duplicate entries
+    - All operations show detailed reports with duration and results
+  
+  📈 Analysis Tab:
+    - Find Unused Sources: Identify sources with no citations
+    - Optimize Query Performance: Update SQLite query statistics
+  
+  • Separate resizable window for better usability
+  • All operations run asynchronously (non-blocking UI)
+  • Monospace font for better formatted output
+  • Detailed success/error reporting for each operation
+
+🔧 Technical Improvements:
+  • Database migration automatically adds preferred_name column
+  • Name formatting helper function ensures consistency
+  • Demo generator updated to showcase all new features
+  • All name displays throughout UI now use consistent formatting
+  • Database connection pool increased to 5 for better multi-threading support
+  • WAL mode enabled for concurrent read operations
+
+
+
+1.2.0 - January 23, 2026 (was not committed and published!)
+━━━━━━━━━━━━━━━━━━━━━━━━
+Research tools for genealogists! Track your work with Recent People, Bookmarks, To-Do Lists, and Source Citations.
+
+⭐ Recent People & Bookmarks:
+  • Automatic tracking of people you view (last 20 accessed)
+  • Bookmark/star important people for quick access
+  • ⭐ Bookmark button in toolbar - toggles between ⭐ and ★
+  • Visual indicators throughout the app:
+    - ★ symbol appears next to bookmarked people in all views
+    - Shows in left panel people list
+    - Shows in Family View (parents, spouses, children)
+    - Shows in Pedigree View (ancestors)
+    - Shows in Individual View (table listing)
+    - Shows in all reports
+    - Makes bookmarked people instantly recognizable
+  • Recent People report (Reports → Recent People):
+    - Shows last 20 people you've viewed
+    - Displays access timestamps
+    - Shows bookmark status with ★ indicator
+    - Click any person to navigate directly to them
+  • Bookmarked People report (Reports → Bookmarked People):
+    - Quick access to all starred/bookmarked people
+    - Alphabetically sorted for easy browsing
+    - Perfect for tracking key ancestors or research subjects
+  • Keyboard shortcut: Cmd/Ctrl+W to bookmark current person
+  • Seamless integration with all views and reports
+
+📝 Research To-Do List:
+  • Track research tasks for each person in your database
+  • Create, edit, and manage to-do items per person:
+    - Enter task description (e.g., "Find birth certificate", "Verify marriage date")
+    - Set priority level: 🟢 Low, 🟡 Medium, 🔴 High
+    - Add detailed notes for each task
+    - Mark tasks as completed with automatic timestamp
+    - Edit or delete tasks as needed
+  • Easy access to manage todos:
+    - "📝 Manage To-Do" button in Family View (next to Edit Marriage)
+    - Always visible when viewing any person
+    - Also available in person edit dialog
+    - Quickly add tasks while researching each person
+  • Visual indicators throughout the app:
+    - 📝 symbol appears next to people with pending todos
+    - Shows in all views (Family, Pedigree, Individual, left panel)
+    - Easy to spot who needs research attention
+  • "All Pending To-Dos" report (Reports → All Pending To-Dos):
+    - See all pending research tasks across your entire database
+    - Organized by priority (high, medium, low)
+    - Click any task to navigate to that person
+    - Perfect for planning research sessions
+  • "Completed To-Dos" report (Reports → Completed To-Dos):
+    - Track your research progress and accomplishments
+    - View all completed tasks grouped by person
+    - Shows completion dates for reference
+    - Delete individual tasks or bulk delete all completed items
+    - Keep completed tasks as long as you want for reference
+  • Never forget a research task again!
+
+📚 Source Citations:
+  • Document your genealogy research with proper source citations
+  • Sources Library (Media → Sources Library):
+    - Create and manage all your sources in one place
+    - Source types: 📜 Vital Records, 📊 Census, ⛪ Church Records, 📚 Books, 🌐 Websites, 📄 Other
+    - Comprehensive fields for each source:
+      * Title (required) - e.g., "1900 US Federal Census"
+      * Author or creator
+      * Publication info (publisher, website, archive)
+      * Repository (where it's held)
+      * Call number, film number, or URL
+      * Notes for additional details
+    - View all citations linked to each source
+    - Edit or delete sources with confirmation
+  • Citation Manager per person ("📚 Manage Sources" button in Family View):
+    - Link sources to people with detailed citations
+    - Select from your Sources Library
+    - Link one source to multiple people at once:
+      * Perfect for marriage records (both spouses)
+      * Census records (entire household)
+      * Birth certificates (child + parents)
+      * Any shared family documents
+      * Just check additional people when adding citation
+    - Citation detail field (page, line, entry number, etc.)
+    - Transcription field for recording exact text
+    - Confidence level: Low, Medium, High
+    - Notes specific to this citation
+    - Edit or delete citations
+  • Visual indicators throughout the app:
+    - 📚 symbol appears next to people with source citations
+    - Shows in all views (left panel, Family, Pedigree, Individual)
+    - Easy to see who has documented sources
+  • Citation Reports for research overview:
+    - "All Sources" report (Reports → All Sources):
+      * Browse all sources with citation counts
+      * See which people are cited in each source
+      * Quick overview of your research coverage
+      * Total citation statistics
+    - "Well-Documented People" report (Reports → Well-Documented People):
+      * See people with the most source citations
+      * Ranked by number of sources
+      * Average citations per person statistics
+      * Shows top 50 most documented individuals
+    - "People Without Sources" report (Reports → People Without Sources):
+      * Find people who need source documentation
+      * Shows percentage of people without sources
+      * One-click navigation to add sources
+      * Perfect for improving data quality
+  • Proper genealogy practice made easy!
+
+🔍 Research Log:
+  • Track your research activities and never duplicate work
+  • Record what you searched, where you searched, and what you found
+  • Research Log manager (Media → Research Log):
+    - Add research log entries with dates
+    - Repository/location where you searched (FamilySearch, Archives, Libraries)
+    - Record type (Census, Vital Records, Newspapers, etc.)
+    - Search goal: What you were looking for
+    - Results: What you found (or "Nothing found")
+    - Optional notes field for URLs, reference numbers, details
+    - Link to multiple people at once:
+      * Perfect for census records (entire household)
+      * Marriage certificates (both spouses)
+      * Immigration records (family members)
+      * Any shared family documents
+      * Search filter to find people quickly
+    - Edit or delete entries as needed
+  • Per-person research log (Family View → "🔍 Research Log" button):
+    - View all research activities for a specific person
+    - Quick add new entries from person context
+    - See your complete research history for each individual
+  • "Recent Research Activity" report (Reports → Recent Research Activity):
+    - Browse your last 50 research activities
+    - Chronological view of all searches across your database
+    - Quick reference to avoid duplicate searches
+  • Comprehensive research tracking:
+    - Know what sources you've already checked
+    - Track searches that came up empty
+    - Document your research process
+    - Share research history with collaborators
+  • Professional genealogy practice made systematic!
+
+⭐ Quick Focus Person Selection:
+  • New "⭐ Set Focus" button in main toolbar
+  • One-click to make current person the focus person
+  • No more navigating through Settings → Preferences
+  • Relationships automatically recalculate relative to new focus person
+  • Ideal for quickly exploring different family perspectives
+
+🔗 Independent Relationship Calculator:
+  • Calculate relationships between ANY two people in your database
+  • Not limited to relationships with the focus person
+  • Smart search with real-time filtering:
+    - Type to search, press Enter to filter results
+    - Shows "Found X matches - click to select" for clarity
+    - Auto-selects when only one match found
+  • Comprehensive relationship detection:
+    - Direct relationships up to 3 generations:
+      * Parents/children, grandparents/grandchildren
+      * Great-grandparents/great-grandchildren
+    - Collateral relationships: aunts/uncles, nieces/nephews, great-aunts/uncles
+    - Cousin relationships: 1st, 2nd, 3rd cousins with "removed" variations
+    - In-law relationships with descriptive context
+  • Common ancestor identification and line of descent display
+  • "Did you mean?" suggestions for duplicate names
+  • For deeper ancestor lines (4+ generations), use Pedigree View
+  • Access via: Tools → Relationship Calculator (Cmd/Ctrl+Shift+R)
+
+📂 File Management:
+  • New "Clear Recent Files" option in File menu
+  • Quickly tidy up your recent databases list
+  • Helpful when old database files have been moved or deleted
+  • Recent files menu updates on next application restart
+
+
+
 1.1.1 - January 21, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━
 Quality-of-life improvements, enhanced backup options, and better demo experience!
