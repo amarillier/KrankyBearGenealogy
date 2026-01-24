@@ -186,11 +186,31 @@ func (iv *IndividualView) createTable() fyne.CanvasObject {
 			label := o.(*widget.Label)
 			
 			// Check if person has media and add indicator
-			fullName := p.GivenName + " " + p.Surname
+			fullName := formatPersonName(p)
 			if media, err := iv.store.GetMediaForPerson(p.ID); err == nil && len(media) > 0 {
 				fullName = "📷 " + fullName
 			}
 			
+			// Add bookmark indicator if bookmarked
+			if p.Bookmarked {
+				fullName = "★ " + fullName
+			}
+			
+			// Add todo indicator if person has pending todos
+			if count, _ := iv.store.CountPendingTodosForPerson(p.ID); count > 0 {
+				fullName = "📝 " + fullName
+			}
+			
+			// Add source indicator if person has citations
+			if count, _ := iv.store.CountCitationsForPerson(p.ID); count > 0 {
+				fullName = "📚 " + fullName
+			}
+
+			// Add research log indicator if person has research logs
+			if count, _ := iv.store.CountResearchLogsForPerson(p.ID); count > 0 {
+				fullName = "🔍 " + fullName
+			}
+
 			// Don't truncate - show full data with proper spacing
 			row := fmt.Sprintf("%-6d  %-42s  %-6s  %-20s  %-40s  %-20s  %-40s",
 				i+1,
@@ -243,27 +263,27 @@ func (iv *IndividualView) sortByColumn(col int) {
 	iv.refresh()
 }
 
-// sortPeople sorts the filtered people list.
+// sortPeople sorts the people list.
 func (iv *IndividualView) sortPeople() {
-	sort.Slice(iv.filteredPeople, func(i, j int) bool {
+	sort.Slice(iv.people, func(i, j int) bool {
 		less := false
 		switch iv.sortColumn {
 		case 0: // Index
 			less = i < j
 		case 1: // Name
-			nameI := iv.filteredPeople[i].Surname + " " + iv.filteredPeople[i].GivenName
-			nameJ := iv.filteredPeople[j].Surname + " " + iv.filteredPeople[j].GivenName
+			nameI := iv.people[i].Surname + " " + iv.people[i].GivenName
+			nameJ := iv.people[j].Surname + " " + iv.people[j].GivenName
 			less = strings.ToLower(nameI) < strings.ToLower(nameJ)
 		case 2: // Sex
-			less = iv.filteredPeople[i].Gender < iv.filteredPeople[j].Gender
+			less = iv.people[i].Gender < iv.people[j].Gender
 		case 3: // Birth Date
-			less = iv.filteredPeople[i].BirthDate < iv.filteredPeople[j].BirthDate
+			less = iv.people[i].BirthDate < iv.people[j].BirthDate
 		case 4: // Birth Place
-			less = strings.ToLower(iv.filteredPeople[i].BirthPlace) < strings.ToLower(iv.filteredPeople[j].BirthPlace)
+			less = strings.ToLower(iv.people[i].BirthPlace) < strings.ToLower(iv.people[j].BirthPlace)
 		case 5: // Death Date
-			less = iv.filteredPeople[i].DeathDate < iv.filteredPeople[j].DeathDate
+			less = iv.people[i].DeathDate < iv.people[j].DeathDate
 		case 6: // Death Place
-			less = strings.ToLower(iv.filteredPeople[i].DeathPlace) < strings.ToLower(iv.filteredPeople[j].DeathPlace)
+			less = strings.ToLower(iv.people[i].DeathPlace) < strings.ToLower(iv.people[j].DeathPlace)
 		}
 		
 		if !iv.sortAscending {

@@ -4,10 +4,11 @@ import "time"
 
 // Person represents an individual in the genealogy DB.
 type Person struct {
-	ID        int64  `json:"id"`
-	GivenName string `json:"given_name"`
-	Surname   string `json:"surname"`
-	Gender    string `json:"gender"`
+	ID           int64  `json:"id"`
+	GivenName    string `json:"given_name"`
+	Surname      string `json:"surname"`
+	PreferredName string `json:"preferred_name"` // Name they prefer to be called (e.g., "Allan" instead of "Ivan")
+	Gender       string `json:"gender"`
 
 	BirthDate  string    `json:"birth_date"` // YYYY-MM-DD format
 	BirthPlace string    `json:"birth_place"`
@@ -26,6 +27,11 @@ type Person struct {
 	
 	UID        string    `json:"uid"`       // external / GEDCOM UID
 	Notes      string    `json:"notes"`
+	
+	// Research tracking
+	Bookmarked   bool       `json:"bookmarked"`    // true if person is bookmarked/starred
+	LastAccessed *time.Time `json:"last_accessed"` // timestamp of last view
+	
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
@@ -74,10 +80,29 @@ type Identifier struct {
 
 // Source represents a bibliographic/source citation.
 type Source struct {
-	ID        int64     `json:"id"`
-	Title     string    `json:"title"`
-	Citation  string    `json:"citation"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           int64     `json:"id"`
+	Title        string    `json:"title"`        // e.g., "1900 US Federal Census"
+	Author       string    `json:"author"`       // Author or creator
+	Publication  string    `json:"publication"`  // Publication info (book, website, archive)
+	Repository   string    `json:"repository"`   // Where it's held (archive, library, website)
+	CallNumber   string    `json:"call_number"`  // Reference number, film number, URL
+	Notes        string    `json:"notes"`        // Additional notes about the source
+	SourceType   string    `json:"source_type"`  // "vital_record", "census", "church", "book", "website", "other"
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// Citation links a source to a person with specific details.
+type Citation struct {
+	ID             int64     `json:"id"`
+	SourceID       int64     `json:"source_id"`
+	PersonID       int64     `json:"person_id"`
+	CitationDetail string    `json:"citation_detail"` // Specific page, entry, line number
+	Transcription  string    `json:"transcription"`   // Transcription of relevant text
+	Confidence     string    `json:"confidence"`      // "high", "medium", "low" - how reliable is this source
+	Notes          string    `json:"notes"`           // Notes specific to this citation
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // Media represents a media file (photo, document, etc.) that can be linked to multiple people.
@@ -109,4 +134,31 @@ type ValidatedItem struct {
 	ValidationNote  string    `json:"validation_note"`
 	ReviewedBy      string    `json:"reviewed_by"`
 	ValidatedAt     time.Time `json:"validated_at"`
+}
+
+// ResearchTodo represents a research task/todo item for a person.
+type ResearchTodo struct {
+	ID          int64      `json:"id"`
+	PersonID    int64      `json:"person_id"`
+	Description string     `json:"description"`     // The task description
+	Priority    string     `json:"priority"`        // "low", "medium", "high"
+	Status      string     `json:"status"`          // "pending", "completed"
+	Notes       string     `json:"notes"`           // Additional details/notes
+	CreatedAt   time.Time  `json:"created_at"`
+	CompletedAt *time.Time `json:"completed_at"`    // When marked complete
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+// ResearchLog represents a research activity log entry - tracks what sources/records have been searched.
+type ResearchLog struct {
+	ID           int64      `json:"id"`
+	PersonID     *int64     `json:"person_id"`      // Optional: link to specific person being researched
+	SearchDate   time.Time  `json:"search_date"`    // When the search was conducted
+	Repository   string     `json:"repository"`     // Where you searched (archive, website, library, FamilySearch, etc.)
+	RecordType   string     `json:"record_type"`    // Type of record searched (census, vital records, newspapers, etc.)
+	SearchGoal   string     `json:"search_goal"`    // What you were looking for
+	Results      string     `json:"results"`        // What you found (or "Nothing found")
+	Notes        string     `json:"notes"`          // Additional notes, URLs, reference numbers
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }

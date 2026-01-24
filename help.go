@@ -86,17 +86,48 @@ RELATIONSHIPS:
   - Adding a spouse creates bidirectional spouse links
   - Children auto-link to both parents if married
 
+• Relationship Calculator (Tools → Relationship Calculator)
+  - Calculate relationships between any two people
+  - Detects relationships up to 3 generations:
+    * Parents/children, grandparents/grandchildren
+    * Great-grandparents/great-grandchildren
+  - Identifies cousins (1st, 2nd, 3rd + "removed" variations)
+  - Recognizes aunts/uncles, nieces/nephews, great-aunts/uncles
+  - Shows in-law relationships with descriptive context
+  - Displays common ancestors and line of descent
+  - For deeper ancestry (4+ generations), use Pedigree View
+
+MEDIA MANAGEMENT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Photos & Documents
+  - Attach images, PDFs, videos, Office documents
+  - Store in database or link to external files
+  - Many-to-many linking (one photo → multiple people)
+  - Automatic thumbnail generation
+
+• Supported Formats
+  - Images: JPEG, PNG, GIF, WebP
+  - Videos: MP4, MOV
+  - Documents: PDF, Word, Excel, PowerPoint
+
+• Media Features
+  - 📷 Visual indicators show who has media
+  - Media Library: View and manage all media
+  - Add Media button: Attach media to multiple people at once
+  - View Media: See all photos/documents for current person
+
 DATA IMPORT/EXPORT:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 • GEDCOM (.ged)
   - Standard genealogy format
   - Import existing family trees
   - Export for backup or sharing
+  - Branch export (person + descendants only)
 
-• GenoPro (.gno)
-  - Import from GenoPro software
+• GenoPro (.gno) & Gramps (.db)
+  - Import from GenoPro or Gramps software
   - Automatic deduplication
-  - Preserves relationships and dates
+  - Preserves relationships, dates, notes, media references
 
 DATABASE MANAGEMENT:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -125,13 +156,25 @@ SETTINGS:
   - Light, Dark, or System theme
   - Persisted across sessions
 
-DATA QUALITY:
+REPORTS & ANALYSIS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 • Data Quality Report
   - Identifies incomplete records
   - Shows missing names, dates, places
-  - Click to navigate directly to record
-  - Helps maintain clean data
+  - Click to navigate directly to any record
+
+• Statistics Dashboard
+  - Database overview (total people, living vs deceased)
+  - Oldest living/deceased, average lifespan
+  - Top 10 surnames
+  - Media counts and data quality percentages
+
+• Other Reports
+  - Conflicts: Impossible dates and relationships
+  - Duplicates: Find and merge potential duplicates
+  - Timeline: Chronological view of all life events
+  - Ancestor/Descendant: Full lineage with generation counts
+  - Geographic: Birth/death locations with filtering
 
 TIPS & TRICKS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -159,10 +202,18 @@ TIPS & TRICKS:
 
 KEYBOARD SHORTCUTS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Cmd/Ctrl+Q - Quit
-• Cmd/Ctrl+W - Close window
-• Enter - Submit search/form
+• Cmd/Ctrl+N - Add new person
+• Cmd/Ctrl+E - Edit current person
+• Cmd/Ctrl+D - Delete current person
+• Cmd/Ctrl+O - Open database
+• Cmd/Ctrl+Shift+R - Relationship Calculator
+• Cmd/Ctrl+1/2/3 - Switch between views
+• Cmd/Ctrl+F - Focus search/filter
+• Cmd/Ctrl+Q - Quit application
 • Double-click - Edit person
+• Enter - Submit search/form
+
+Full list: Settings → Keyboard Shortcuts (customizable)
 
 MORE INFORMATION:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

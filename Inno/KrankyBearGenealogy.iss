@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "KrankyBearGenealogy"
-#define MyAppVersion "1.1.1"
+#define MyAppVersion "1.2.1"
 #define MyAppPublisher "Allan Marillier, 2026-"
 #define MyAppURL "https://github.com/amarillier/KrankyBearGenealogy"
 #define MyAppExeName "genealogy-windows.exe"

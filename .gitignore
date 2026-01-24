@@ -45,6 +45,7 @@ iconprep.sh
 images-optimize.sh
 install-fyne.sh
 install-go.sh
+buildtest.sh
 Makefile
 mkAllZip.sh
 package.sh

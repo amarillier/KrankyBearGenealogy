@@ -13,7 +13,7 @@ To load the demo:
 The demo database contains synthetic genealogical data designed to showcase
 all features of KrankyBear Genealogy:
 
-• 40 people across 5 generations (Harrison family tree)
+• 50 people across 5-6 generations (Harrison family tree, includes the Yelnats family from Latvia)
 • Multiple marriages and divorces
 • Living people with contact information
 • Geographic diversity (births/deaths across USA)

@@ -107,6 +107,11 @@ func (c *Config) AddRecentDatabase(path string) {
 	c.LastDatabase = path
 }
 
+// ClearRecentDatabases clears the recent databases list.
+func (c *Config) ClearRecentDatabases() {
+	c.RecentDatabases = []string{}
+}
+
 // SetLastPersonForDatabase sets the last selected person for a specific database.
 func (c *Config) SetLastPersonForDatabase(dbPath string, personID int64) {
 	if c.LastPersonID == nil {
@@ -152,26 +157,28 @@ func getConfigPath() (string, error) {
 // DefaultKeyboardShortcuts returns the default keyboard shortcut mappings.
 func DefaultKeyboardShortcuts() map[string]string {
 	return map[string]string{
-		"AddPerson":          "N",
-		"DeletePerson":       "D",
-		"EditPerson":         "E",
-		"FocusSearch":        "F",
-		"GoToFocusPerson":    "G",
-		"OpenDatabase":       "O",
-		"BackupDatabase":     "B",      // Backup database
-		"MediaLibrary":       "M",      // Media library
-		"Settings":           "S",      // Primary
-		"SettingsAlt":        "Comma",  // Alternative (Mac standard)
-		"KeyboardShortcuts":  "K",      // Open keyboard shortcuts dialog
-		"About":              "I",      // About/Info dialog
-		"CheckUpdate":        "U",      // Check for updates
-		"Help":               "Slash",  // Help (Cmd+/)
-		"Quit":               "Q",
-		"Statistics":         "T",
-		"DataQuality":        "R",
-		"SwitchToFamily":     "1",
-		"SwitchToPedigree":   "2",
-		"SwitchToIndividual": "3",
+		"AddPerson":            "N",
+		"DeletePerson":         "D",
+		"EditPerson":           "E",
+		"FocusSearch":          "F",
+		"GoToFocusPerson":      "G",
+		"OpenDatabase":         "O",
+		"BackupDatabase":       "B",      // Backup database
+		"DatabaseMaintenance":  "L",      // Database maintenance (L for cLean/maintenance)
+		"ToggleBookmark":       "W",      // Bookmark/unmark person (W for "watch list")
+		"MediaLibrary":         "M",      // Media library
+		"Settings":             "S",      // Primary
+		"SettingsAlt":          "Comma",  // Alternative (Mac standard)
+		"KeyboardShortcuts":    "K",      // Open keyboard shortcuts dialog
+		"About":                "I",      // About/Info dialog
+		"CheckUpdate":          "U",      // Check for updates
+		"Help":                 "Slash",  // Help (Cmd+/)
+		"Quit":                 "Q",
+		"Statistics":           "T",
+		"DataQuality":          "R",
+		"SwitchToFamily":       "1",
+		"SwitchToPedigree":     "2",
+		"SwitchToIndividual":   "3",
 	}
 }
 

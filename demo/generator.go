@@ -12,10 +12,10 @@ import (
 func GenerateDemoData(s *store.Store) (int64, error) {
 	// GENERATION 1: Great-great-grandparents (1880s-1890s)
 	thomas := createPerson(s, "Thomas", "Harrison", "M", "15 Mar 1882", "Boston, Massachusetts, USA", "22 Jan 1959", "Boston, Massachusetts, USA", false, "")
-	elizabeth := createPerson(s, "Elizabeth", "Morrison", "F", "08 Jul 1885", "New York, New York, USA", "14 Nov 1963", "Boston, Massachusetts, USA", false, "")
+	elizabeth := createPersonWithPreferred(s, "Elizabeth", "Morrison", "Beth", "F", "08 Jul 1885", "New York, New York, USA", "14 Nov 1963", "Boston, Massachusetts, USA", false, "")
 	createMarriage(s, thomas, elizabeth, "12 Jun 1904", "Boston, Massachusetts, USA", "", "", "")
 
-	william := createPerson(s, "William", "Foster", "M", "23 Nov 1880", "Philadelphia, Pennsylvania, USA", "05 Mar 1957", "Chicago, Illinois, USA", false, "")
+	william := createPersonWithPreferred(s, "William", "Foster", "Bill", "M", "23 Nov 1880", "Philadelphia, Pennsylvania, USA", "05 Mar 1957", "Chicago, Illinois, USA", false, "")
 	margaret := createPerson(s, "Margaret", "Sullivan", "F", "30 Jan 1883", "Chicago, Illinois, USA", "18 Aug 1961", "Chicago, Illinois, USA", false, "")
 	createMarriage(s, william, margaret, "14 Apr 1902", "Chicago, Illinois, USA", "", "", "")
 
@@ -69,7 +69,7 @@ func GenerateDemoData(s *store.Store) (int64, error) {
 	createMarriage(s, john, susan, "15 Jun 1960", "Seattle, Washington, USA", "", "", "")
 
 	// GENERATION 4: Parents (1950s-1980s) - Include divorces and remarriages
-	michael := createPerson(s, "Michael John", "Harrison", "M", "03 Mar 1955", "Austin, Texas, USA", "", "", true, "")
+	michael := createPersonWithPreferred(s, "Michael John", "Harrison", "Mike", "M", "03 Mar 1955", "Austin, Texas, USA", "", "", true, "")
 	createParentChild(s, james, michael)
 	createParentChild(s, patricia, michael)
 
@@ -88,7 +88,7 @@ func GenerateDemoData(s *store.Store) (int64, error) {
 	daniel := createPerson(s, "Daniel", "Brooks", "M", "05 Jan 1957", "Phoenix, Arizona, USA", "", "", true, "")
 	createMarriage(s, daniel, sarah, "30 Jun 1980", "Austin, Texas, USA", "", "", "")
 
-	christopher := createPerson(s, "Christopher", "Chen", "M", "12 Oct 1960", "Denver, Colorado, USA", "", "", true, "")
+	christopher := createPersonWithPreferred(s, "Christopher", "Chen", "Chris", "M", "12 Oct 1960", "Denver, Colorado, USA", "", "", true, "")
 	createParentChild(s, david, christopher)
 	createParentChild(s, mary, christopher)
 
@@ -169,16 +169,59 @@ func GenerateDemoData(s *store.Store) (int64, error) {
 	createParentChild(s, rachel, ava)
 
 	// Add some spouses for Gen 5 (showing in-law relationships)
-	alex := createPerson(s, "Alex", "Thompson", "M", "12 Feb 1987", "Portland, Oregon, USA", "", "", true, "")
-	createMarriage(s, alex, esther, "25 Jun 2015", "Austin, Texas, USA", "", "", "")
+
+	// Easter egg: Stanley Yelnats family from "Holes" - tracing back to Latvia
+	// Generation 1: Great-great-grandfather from Latvia
+	elya := createPerson(s, "Elya", "Yelnats", "M", "12 Aug 1850", "Riga, Latvia", "03 Nov 1920", "New York, New York, USA", false, "")
+	elya.Notes = "Immigrated from Latvia to America in 1870s. Founded family tradition of naming first sons 'Stanley Yelnats'."
+	s.UpdatePerson(elya)
+
+	sarah_yelnats := createPerson(s, "Sarah", "Miller", "F", "22 Apr 1855", "New York, New York, USA", "18 Dec 1925", "New York, New York, USA", false, "")
+	createMarriage(s, elya, sarah_yelnats, "14 Jun 1875", "New York, New York, USA", "", "", "")
+
+	// Generation 2: Great-grandfather Stanley Yelnats I
+	stanley1 := createPerson(s, "Stanley I", "Yelnats", "M", "05 Mar 1880", "New York, New York, USA", "22 Sep 1950", "Dallas, Texas, USA", false, "")
+	createParentChild(s, elya, stanley1)
+	createParentChild(s, sarah_yelnats, stanley1)
+
+	mary_yelnats := createPerson(s, "Mary", "O'Brien", "F", "15 Jul 1882", "Boston, Massachusetts, USA", "11 Apr 1955", "Dallas, Texas, USA", false, "")
+	createMarriage(s, stanley1, mary_yelnats, "10 Sep 1905", "New York, New York, USA", "", "", "")
+
+	// Generation 3: Grandfather Stanley Yelnats II
+	stanley2 := createPerson(s, "Stanley II", "Yelnats", "M", "28 Nov 1910", "New York, New York, USA", "16 Aug 1985", "Austin, Texas, USA", false, "")
+	createParentChild(s, stanley1, stanley2)
+	createParentChild(s, mary_yelnats, stanley2)
+
+	thelma := createPerson(s, "Thelma", "Gladstone", "F", "03 Jan 1915", "Dallas, Texas, USA", "29 Dec 1995", "Austin, Texas, USA", false, "")
+	createMarriage(s, stanley2, thelma, "22 Jun 1935", "Dallas, Texas, USA", "", "", "")
+
+	// Generation 4: Father Stanley Yelnats III
+	stanley3 := createPerson(s, "Stanley III", "Yelnats", "M", "17 Apr 1955", "Dallas, Texas, USA", "", "", true, "")
+	createParentChild(s, stanley2, stanley3)
+	createParentChild(s, thelma, stanley3)
+
+	rebecca := createPersonWithPreferred(s, "Rebecca", "Stone", "Becky", "F", "08 Sep 1958", "Houston, Texas, USA", "", "", true, "")
+	createMarriage(s, stanley3, rebecca, "15 May 1980", "Austin, Texas, USA", "", "", "")
+
+	// Generation 5: Current Stanley Yelnats IV (married to Esther Harrison)
+	stanley4 := createPerson(s, "Stanley IV", "Yelnats", "M", "10 Jul 1985", "Austin, Texas, USA", "", "", true, "")
+	createParentChild(s, stanley3, stanley4)
+	createParentChild(s, rebecca, stanley4)
+	stanley4.Notes = "Fourth generation Stanley Yelnats. Continuing the family tradition of the palindrome name."
+	s.UpdatePerson(stanley4)
+
+	// Stanley IV marries Esther Ruth Harrison (creating connection to main Harrison family)
+	createMarriage(s, stanley4, esther, "25 Jun 2015", "Austin, Texas, USA", "", "", "")
 
 	mia := createPerson(s, "Mia", "Johnson", "F", "30 Oct 1991", "Boulder, Colorado, USA", "", "", true, "")
 	createMarriage(s, ryan, mia, "14 Sep 2018", "Denver, Colorado, USA", "", "", "")
 
 	// Recent children (Gen 6 preview)
-	liam := createPerson(s, "Liam", "Thompson", "M", "18 Mar 2018", "Austin, Texas, USA", "", "", true, "")
-	createParentChild(s, alex, liam)
+	liam := createPerson(s, "Liam", "Yelnats", "M", "18 Mar 2018", "Austin, Texas, USA", "", "", true, "")
+	createParentChild(s, stanley4, liam)
 	createParentChild(s, esther, liam)
+	liam.Notes = "First child not named Stanley Yelnats in five generations!"
+	s.UpdatePerson(liam)
 
 	// Intentional conflict: Liam born 2018, but parent Esther born 1988 (age 30 at birth - acceptable)
 	// But let's add an impossible one:
@@ -204,16 +247,21 @@ func GenerateDemoData(s *store.Store) (int64, error) {
 }
 
 func createPerson(s *store.Store, given, surname, gender, birthDate, birthPlace, deathDate, deathPlace string, isLiving bool, address string) *store.Person {
+	return createPersonWithPreferred(s, given, surname, "", gender, birthDate, birthPlace, deathDate, deathPlace, isLiving, address)
+}
+
+func createPersonWithPreferred(s *store.Store, given, surname, preferredName, gender, birthDate, birthPlace, deathDate, deathPlace string, isLiving bool, address string) *store.Person {
 	p := &store.Person{
-		GivenName:  given,
-		Surname:    surname,
-		Gender:     gender,
-		BirthDate:  birthDate,
-		BirthPlace: birthPlace,
-		DeathDate:  deathDate,
-		DeathPlace: deathPlace,
-		IsLiving:   isLiving,
-		Address:    address,
+		GivenName:     given,
+		Surname:       surname,
+		PreferredName: preferredName,
+		Gender:        gender,
+		BirthDate:     birthDate,
+		BirthPlace:    birthPlace,
+		DeathDate:     deathDate,
+		DeathPlace:    deathPlace,
+		IsLiving:      isLiving,
+		Address:       address,
 	}
 	if err := s.CreatePerson(p); err != nil {
 		log.Printf("Warning: Failed to create person %s %s: %v", given, surname, err)
@@ -254,9 +302,10 @@ func GetDemoStats() string {
 	return `The Harrison Family Demo Database contains:
 
 📊 Demographics:
-  • 40 people across 5 generations (1880s-2020s)
-  • Geographic diversity across USA (TX, CO, WA, CA, GA, AZ, OR, MA, IL, PA)
+  • 50+ people across 5-6 generations (1850s-2020s)
+  • Geographic diversity: USA (TX, CO, WA, CA, GA, AZ, OR, MA, IL, PA, NY) + Latvia
   • Living people with modern contact information
+  • 🎭 Easter egg: Stanley Yelnats family line from "Holes"!
 
 👤 Focus Person: Michael Harrison
   • Set as the default focus person to showcase this feature
@@ -271,7 +320,10 @@ func GetDemoStats() string {
 🎯 Features Demonstrated:
   ✓ Multiple marriages & divorces (Michael Harrison)
   ✓ Living people with contact info (Esther, Mary)
-  ✓ Duplicate names (Thomas Harrison appears twice)
+  ✓ Preferred names/nicknames (Mike, Bill, Beth, Chris)
+  ✓ Duplicate names (Thomas Harrison & 4x Stanley Yelnats!)
+  ✓ International immigration (Elya Yelnats from Latvia)
+  ✓ Multi-generational naming tradition (Stanley I-IV)
   ✓ Impossible relationships (Noah → Emily, parent too young)
   ✓ Incomplete records (Unknown, Jane with no surname)
   ✓ Living status issues (Mary, age 89, marked as living)
@@ -283,7 +335,8 @@ func GetDemoStats() string {
   • Run Reports → Data Quality Report
   • Check Reports → Conflicts Report
   • Use Reports → Statistics Dashboard
-  • Search for "Esther" (has contact info)
+  • Search for "Esther" (has contact info & a surprise husband!)
+  • Look for the palindrome family (hint: check Esther's spouse)
   • Try the relationship calculator
   • Use Media Library to browse all media`
 }
