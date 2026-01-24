@@ -565,6 +565,13 @@ func (s *Store) CreatePerson(p *Person) error {
 	return nil
 }
 
+// CreatePersonWithID inserts a person with a specific ID (for undo/redo)
+func (s *Store) CreatePersonWithID(p *Person) error {
+	_, err := s.DB.Exec(`INSERT INTO persons(id,given_name,surname,preferred_name,gender,birth_date,birth_place,death_date,death_place,is_living,address,city,state,postal_code,country,email,phone,uid,notes,bookmarked,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		p.ID, p.GivenName, p.Surname, p.PreferredName, p.Gender, p.BirthDate, p.BirthPlace, p.DeathDate, p.DeathPlace, intFromBool(p.IsLiving), p.Address, p.City, p.State, p.PostalCode, p.Country, p.Email, p.Phone, p.UID, p.Notes, intFromBool(p.Bookmarked), p.CreatedAt, p.UpdatedAt)
+	return err
+}
+
 // UpdatePerson updates an existing person record.
 func (s *Store) UpdatePerson(p *Person) error {
 	_, err := s.DB.Exec(`UPDATE persons SET given_name=?,surname=?,preferred_name=?,gender=?,birth_date=?,birth_place=?,death_date=?,death_place=?,is_living=?,address=?,city=?,state=?,postal_code=?,country=?,email=?,phone=?,uid=?,notes=?,bookmarked=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`,
@@ -1089,6 +1096,11 @@ func (s *Store) GetRelationshipsForPerson(personID int64) ([]Relationship, error
 func (s *Store) DeleteRelationship(subjectID, objectID int64, relType string) error {
 	_, err := s.DB.Exec(`DELETE FROM relationships WHERE subject_id = ? AND object_id = ? AND type = ?`, subjectID, objectID, relType)
 	return err
+}
+
+// RemoveRelationship is an alias for DeleteRelationship (for undo/redo clarity)
+func (s *Store) RemoveRelationship(subjectID, objectID int64, relType string) error {
+	return s.DeleteRelationship(subjectID, objectID, relType)
 }
 
 // GetRelationships returns all relationships.

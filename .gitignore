@@ -28,7 +28,7 @@ git.sh
 latestcheck.json
 
 ## Build artifacts
-bin/.DS_Store
+bin/
 docs/*
 Resources/
 dist/

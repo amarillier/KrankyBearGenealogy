@@ -313,16 +313,28 @@ func (fv *FamilyView) makePersonCard(p store.Person, clickable bool) fyne.Canvas
 	card := container.NewVBox(nameLabel, infoLabel)
 
 	if clickable {
-		// Make it a button-like card
-		bgRect := canvas.NewRectangle(theme.HoverColor())
-		bgRect.Hide()
-
-		btn := widget.NewButton(nameText+"\n"+dateInfo, func() {
-			if fv.onNavigate != nil {
-				fv.onNavigate(p.ID)
-			}
-		})
-		return btn
+		// Create a card with context menu support
+		bgRect := canvas.NewRectangle(theme.InputBackgroundColor())
+		cardWithBg := container.NewStack(bgRect, container.NewPadded(card))
+		
+		personPtr := &p // Capture person for context menu
+		tappable := NewTappableContainer(
+			cardWithBg,
+			func() {
+				// Left-click: Navigate to person
+				if fv.onNavigate != nil {
+					fv.onNavigate(p.ID)
+				}
+			},
+			func(e *fyne.PointEvent) {
+				// Right-click: Show context menu
+				ShowPersonContextMenu(personPtr, fv.store, fv.window, e.AbsolutePosition, fv.onNavigate, func() {
+					fv.refresh()
+					fv.Refresh()
+				})
+			},
+		)
+		return tappable
 	}
 
 	return card
@@ -500,13 +512,36 @@ func (fv *FamilyView) makeSpouseCard(si store.SpouseInfo) fyne.CanvasObject {
 		allInfo += dateInfo
 	}
 
-	btn := widget.NewButton(nameText+"\n"+allInfo, func() {
-		if fv.onNavigate != nil {
-			fv.onNavigate(p.ID)
-		}
-	})
+	// Create card content
+	nameLabel := widget.NewLabel(nameText)
+	nameLabel.TextStyle.Bold = true
+	infoLabel := widget.NewLabel(allInfo)
+	infoLabel.Wrapping = fyne.TextWrapWord
+	card := container.NewVBox(nameLabel, infoLabel)
+	
+	// Create clickable container with context menu
+	bgRect := canvas.NewRectangle(theme.InputBackgroundColor())
+	cardWithBg := container.NewStack(bgRect, container.NewPadded(card))
+	
+	personPtr := &p // Capture person for context menu
+	tappable := NewTappableContainer(
+		cardWithBg,
+		func() {
+			// Left-click: Navigate to person
+			if fv.onNavigate != nil {
+				fv.onNavigate(p.ID)
+			}
+		},
+		func(e *fyne.PointEvent) {
+			// Right-click: Show context menu
+			ShowPersonContextMenu(personPtr, fv.store, fv.window, e.AbsolutePosition, fv.onNavigate, func() {
+				fv.refresh()
+				fv.Refresh()
+			})
+		},
+	)
 
-	return btn
+	return tappable
 }
 
 // makeSpouseCardWithMarriage creates a card for a spouse with marriage info

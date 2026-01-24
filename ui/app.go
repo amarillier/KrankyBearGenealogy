@@ -209,6 +209,10 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 
 	navigateToPerson := func(personID int64) {
 		currentPersonID = personID
+		
+		// Update any open fan charts and descendant charts
+		UpdateAllFanCharts(getStore(), personID)
+		UpdateAllDescendantCharts(getStore(), personID)
 		person, err := getStore().GetPersonByID(personID)
 		if err != nil {
 			dialog.ShowError(err, w)
@@ -983,7 +987,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 
 	// Setup keyboard shortcuts
 	setupKeyboardShortcuts(a, w, cfg, tabs, searchEntry, addPersonBtn, deletePersonBtn, focusPersonBtn,
-		settingsBtn, dataQualityBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn, bookmarkBtn, editPerson, &currentPersonID, getStore)
+		settingsBtn, dataQualityBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn, bookmarkBtn, editPerson, &currentPersonID, getStore, navigateToPerson)
 
 	w.ShowAndRun()
 }
@@ -1136,6 +1140,14 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	geographicReport := fyne.NewMenuItem("Geographic Distribution", func() {
 		showGeographicDistributionReport(w, getStore(), navigateToPerson)
 	})
+	
+	fanChartView := fyne.NewMenuItem("Fan Chart...", func() {
+		showFanChartDialog(w, getStore(), getCurrentPersonID(), navigateToPerson)
+	})
+	
+	descendantChartView := fyne.NewMenuItem("Descendant Chart...", func() {
+		showDescendantChartDialog(w, getStore(), getCurrentPersonID(), navigateToPerson)
+	})
 
 	recentPeopleReport := fyne.NewMenuItem("Recent People", func() {
 		showRecentPeopleReport(w, getStore(), navigateToPerson)
@@ -1167,6 +1179,10 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 
 	recentResearchReport := fyne.NewMenuItem("Recent Research Activity", func() {
 		showRecentResearchReport(w, getStore())
+	})
+
+	advancedSearch := fyne.NewMenuItem("Advanced Search...", func() {
+		showAdvancedSearchDialog(w, getStore(), navigateToPerson)
 	})
 
 	relationshipCalc := fyne.NewMenuItem("Relationship Calculator", func() {
@@ -1240,6 +1256,15 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	loadDemo := fyne.NewMenuItem("Load Demo Database", func() {
 		showLoadDemoDialog(w, cfg, reloadWithDatabase)
 	})
+	
+	// Tools menu items
+	globalSearchReplace := fyne.NewMenuItem("Global Search and Replace...", func() {
+		showGlobalSearchReplaceDialog(w, getStore())
+	})
+	
+	nameCaseConversion := fyne.NewMenuItem("Name Case Conversion...", func() {
+		showNameCaseConversionDialog(w, getStore())
+	})
 
 	// System tray menu with proper submenus using ChildMenu
 	// Create File submenu
@@ -1266,6 +1291,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	// Create Reports submenu
 	reportsSubMenu := fyne.NewMenu("Reports",
 		statistics,
+		advancedSearch,
 		relationshipCalc,
 		fyne.NewMenuItemSeparator(),
 		recentPeopleReport,
@@ -1285,6 +1311,8 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		ancestorReport,
 		timelineReport,
 		geographicReport,
+		fanChartView,
+		descendantChartView,
 		fyne.NewMenuItemSeparator(),
 		massMarkLivingReport,
 		reviewedItemsReport)
@@ -1313,11 +1341,19 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	helpMenuItem.ChildMenu = helpSubMenu
 
 	// Main system tray menu with submenus
+	// Tools menu items (defined earlier in the file)
+	toolsSubMenu := fyne.NewMenu("Tools",
+		globalSearchReplace,
+		nameCaseConversion)
+	toolsMenuItem := fyne.NewMenuItem("Tools", nil)
+	toolsMenuItem.ChildMenu = toolsSubMenu
+
 	menu := fyne.NewMenu("KrankyBear Genealogy",
 		show, hide,
 		fyne.NewMenuItemSeparator(),
 		fileMenuItem,
 		mediaMenuItem,
+		toolsMenuItem,
 		reportsMenuItem,
 		settingsMenuItem,
 		helpMenuItem,
@@ -1331,22 +1367,23 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		backup, restore, maintenance, fyne.NewMenuItemSeparator(),
 		importGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(), quit)
 	mediaMenu := fyne.NewMenu("Media", mediaLibraryMenuItem, addMediaMenuItem, fyne.NewMenuItemSeparator(), sourcesLibraryMenuItem, researchLogMenuItem)
-	reportsMenu := fyne.NewMenu("Reports", statistics, relationshipCalc, fyne.NewMenuItemSeparator(),
+	toolsMenu := fyne.NewMenu("Tools", globalSearchReplace, nameCaseConversion)
+	reportsMenu := fyne.NewMenu("Reports", statistics, advancedSearch, relationshipCalc, fyne.NewMenuItemSeparator(),
 		recentPeopleReport, bookmarkedPeopleReport, allTodosReport, completedTodosReport, recentResearchReport, fyne.NewMenuItemSeparator(),
 		dataQuality, livingStatus, conflictsReport, duplicatesReport, unsourcedPeopleReport, allSourcesReport, wellDocumentedReport,
-		fyne.NewMenuItemSeparator(), descendantReport, ancestorReport, timelineReport, geographicReport,
+		fyne.NewMenuItemSeparator(), descendantReport, ancestorReport, timelineReport, geographicReport, fanChartView, descendantChartView,
 		fyne.NewMenuItemSeparator(), massMarkLivingReport, reviewedItemsReport)
 	settingsMenu := fyne.NewMenu("Settings", settingsDialog, keyboardShortcuts, fyne.NewMenuItemSeparator(),
 		settingsLight, settingsDark, settingsSystem)
 	helpMenu := fyne.NewMenu("Help", about, updtchk, help, fyne.NewMenuItemSeparator(), loadDemo)
-	cmenu := fyne.NewMainMenu(fileMenu, mediaMenu, reportsMenu, settingsMenu, helpMenu)
+	cmenu := fyne.NewMainMenu(fileMenu, mediaMenu, toolsMenu, reportsMenu, settingsMenu, helpMenu)
 	w.SetMainMenu(cmenu)
 }
 
 // setupKeyboardShortcuts registers keyboard shortcuts for common actions
 func setupKeyboardShortcuts(a fyne.App, w fyne.Window, cfg *config.Config, tabs *container.AppTabs, searchEntry *widget.Entry,
 	addPersonBtn, deletePersonBtn, focusPersonBtn, settingsBtn, dataQualityBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn, bookmarkBtn *widget.Button,
-	editPerson func(int64), currentPersonID *int64, getStore func() *store.Store) {
+	editPerson func(int64), currentPersonID *int64, getStore func() *store.Store, navigateToPerson func(int64)) {
 
 	// Helper to register both Cmd (Mac) and Ctrl (Win/Linux) shortcuts
 	addShortcut := func(key fyne.KeyName, handler func()) {
@@ -1443,6 +1480,31 @@ func setupKeyboardShortcuts(a fyne.App, w fyne.Window, cfg *config.Config, tabs 
 	addShortcut(config.StringToKeyName(cfg.GetShortcut("DatabaseMaintenance")), func() {
 		showDatabaseMaintenanceDialog(w, getStore())
 	})
+
+	// Advanced Search (Shift+F) - needs special handling
+	advancedSearchShortcut := cfg.GetShortcut("AdvancedSearch")
+	if config.HasShiftModifier(advancedSearchShortcut) {
+		key := config.StringToKeyName(advancedSearchShortcut)
+		if key != fyne.KeyUnknown {
+			// Cmd+Shift+Key for Mac
+			cmdShiftShortcut := &desktop.CustomShortcut{
+				KeyName:  key,
+				Modifier: fyne.KeyModifierSuper | fyne.KeyModifierShift,
+			}
+			w.Canvas().AddShortcut(cmdShiftShortcut, func(shortcut fyne.Shortcut) {
+				showAdvancedSearchDialog(w, getStore(), navigateToPerson)
+			})
+			
+			// Ctrl+Shift+Key for Windows/Linux
+			ctrlShiftShortcut := &desktop.CustomShortcut{
+				KeyName:  key,
+				Modifier: fyne.KeyModifierControl | fyne.KeyModifierShift,
+			}
+			w.Canvas().AddShortcut(ctrlShiftShortcut, func(shortcut fyne.Shortcut) {
+				showAdvancedSearchDialog(w, getStore(), navigateToPerson)
+			})
+		}
+	}
 
 	// Settings (primary and alternative)
 	addShortcut(config.StringToKeyName(cfg.GetShortcut("Settings")), func() {

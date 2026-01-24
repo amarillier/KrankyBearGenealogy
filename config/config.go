@@ -176,6 +176,7 @@ func DefaultKeyboardShortcuts() map[string]string {
 		"Quit":                 "Q",
 		"Statistics":           "T",
 		"DataQuality":          "R",
+		"AdvancedSearch":       "ShiftF", // Shift+F for advanced search
 		"SwitchToFamily":       "1",
 		"SwitchToPedigree":     "2",
 		"SwitchToIndividual":   "3",
@@ -210,10 +211,20 @@ func (c *Config) ResetShortcutsToDefaults() {
 	c.KeyboardShortcuts = DefaultKeyboardShortcuts()
 }
 
+// HasShiftModifier returns true if the shortcut string includes Shift modifier
+func HasShiftModifier(s string) bool {
+	return strings.HasPrefix(strings.ToUpper(s), "SHIFT")
+}
+
 // StringToKeyName converts a string to a fyne.KeyName.
 func StringToKeyName(s string) fyne.KeyName {
 	// Convert to uppercase for consistency
 	s = strings.ToUpper(s)
+	
+	// Handle Shift+Key combinations by stripping "SHIFT" prefix
+	if strings.HasPrefix(s, "SHIFT") {
+		s = strings.TrimPrefix(s, "SHIFT")
+	}
 	
 	// Letters A-Z
 	switch s {

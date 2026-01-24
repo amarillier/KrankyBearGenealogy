@@ -1,5 +1,280 @@
 KrankyBear Genealogy - Release Notes
 
+1.3.0 - January 24, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Major UX enhancements with Advanced Search, Enhanced Visualizations, and Batch Tools!
+
+🔍 Advanced Search (Phase 8):
+  • Multi-field search with comprehensive filters:
+    - Name criteria: Given name, surname, preferred/nickname
+    - Date ranges: Birth year and death year ranges
+    - Place criteria: Birth place, death place (contains matching)
+    - Gender filter
+  • Boolean filters:
+    - Living only / Deceased only
+    - Has media (photos/documents)
+    - Has sources (citations)
+    - Has todos (research tasks)
+    - Is bookmarked (starred)
+  • Export search results in multiple formats:
+    - CSV (Comma Separated Values) - Excel compatible
+    - JSON (JavaScript Object Notation) - for developers/APIs
+    - XML (Extensible Markup Language) - enterprise systems
+  • Smart file extensions automatically added (.csv, .json, .xml)
+  • User-friendly layout: Buttons at top, criteria scrollable below
+  • Keyboard shortcut: Cmd/Ctrl+Shift+F
+  • Accessible from Reports menu and keyboard shortcut
+  • Format selection dialog with clear descriptions
+  • Results list shows full person details with navigation
+
+🌳 Enhanced Pedigree View (Phase 8):
+  • Dynamic generation selection:
+    - Choose 4, 5, 6, 7, or 8 generations
+    - Dynamically builds ancestor chart to selected depth
+    - Recursive algorithm handles any generation count
+  • Color coding modes:
+    - No Color: Traditional view (default)
+    - By Gender: Light blue (M), light pink (F), gray (unknown)
+    - By Living Status: Light green (living), light gray (deceased)
+    - By Data Completeness: Green (80%+), yellow (50-79%), pink (<50%)
+  • Zoom controls:
+    - Slider from 50% to 200%
+    - Live zoom level display (e.g., "Zoom: 125%")
+    - Scales entire chart smoothly
+  • Collapsible branches:
+    - Click "↕" button on any person to collapse/expand their ancestors
+    - Shows "▶" when collapsed, "▼" when expanded
+    - "Expand All" button to restore full view
+    - Focus on specific lineages by collapsing others
+  • All existing indicators preserved:
+    - Bookmarks (★), media (📷), sources (📚)
+    - Todos (📝), research logs (🔍)
+  • Control panel at top:
+    - Generation selector, color mode, zoom slider all visible
+    - No scrolling needed to access controls
+  • Chart title shows current generation count
+  • Export Chart button (placeholder for future PDF/PNG export)
+
+🎯 Fan Chart (Phase 8) - NEW!:
+  • Circular ancestor visualization:
+    - Beautiful circular layout with concentric rings
+    - Center: Current person with larger box
+    - Ancestors spread evenly around 360-degree circle
+    - Efficient use of space - all ancestors visible at default size
+  • Generation selection:
+    - Choose 3, 4, 5, or 6 generations via dropdown
+    - Adaptive sizing: More generations = tighter spacing
+    - Compact, laptop-friendly default window (700x700)
+  • Gender-based color coding:
+    - Pink background for females
+    - Blue background for males
+    - Gray for unknown gender
+    - Clear visual distinction
+  • Enhanced Mode (checkbox):
+    - Toggle "Enhanced (show spouses & children)"
+    - Shows spouses to the right of center person
+    - Shows children below center person
+    - All clickable for navigation
+    - Unique feature not found in traditional genealogy tools!
+  • Dynamic synchronization:
+    - Bidirectional sync with Family View
+    - Navigate in Family View → Fan Chart updates automatically
+    - Navigate in Fan Chart → Family View updates
+    - Multiple fan charts can be open, all sync
+    - Window title updates with current person
+  • Interactive features:
+    - Left-click any person → Navigate to that person
+    - Right-click any person → Context menu with quick actions
+    - All boxes show person names (may truncate, use dynamic sync to see details)
+    - Resizable window for larger displays
+  • Legend & Help:
+    - Built-in legend button explains layout
+    - Shows generation rings and navigation tips
+    - Describes Enhanced Mode layout
+    - Export Chart button (placeholder for future PDF/PNG export)
+  • Access:
+    - Reports menu → Fan Chart
+    - System tray menu → Reports → Fan Chart
+    - Right-click context menu → "View in Fan Chart"
+    - Opens in separate window
+  • Technical implementation:
+    - Full 360-degree circular layout algorithm
+    - Adaptive box sizing for generation depth
+    - Gender-based color rendering
+    - Dynamic window tracking and synchronization
+    - Efficient refresh on navigation events
+  
+🖱️ Quick Actions / Context Menus (Phase 8) - NEW!:
+  • Right-click context menus everywhere:
+    - Available on all person boxes in all views
+    - Family View: Parents, spouse, children
+    - Enhanced Pedigree View: All ancestors
+    - Fan Chart: Center person, ancestors, spouses, children
+    - Descendant Chart: Root person, descendants, spouses
+  • Navigation actions:
+    - "Set as Focus Person" - Navigate to person in Family View
+    - "View in Fan Chart..." - Open Fan Chart for this person
+    - "View in Descendant Chart..." - Open Descendant Chart for this person
+  • Quick actions:
+    - Add/Remove Bookmark - Toggle bookmark status with one click
+    - Add To-Do... - Create research task for this person
+    - View To-Dos (n) - See all to-dos (shows count if any)
+  • Sources & Research:
+    - View Sources (n) - Open Sources Library (shows citation count)
+    - Add Source... - Quick access to add source
+    - View Research Log (n) - Open Research Log (shows entry count)
+    - Add Research Log... - Quick access to add research entry
+  • Copy information:
+    - Copy Name - Copy formatted name to clipboard
+    - Copy ID - Copy database ID to clipboard
+  • Generate reports:
+    - Generate Ancestor Report... - Create ancestor report for any person
+    - Generate Descendant Report... - Create descendant report for any person
+  • Technical implementation:
+    - Custom TappableContainer widget supports left and right clicks
+    - Left-click: Navigate to person
+    - Right-click: Show context menu at cursor position
+    - Unified menu builder creates consistent menus across all views
+    - Smart menu items (shows counts, context-aware labels)
+
+🌳 Descendant Chart (Phase 8) - NEW!:
+  • Visual tree of descendants:
+    - Tree structure flowing downward
+    - Root person at top
+    - Children directly below parent
+    - Grandchildren, great-grandchildren expand recursively
+    - Horizontal branching for multiple children
+  • Dynamic generation selection:
+    - Choose 3, 4, 5, 6, 7, or 8 generations via dropdown
+    - Tree adjusts dynamically to show selected depth
+    - Efficient layout algorithm handles large families
+  • Color coding modes (same as Pedigree View):
+    - No Color: Traditional view (default)
+    - By Gender: Light blue (M), light pink (F), gray (unknown)
+    - By Living Status: Light green (living), light gray (deceased)
+    - By Data Completeness: Green (80%+), yellow (50-79%), pink (<50%)
+  • Zoom controls:
+    - Slider from 50% to 200%
+    - Live zoom level display
+    - Scales entire tree including spacing
+  • Enhanced Mode (checkbox):
+    - Toggle "Enhanced (show spouses)"
+    - Shows spouse names above groups of children
+    - Groups children by marriage/spouse
+    - Marriage dates and end reasons displayed
+    - Clearly shows which children belong to which marriage
+    - Example: Person with 2 marriages shows both spouses with their respective children
+    - Unknown spouse labeled as "(unknown spouse)"
+  • Collapsible branches:
+    - Click "↕" button on any person to collapse/expand their descendants
+    - Shows "▶" when collapsed, "▼" when expanded
+    - "Expand All" button to restore full view
+    - Focus on specific descendant lines
+  • Visual indicators (same as other views):
+    - Bookmarks (★), media (📷), sources (📚)
+    - Todos (📝), research logs (🔍)
+  • Dynamic synchronization:
+    - Bidirectional sync with Family View
+    - Navigate in Family View → All open Descendant Charts update
+    - Navigate in Descendant Chart → Family View updates
+    - Multiple charts can be open, all sync
+    - Window title updates with current person
+  • Interactive features:
+    - Left-click any person → Navigate to that person
+    - Right-click any person → Context menu with quick actions
+    - Click spouse boxes → Navigate to spouse
+    - All boxes support full interaction
+  • Control panel:
+    - Generation selector, color mode, Enhanced checkbox
+    - Zoom slider with percentage display
+    - "Expand All" and "Export Chart" buttons
+    - All controls accessible without scrolling
+  • Access:
+    - Reports menu → Descendant Chart
+    - System tray menu → Reports → Descendant Chart
+    - Right-click context menu → "View in Descendant Chart"
+    - Opens in separate resizable window (1000x700)
+  • Export Chart button (placeholder for future PDF/PNG export)
+  • Technical implementation:
+    - Recursive descendant tree building algorithm
+    - Marriage grouping logic for Enhanced Mode
+    - Dynamic window tracking and synchronization
+    - Thread-safe refresh mechanism (fixes race conditions)
+    - Efficient layout with proper spacing
+
+🛠️ Tools (Phase 8) - NEW!:
+  • Global Search and Replace:
+    - Find and replace text across all records
+    - Search in specific fields or all place fields at once
+    - Field options: Birth Place, Death Place, Address, City, State, Country, Notes, All Place Fields
+    - Case-sensitive search option
+    - Preview all matching records before applying changes
+    - Results list shows person name and matched field
+    - Batch replacement for standardizing data:
+      * Example: "USA" → "United States"
+      * Example: "New York" → "New York, USA"
+      * Example: Fix spelling errors across many records
+    - Safe workflow: Search → Preview → Confirm → Replace
+    - Accessible from Tools menu
+  • Global Name Case Conversion:
+    - Convert names to Proper Case, UPPERCASE, or lowercase
+    - Smart handling of special name cases:
+      * McDonald, MacArthur → Mc/Mac prefix capitalization
+      * O'Brien, O'Connor → Correct apostrophe handling
+      * van der Berg, von Schmidt → Lowercase prefixes preserved
+      * de Vries, la Fontaine → French/Dutch prefixes
+      * Roman numerals: I, II, III, IV, V, VI, VII, VIII, IX, X (stay uppercase)
+      * Suffixes: Jr./Sr. (proper format with period), Esq., PhD, MD, DDS
+    - Apply to specific fields:
+      * Given Names only
+      * Surnames only
+      * Both Given Names and Surnames
+      * Preferred Names only
+    - Preview all affected records with before/after comparison
+    - Perfect use cases:
+      * Fix imported GEDCOM files with "JOHN SMITH"
+      * Standardize inconsistent capitalization
+      * Correct all-uppercase or all-lowercase entries
+    - Results preview shows old → new name for each person
+    - Safe workflow: Select → Preview → Confirm → Apply
+    - Accessible from Tools menu
+  • Technical implementation:
+    - Case-sensitive and case-insensitive search algorithms
+    - Special name pattern recognition (McDonald, O'Brien, van der)
+    - Batch database update with transaction safety
+    - Preview-before-apply pattern for all operations
+    - Proper case conversion with linguistic rules
+    - Count display (n matching records, n will be changed)
+
+📊 Navigation & Usability:
+  • Click any person in any view to navigate to their record
+  • Right-click any person for quick actions menu
+  • Collapse/expand toggles with dedicated button
+  • Visual feedback for all controls
+  • Smooth refresh when changing settings
+  • Charts remain centered and scrollable
+  • Bidirectional synchronization between views
+
+🎨 Technical Improvements:
+  • Refactored pedigree chart to use recursive generation building
+  • Efficient ancestor and descendant traversal algorithms
+  • Custom TappableContainer widget for dual-click support
+  • Unified context menu system across all views
+  • Thread-safe widget refresh mechanisms
+  • Dynamic window tracking for multi-chart synchronization
+  • Marriage/spouse grouping logic for Enhanced Mode
+  • Data completeness calculator (name, birth, death, gender fields)
+  • Color-coded background rectangles with proper theme integration
+  • Responsive box sizing based on zoom level
+  • Collapsed branch tracking with per-person state
+  • Ordinal generation labels (1st, 2nd, 3rd, 4th, etc.)
+
+🎯 Keyboard Shortcut Updates:
+  • Total shortcuts now: 23
+  • Advanced Search: Cmd/Ctrl+Shift+F (with Shift modifier support)
+  • All existing shortcuts preserved
+
+
 1.2.1 - January 24, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━
 Preferred names, improved demo database, and enhanced name display!
@@ -383,10 +658,16 @@ This is the first official public release of KrankyBear Genealogy!
 For complete feature list, see README.md
 Report issues: https://github.com/amarillier/KrankyBearGenealogy/issues
 
-🔮 Coming Soon (.NEXT):
-  • Enhanced reporting (timeline, statistics, duplicates)
-  • Research tools and source citations
+🔮 Coming Soon (Future Releases):
+  • Undo/Redo functionality (core system ready, needs integration)
   • GEDCOM merge with conflict resolution
-  • Advanced visualizations (fan charts, maps)
-  • Performance optimizations for large databases
-  • Advanced search
+  • Map View: Geographic visualization of life events
+  • Timeline View enhancements
+  • Chart export to PDF/PNG
+  • Performance optimizations for large databases (10,000+ people)
+  • Mobile companion apps (iOS/Android)
+  • Research notes and additional tools
+  • Date calculator
+  • Data quality tools
+  • 
+

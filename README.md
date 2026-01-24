@@ -4,7 +4,7 @@
 
 A modern, cross-platform genealogy application originally inspired by Personal Ancestral File (PAF) which was discontinued in 2013, built with Go and Fyne.
 
-![Version](https://img.shields.io/badge/version-1.2.1-blue)
+![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 
 ## Overview
@@ -18,9 +18,31 @@ Currently in active development with regular feature additions, it already match
 
 ## Key Features
 
-### 📊 Three-View Interface
+### 📊 Visualization Suite ✨ **NEW IN v1.3**
 - **Family View**: PAF-style display with current person, parents, spouse(s), and children
-- **Pedigree View**: Multi-generation ancestor chart (4+ generations)
+- **Enhanced Pedigree View**: Multi-generation ancestor chart with advanced features
+  - **Dynamic Generations**: Select 4, 5, 6, 7, or 8 generations
+  - **Color Coding**: Color by gender, living status, or data completeness
+  - **Zoom Controls**: Scale from 50% to 200% for better viewing
+  - **Collapsible Branches**: Collapse ancestor lines to focus on specific lineages
+  - **Visual Indicators**: Bookmarks (★), media (📷), sources (📚), todos (📝), research logs (🔍)
+  - **Context Menus**: Right-click any person for quick actions
+- **Fan Chart**: Circular ancestor visualization
+  - **Beautiful Circular Layout**: Ancestors displayed in concentric rings
+  - **3-6 Generations**: Selectable generation depth
+  - **Gender-Based Colors**: Pink for females, blue for males
+  - **Enhanced Mode**: Show spouses and children alongside ancestors
+  - **Interactive Navigation**: Click any box to navigate to that person
+  - **Dynamic Sync**: Automatically updates when navigating in Family View
+  - **Context Menus**: Right-click for quick actions
+- **Descendant Chart**: Visual tree showing children and future generations
+  - **Dynamic Generations**: Select 3, 4, 5, 6, 7, or 8 generations
+  - **Color Coding**: Same modes as Pedigree View (gender, living status, completeness)
+  - **Zoom Controls**: Scale from 50% to 200%
+  - **Enhanced Mode**: Show spouses grouped with their children
+  - **Collapsible Branches**: Focus on specific descendant lines
+  - **Dynamic Sync**: Bidirectional sync with Family View navigation
+  - **Context Menus**: Right-click for quick actions
 - **Individual View**: Sortable table of all people with complete data
 
 ### 💾 Data Management
@@ -78,6 +100,40 @@ Currently in active development with regular feature additions, it already match
   - Optimize Query Performance: Update SQLite statistics
 - **Keyboard Shortcut**: Cmd/Ctrl+L
 - **User-Friendly**: Asynchronous operations, detailed reports, resizable window
+
+### 🔍 Advanced Search ✨ **NEW IN v1.3**
+- **Multi-Field Search**: Search by name, dates, places, and gender
+- **Boolean Filters**: Living/deceased, has media, has sources, has todos, bookmarked
+- **Export Results**: Export search results to CSV, JSON, or XML
+- **Smart File Handling**: Automatically adds appropriate file extensions
+- **Keyboard Shortcut**: Cmd/Ctrl+Shift+F
+- **User-Friendly UI**: Buttons at top, scrollable search criteria
+
+### 🖱️ Quick Actions / Context Menus ✨ **NEW IN v1.3**
+- **Right-Click Menus**: Available on all person boxes in every view
+- **Navigation Shortcuts**: "Set as Focus Person", "View in Fan Chart", "View in Descendant Chart"
+- **Quick Actions**: Add/Remove Bookmark, Add To-Do, View To-Dos
+- **Sources & Research**: View Sources, Add Source, View Research Log
+- **Copy Information**: Copy Name, Copy ID to clipboard
+- **Generate Reports**: Ancestor Report, Descendant Report for any person
+- **Universal Access**: Works in Family View, Pedigree View, Fan Chart, Descendant Chart
+
+### 🛠️ Tools ✨ **NEW IN v1.3**
+- **Global Search and Replace**: Batch text replacement across all records
+  - Search in Birth/Death Place, Address, City, State, Country, Notes, or All Place Fields
+  - Case-sensitive option
+  - Preview all matches before applying
+  - Perfect for standardizing place names (e.g., "USA" → "United States")
+  - Useful for correcting spelling errors across many records
+- **Global Name Case Conversion**: Fix inconsistent name capitalization
+  - Convert to Proper Case, UPPERCASE, or lowercase
+  - Smart handling of special cases:
+    - Name prefixes: McDonald, O'Brien, van der Berg
+    - Roman numerals: I, II, III, IV, V (stay uppercase)
+    - Suffixes: Jr., Sr., Esq., PhD, MD (proper format)
+  - Apply to Given Names, Surnames, Both, or Preferred Names
+  - Preview all affected records before applying
+  - Perfect for fixing imported GEDCOM files with "JOHN SMITH"
 
 ### 📊 Reports
 - **Data Quality Report**: Interactive report showing incomplete records
@@ -225,7 +281,7 @@ The SQLite database includes:
 - ✅ Comprehensive reports (data quality, conflicts, timeline, statistics, duplicates, geographic)
 - ✅ Research tools (research log, source citations, to-do lists)
 - ✅ Recent people tracking & bookmarks
-- ✅ Keyboard shortcuts (22 customizable shortcuts)
+- ✅ Keyboard shortcuts (23 customizable shortcuts)
 - ✅ Preferred name/nickname field
 - ✅ Backup/restore
 
