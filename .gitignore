@@ -28,13 +28,17 @@ git.sh
 latestcheck.json
 
 ## Build artifacts
-bin/
+bin/*
+!bin/Readme.txt
+build/*
+# Ignore all files in the data directory
+data/*
 docs/*
-Resources/
 dist/
-build/
 installers/
 KrankyBearGenealogy.app/
+Resources/
+test/
 vendor/*
 sync*.sh
 compile*.sh
@@ -61,36 +65,7 @@ rsrc_windows_amd64.syso
 ROADMAP.md
 
 # ALLOWED
-!bin/*
-bin/.DS_Store
-!installers/*
-installers/.DS_Store
 !Inno/*
 Inno/.DS_Store
 !winres/*
 winres/.DS_Store
-
-# Ignore all files in the data directory
-data/*
-
-# Ignore all files in the installers directory
-#installers/*
-
-# Ignore all files in the Resources directory
-Resources/*
-
-# Ignore all files in the vendor directory
-vendor/*
-
-# Ignore all files in the bin directory
-#bin/*   
-
-# Ignore all files in the KrankyBearGenealogy.app directory
-KrankyBearGenealogy.app/*
-
-# Ignore all files in the Inno directory
-#Inno/*
-
-# Ignore all files in the winres directory
-#winres/*
-
