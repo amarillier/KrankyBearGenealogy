@@ -313,10 +313,10 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Collapsible branches
   - ✅ Dynamic bidirectional synchronization
   - ✅ Context menus
-- **Timeline View**: Horizontal timeline of person's life events (Already implemented ✅)
-- **Map View**: Geographic visualization of life events
+- ✅ **Timeline View**: Horizontal timeline of person's life events (Completed in v1.4.0)
+- **Map View** (Future): Geographic visualization of life events
 
-### Data Entry Helpers
+### Data Entry Helpers (Future)
 - **Smart Date Entry**: Parse "May 1945", "1945", "abt 1945", etc.
 - **Place Autocomplete**: Suggest standard place names as you type
 - **Name Authority**: Suggest standard name formats
@@ -326,40 +326,43 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 ## 🔧 Phase 9: Advanced Features
 
-### Performance & Scalability
+### Performance & Scalability (Future)
 - **Indexed Search**: Full-text search across all fields
 - **Large Database Optimization**: Handle 10,000+ people efficiently
 - **Lazy Loading**: Load views progressively for large datasets
 - **Background Processing**: Import/export in background threads
 
-### Integration
+### Integration (Future)
 - **Online Search Integration**: Quick links to Ancestry, FamilySearch, etc.
 - **Census Data Import**: Import from online census records
 - **DNA Integration**: Link to DNA test results (23andMe, Ancestry DNA)
 - **Calendar Integration**: Export birthdays/anniversaries to calendar
 
 ### Data Management
-- **Database Maintenance**: 
-  - Vacuum/optimize database
-  - Check integrity
-  - Repair broken relationships
-  - Remove orphaned records
-- **Batch Operations**: 
+- ✅ **Database Maintenance** (✓ Completed in v1.2): 
+  - ✅ Vacuum/optimize database
+  - ✅ Check integrity
+  - ✅ Repair broken relationships
+  - ✅ Remove orphaned records
+  - ✅ Remove duplicate relationships
+  - ✅ Compact database and reclaim space
+- **Batch Operations** (Partially Complete): 
+  - ✅ Bulk mark as living (Completed in v1.2)
   - Bulk edit (change place names, standardize dates)
   - Bulk delete
-  - Bulk privacy settings
+  - Bulk privacy settings (comprehensive)
 - **Data Migration Tools**: Convert between different schemas/versions
 
 ---
 
-## 📱 Phase 10: Future Platforms
+## 📱 Phase 10: Future Platforms (Deferred)
 
-### Mobile Apps (Ambitious)
+### Mobile Apps (Ambitious - Future)
 - **iOS/Android Apps**: Read-only view of database (sync via iCloud/Dropbox)
 - **Web Version**: Browser-based interface for viewing only
 - **Progressive Web App**: Offline-capable web version
 
-### Cloud Sync (Optional)
+### Cloud Sync (Optional - Future)
 - **Optional Cloud Backup**: Auto-backup to user's cloud storage
 - **Multi-Device Sync**: Keep databases in sync across devices
 - **Collaboration Server**: Optional self-hosted server for family collaboration
@@ -367,22 +370,19 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 ---
 
-## 📄 Phase 11: Report Export & Templates (Lower Priority)
+## 📄 Phase 11: Report Export & Templates (✓ Core Features Complete in v1.4.0)
 
-### Report Export ⭐ PRACTICAL
-- Export reports to PDF format (Statistics, Conflicts, Data Quality, etc.)
-- Export reports to CSV for spreadsheet analysis
-- Export reports to HTML for web sharing
-- Privacy options: Hide sensitive data for living people (birth date, address, phone, email)
-- Batch export (export all reports at once)
+### ✅ Report Export ⭐ PRACTICAL (Completed in v1.4.0)
+- ✅ Export reports to PDF format (Family Group Sheet, Descendant, Ancestor, Timeline)
+- ✅ Export data to CSV for spreadsheet analysis (People, Timeline, Surnames, Places, Sources)
+- ✅ Export reports and website to HTML with embedded CSS
+- ✅ Privacy options: Hide sensitive data for living people (birth date, address, phone, email)
+- ✅ Complete multi-page website generation with navigation
+- ✅ Places Index, Timeline Page, Statistics Dashboard, Source Citations Pages
+- ✅ JavaScript real-time search (client-side)
+- ✅ Photo & media embedding with base64 encoding
 
-**Implementation Notes:**
-- PDF: Use a Go PDF library (e.g., gofpdf, go-pdf)
-- CSV: Built-in Go csv package
-- HTML: Use Go's html/template
-- Estimated effort: 1-2 weeks
-
-### Customizable Report Templates (Optional/Low Priority)
+### Customizable Report Templates (Optional/Low Priority - Future)
 - Custom report templates with user-defined layouts
 - Template editor UI
 - Save/load template files
@@ -681,56 +681,67 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 12. ✅ PDF export for all reports (Family Group Sheet, Descendant, Ancestor, Timeline)
 13. ✅ CSV export for data analysis (People, Timeline, Surnames, Places, Sources)
 
-**Phase 10: Additional Platform Support**
+**Phase 10: Additional Platform Support** (Deferred)
 1. ⏳ Mobile companion apps (read-only database view)
 2. ⏳ Cloud sync capabilities (optional)
 3. ⏳ Cross-platform compatibility enhancements
 
-### Future Releases (v1.4+)
+### Future Releases (v1.5+)
 
-**Phase 6: Additional Research Tools** (Future)
-- **✅ Date Calculator**: Time span calculator for genealogy research
-  - ✅ Calculate years/months/days between any two dates
-  - ✅ Calendar picker or manual date entry
-  - ✅ Useful for age calculations and timeline validation
-  - ✅ Estimated effort: 1-2 hours
+**Remaining High-Priority Features:**
 
-**Phase 6: Mapping** 🗺️ WOW FEATURE (Future)
+**Phase 8: Map View** 🗺️ WOW FEATURE (Future - High Priority)
 - Map visualization of life events
-- Geographic timeline
-- Migration paths
+- Geographic timeline showing migration patterns
+- Migration paths connecting life events
 - API integration (Google Maps or OpenStreetMap)
 - Geocoding for place names
+- Interactive markers for births, deaths, marriages
 - Note: Deferred until ready for polished implementation
 
-**Phase 8: Advanced UX** (Continued)
+**Phase 8: Data Entry Helpers** (Future - Medium Priority)
+- Smart Date Entry: Parse "May 1945", "1945", "abt 1945", etc.
+- Place Autocomplete: Suggest standard place names as you type
+- Name Authority: Suggest standard name formats
+- Relationship Suggestions: AI-assisted relationship detection from notes
+
+**Phase 9: Performance & Scalability** (Future - Medium Priority)
+- Indexed Search: Full-text search across all fields
+- Large Database Optimization: Handle 10,000+ people efficiently
+- Lazy Loading: Load views progressively for large datasets
+- Background Processing: Import/export in background threads
+
+**Phase 9: Batch Operations** (Future - Low Priority)
+- Bulk edit: Change place names, standardize dates
+- Bulk delete operations
+- Comprehensive bulk privacy settings
+
+**Phase 8: Advanced UX** (Future - Low Priority)
 - Undo/Redo functionality (complex but valuable)
 
-**Phase 7: Collaboration**
+**Phase 7: Collaboration** (Future - Low Priority)
 1. GEDCOM Merge with conflict resolution
 2. Change Tracking (audit log)
-3. Privacy Features (privacy flags, living people protection)
+3. Advanced Privacy Features
 
-**Phase 11: Report Export** (✓ Completed in v1.4.0 - see Phase 11 above)
-1. ✅ Export reports to PDF (Family Group Sheet, Descendant, Ancestor, Timeline)
-2. ✅ Export data to CSV (People, Timeline, Surnames, Places, Sources)
-3. ✅ Export reports and website to HTML with embedded CSS
+**Phase 9: Integration** (Future - Low Priority)
+- Online Search Integration: Quick links to Ancestry, FamilySearch, etc.
+- Census Data Import: Import from online census records
+- DNA Integration: Link to DNA test results (23andMe, Ancestry DNA)
+- Calendar Integration: Export birthdays/anniversaries to calendar
 
-**Phase 9: Performance**
-1. Performance Optimizations for large databases (10,000+ people)
-
-**Phase 5: Gramps Import Advanced Features** (When Needed)
+**Phase 5: Gramps Import Advanced Features** (Future - When Needed)
 - Import source citations from Gramps
 - Import full event system data from Gramps
 - Import research logs from Gramps
 - Note: Pending investigation of Gramps data availability
 
-**Phase 10:Future Platfoms and other features**
-**Long Term (Ambitious)**
-1. Mobile/Web Versions
-2. Cloud Sync
-3. AI-Assisted Features
-4. DNA Integration
+**Long Term (Ambitious - Future)**
+1. Mobile/Web Versions (Phase 10)
+2. Cloud Sync (Phase 10)
+3. AI-Assisted Features (Phase 8/9)
+4. DNA Integration (Phase 9)
+5. Data Migration Tools (Phase 9)
 
 ---
 
