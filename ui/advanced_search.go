@@ -251,6 +251,153 @@ func showAdvancedSearchDialog(w fyne.Window, s *store.Store, navigateToPerson fu
 		showExportDialog(searchWindow, results)
 	})
 	
+	// Saved searches functionality
+	savedSearchSelect := widget.NewSelect([]string{}, func(selected string) {
+		if selected == "" {
+			return
+		}
+		// Load the selected saved search
+		savedSearches, err := s.GetSavedSearches()
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to load saved searches: %v", err), searchWindow)
+			return
+		}
+		
+		for _, ss := range savedSearches {
+			if ss.Name == selected {
+				loadSearchCriteria(ss.CriteriaJSON, givenNameEntry, surnameEntry, preferredNameEntry,
+					birthYearFromEntry, birthYearToEntry, deathYearFromEntry, deathYearToEntry,
+					birthPlaceEntry, deathPlaceEntry, genderSelect,
+					livingOnlyCheck, deceasedOnlyCheck, hasMediaCheck, hasSourcesCheck,
+					hasTodosCheck, isBookmarkedCheck)
+				break
+			}
+		}
+	})
+	
+	// Function to refresh saved searches dropdown
+	refreshSavedSearches := func() {
+		savedSearches, err := s.GetSavedSearches()
+		if err != nil {
+			return
+		}
+		options := []string{""} // Empty option for "Select saved search..."
+		for _, ss := range savedSearches {
+			options = append(options, ss.Name)
+		}
+		savedSearchSelect.SetOptions(options)
+		if len(options) > 1 {
+			savedSearchSelect.SetSelected("")
+		}
+	}
+	refreshSavedSearches()
+	
+	// Save search button
+	saveSearchBtn := widget.NewButton("Save Search...", func() {
+		// Get current criteria
+		criteria := getCurrentSearchCriteria(givenNameEntry, surnameEntry, preferredNameEntry,
+			birthYearFromEntry, birthYearToEntry, deathYearFromEntry, deathYearToEntry,
+			birthPlaceEntry, deathPlaceEntry, genderSelect,
+			livingOnlyCheck, deceasedOnlyCheck, hasMediaCheck, hasSourcesCheck,
+			hasTodosCheck, isBookmarkedCheck)
+		
+		// Convert to JSON
+		criteriaJSON, err := json.Marshal(criteria)
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to encode search criteria: %v", err), searchWindow)
+			return
+		}
+		
+		// Show dialog to enter name
+		nameEntry := widget.NewEntry()
+		nameEntry.SetPlaceHolder("Enter a name for this search...")
+		
+		content := container.NewVBox(
+			widget.NewLabel("Save this search for reuse:"),
+			nameEntry,
+		)
+		
+		dialog.ShowCustomConfirm("Save Search", "Save", "Cancel", content, func(save bool) {
+			if !save {
+				return
+			}
+			name := strings.TrimSpace(nameEntry.Text)
+			if name == "" {
+				dialog.ShowInformation("Name Required", "Please enter a name for this search.", searchWindow)
+				return
+			}
+			
+			// Check if name already exists
+			savedSearches, _ := s.GetSavedSearches()
+			for _, ss := range savedSearches {
+				if ss.Name == name {
+					dialog.ShowConfirm("Overwrite?", fmt.Sprintf("A search named '%s' already exists. Overwrite it?", name),
+						func(overwrite bool) {
+							if overwrite {
+								if err := s.UpdateSavedSearch(ss.ID, name, string(criteriaJSON)); err != nil {
+									dialog.ShowError(fmt.Errorf("Failed to update search: %v", err), searchWindow)
+									return
+								}
+								refreshSavedSearches()
+								dialog.ShowInformation("Saved", fmt.Sprintf("Search '%s' updated successfully.", name), searchWindow)
+							}
+						}, searchWindow)
+					return
+				}
+			}
+			
+			// Create new saved search
+			if err := s.CreateSavedSearch(name, string(criteriaJSON)); err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to save search: %v", err), searchWindow)
+				return
+			}
+			refreshSavedSearches()
+			dialog.ShowInformation("Saved", fmt.Sprintf("Search '%s' saved successfully.", name), searchWindow)
+		}, searchWindow)
+	})
+	
+	// Delete search button
+	deleteSearchBtn := widget.NewButton("Delete Search...", func() {
+		selected := savedSearchSelect.Selected
+		if selected == "" {
+			dialog.ShowInformation("No Selection", "Please select a saved search to delete.", searchWindow)
+			return
+		}
+		
+		dialog.ShowConfirm("Delete Search", fmt.Sprintf("Delete saved search '%s'?", selected),
+			func(delete bool) {
+				if !delete {
+					return
+				}
+				
+				savedSearches, err := s.GetSavedSearches()
+				if err != nil {
+					dialog.ShowError(fmt.Errorf("Failed to load saved searches: %v", err), searchWindow)
+					return
+				}
+				
+				for _, ss := range savedSearches {
+					if ss.Name == selected {
+						if err := s.DeleteSavedSearch(ss.ID); err != nil {
+							dialog.ShowError(fmt.Errorf("Failed to delete search: %v", err), searchWindow)
+							return
+						}
+						refreshSavedSearches()
+						dialog.ShowInformation("Deleted", fmt.Sprintf("Search '%s' deleted successfully.", selected), searchWindow)
+						return
+					}
+				}
+			}, searchWindow)
+	})
+	
+	// Saved searches section
+	savedSearchesSection := container.NewHBox(
+		widget.NewLabel("Saved Searches:"),
+		savedSearchSelect,
+		saveSearchBtn,
+		deleteSearchBtn,
+	)
+	
 	// Build search form - buttons at TOP for easy access
 	buttonBar := container.NewGridWithColumns(3, searchBtn, clearBtn, exportBtn)
 	
@@ -298,7 +445,7 @@ func showAdvancedSearchDialog(w fyne.Window, s *store.Store, navigateToPerson fu
 	)
 	
 	searchForm := container.NewBorder(
-		buttonBar,
+		container.NewVBox(savedSearchesSection, buttonBar),
 		nil, nil, nil,
 		container.NewVScroll(container.NewVBox(
 			nameSection,
@@ -641,4 +788,119 @@ func escapeXML(s string) string {
 	s = strings.ReplaceAll(s, "\"", "&quot;")
 	s = strings.ReplaceAll(s, "'", "&apos;")
 	return s
+}
+
+// loadSearchCriteria loads search criteria from JSON into form fields
+func loadSearchCriteria(criteriaJSON string,
+	givenNameEntry, surnameEntry, preferredNameEntry *widget.Entry,
+	birthYearFromEntry, birthYearToEntry, deathYearFromEntry, deathYearToEntry *widget.Entry,
+	birthPlaceEntry, deathPlaceEntry *widget.Entry,
+	genderSelect *widget.Select,
+	livingOnlyCheck, deceasedOnlyCheck, hasMediaCheck, hasSourcesCheck, hasTodosCheck, isBookmarkedCheck *widget.Check) {
+	
+	var criteria SearchCriteria
+	if err := json.Unmarshal([]byte(criteriaJSON), &criteria); err != nil {
+		return
+	}
+	
+	givenNameEntry.SetText(criteria.GivenName)
+	surnameEntry.SetText(criteria.Surname)
+	preferredNameEntry.SetText(criteria.PreferredName)
+	
+	if criteria.BirthYearFrom > 0 {
+		birthYearFromEntry.SetText(strconv.Itoa(criteria.BirthYearFrom))
+	} else {
+		birthYearFromEntry.SetText("")
+	}
+	if criteria.BirthYearTo > 0 {
+		birthYearToEntry.SetText(strconv.Itoa(criteria.BirthYearTo))
+	} else {
+		birthYearToEntry.SetText("")
+	}
+	if criteria.DeathYearFrom > 0 {
+		deathYearFromEntry.SetText(strconv.Itoa(criteria.DeathYearFrom))
+	} else {
+		deathYearFromEntry.SetText("")
+	}
+	if criteria.DeathYearTo > 0 {
+		deathYearToEntry.SetText(strconv.Itoa(criteria.DeathYearTo))
+	} else {
+		deathYearToEntry.SetText("")
+	}
+	
+	birthPlaceEntry.SetText(criteria.BirthPlace)
+	deathPlaceEntry.SetText(criteria.DeathPlace)
+	
+	switch criteria.Gender {
+	case "M":
+		genderSelect.SetSelected("Male")
+	case "F":
+		genderSelect.SetSelected("Female")
+	default:
+		genderSelect.SetSelected("Any")
+	}
+	
+	livingOnlyCheck.SetChecked(criteria.LivingOnly)
+	deceasedOnlyCheck.SetChecked(criteria.DeceasedOnly)
+	hasMediaCheck.SetChecked(criteria.HasMedia)
+	hasSourcesCheck.SetChecked(criteria.HasSources)
+	hasTodosCheck.SetChecked(criteria.HasTodos)
+	isBookmarkedCheck.SetChecked(criteria.IsBookmarked)
+}
+
+// getCurrentSearchCriteria extracts current search criteria from form fields
+func getCurrentSearchCriteria(
+	givenNameEntry, surnameEntry, preferredNameEntry *widget.Entry,
+	birthYearFromEntry, birthYearToEntry, deathYearFromEntry, deathYearToEntry *widget.Entry,
+	birthPlaceEntry, deathPlaceEntry *widget.Entry,
+	genderSelect *widget.Select,
+	livingOnlyCheck, deceasedOnlyCheck, hasMediaCheck, hasSourcesCheck, hasTodosCheck, isBookmarkedCheck *widget.Check) SearchCriteria {
+	
+	criteria := SearchCriteria{
+		GivenName:     strings.TrimSpace(givenNameEntry.Text),
+		Surname:       strings.TrimSpace(surnameEntry.Text),
+		PreferredName: strings.TrimSpace(preferredNameEntry.Text),
+		BirthPlace:    strings.TrimSpace(birthPlaceEntry.Text),
+		DeathPlace:    strings.TrimSpace(deathPlaceEntry.Text),
+		LivingOnly:    livingOnlyCheck.Checked,
+		DeceasedOnly:  deceasedOnlyCheck.Checked,
+		HasMedia:      hasMediaCheck.Checked,
+		HasSources:    hasSourcesCheck.Checked,
+		HasTodos:      hasTodosCheck.Checked,
+		IsBookmarked:  isBookmarkedCheck.Checked,
+	}
+	
+	// Parse year ranges
+	if birthYearFromEntry.Text != "" {
+		if year, err := strconv.Atoi(strings.TrimSpace(birthYearFromEntry.Text)); err == nil {
+			criteria.BirthYearFrom = year
+		}
+	}
+	if birthYearToEntry.Text != "" {
+		if year, err := strconv.Atoi(strings.TrimSpace(birthYearToEntry.Text)); err == nil {
+			criteria.BirthYearTo = year
+		}
+	}
+	if deathYearFromEntry.Text != "" {
+		if year, err := strconv.Atoi(strings.TrimSpace(deathYearFromEntry.Text)); err == nil {
+			criteria.DeathYearFrom = year
+		}
+	}
+	if deathYearToEntry.Text != "" {
+		if year, err := strconv.Atoi(strings.TrimSpace(deathYearToEntry.Text)); err == nil {
+			criteria.DeathYearTo = year
+		}
+	}
+	
+	// Gender filter
+	switch genderSelect.Selected {
+	case "Male":
+		criteria.Gender = "M"
+	case "Female":
+		criteria.Gender = "F"
+	default:
+		criteria.Gender = ""
+	}
+	
+	return criteria
 }

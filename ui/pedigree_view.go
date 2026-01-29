@@ -54,7 +54,7 @@ func NewPedigreeView(s *store.Store, w fyne.Window, onNavigate func(personID int
 		onNavigate:        onNavigate,
 		onEdit:            onEdit,
 		maxGenerations:    4,
-		colorMode:         ColorNone,
+		colorMode:         ColorByGender,
 		zoomLevel:         1.0,
 		collapsedBranches: make(map[int64]bool),
 	}
@@ -121,7 +121,7 @@ func (pv *PedigreeView) createControlPanel() fyne.CanvasObject {
 		}
 		pv.refresh()
 	})
-	pv.colorSelect.SetSelected("No Color")
+	pv.colorSelect.SetSelected("By Gender")
 	
 	// Zoom slider
 	pv.zoomSlider = widget.NewSlider(0.5, 2.0)
@@ -519,14 +519,21 @@ func (pv *PedigreeView) makePersonBoxIfExists(p *store.Person, generation int) f
 
 // showExportDialog shows options for exporting the pedigree chart
 func (pv *PedigreeView) showExportDialog() {
-	dialog.ShowInformation("Export Chart",
-		"Chart export functionality coming soon!\n\n"+
-			"Future options will include:\n"+
-			"• Export to PDF\n"+
-			"• Export to PNG image\n"+
-			"• Print directly\n"+
-			"• Share via email",
-		pv.window)
+	chartContent := pv.buildPedigreeChart()
+	if pv.currentPerson == nil {
+		dialog.ShowError(fmt.Errorf("No person selected"), pv.window)
+		return
+	}
+	title := fmt.Sprintf("Pedigree Chart - %s", formatPersonName(*pv.currentPerson))
+	
+	// Collect all people in the chart
+	people := []*store.Person{pv.currentPerson}
+	for gen := 2; gen <= pv.maxGenerations; gen++ {
+		ancestors := pv.getAncestorsAtGeneration(pv.currentPerson, gen, 1)
+		people = append(people, ancestors...)
+	}
+	
+	showChartExportDialog(pv.window, title, chartContent, people)
 }
 
 // getParents returns the parents of a person.

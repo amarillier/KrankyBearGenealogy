@@ -111,13 +111,22 @@ func (fc *FanChart) createControlPanel() fyne.CanvasObject {
 	
 	// Export button
 	exportBtn := widget.NewButton("Export Chart", func() {
-		dialog.ShowInformation("Export Fan Chart",
-			"Fan chart export functionality coming soon!\n\n"+
-				"Future options will include:\n"+
-				"• Export to PDF\n"+
-				"• Export to PNG image\n"+
-				"• Print directly",
-			fc.window)
+		chartContent := fc.buildFanChart()
+		title := fmt.Sprintf("Fan Chart - %s", formatPersonName(*fc.currentPerson))
+		
+		// Collect all people in the chart with nil preservation for Ahnentafel indexing
+		people := []*store.Person{fc.currentPerson}
+		// Collect up to 4 generations for export (same as pedigree)
+		maxExportGen := 4
+		if fc.maxGenerations < maxExportGen {
+			maxExportGen = fc.maxGenerations
+		}
+		for gen := 2; gen <= maxExportGen; gen++ {
+			ancestors := fc.getAncestorsForGeneration(fc.currentPerson, gen, 1)
+			people = append(people, ancestors...)
+		}
+		
+		showChartExportDialog(fc.window, title, chartContent, people)
 	})
 	
 	// Info button

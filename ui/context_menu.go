@@ -81,6 +81,13 @@ func ShowPersonContextMenu(
 		showDescendantChartDialog(w, s, person.ID, onNavigate)
 	}))
 	
+	// View Media (if person has media)
+	if media, err := s.GetMediaForPerson(person.ID); err == nil && len(media) > 0 {
+		items = append(items, fyne.NewMenuItem(fmt.Sprintf("View Media (%d)...", len(media)), func() {
+			showMediaManager(w, s, person.ID, formatPersonName(*person))
+		}))
+	}
+	
 	items = append(items, fyne.NewMenuItemSeparator())
 	
 	// === QUICK ACTIONS ===
@@ -175,6 +182,10 @@ func ShowPersonContextMenu(
 	
 	items = append(items, fyne.NewMenuItem("Generate Descendant Report...", func() {
 		showDescendantReport(w, s, person.ID, onNavigate)
+	}))
+	
+	items = append(items, fyne.NewMenuItem("Family Group Sheet...", func() {
+		showFamilyGroupSheet(w, s, person.ID, onNavigate)
 	}))
 	
 	// Create menu

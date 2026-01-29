@@ -170,7 +170,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	var peopleList *widget.List
 	var searchEntry *widget.Entry
 	var tabs *container.AppTabs
-	var split *container.Split // Forward declare for resetting offset on reload
+	var split *container.Split      // Forward declare for resetting offset on reload
 	var viewMediaBtn *widget.Button // Forward declare for use in navigation
 	var bookmarkBtn *widget.Button  // Forward declare for bookmark toggle
 
@@ -209,7 +209,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 
 	navigateToPerson := func(personID int64) {
 		currentPersonID = personID
-		
+
 		// Update any open fan charts and descendant charts
 		UpdateAllFanCharts(getStore(), personID)
 		UpdateAllDescendantCharts(getStore(), personID)
@@ -402,19 +402,19 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 				return
 			}
 			p := filteredPeople[i]
-		label := o.(*widget.Label)
-		text := formatPersonName(p)
-			
+			label := o.(*widget.Label)
+			text := formatPersonName(p)
+
 			// Add bookmark indicator if bookmarked
 			if p.Bookmarked {
 				text = "★ " + text
 			}
-			
+
 			// Add todo indicator if person has pending todos
 			if count, err := getStore().CountPendingTodosForPerson(p.ID); err == nil && count > 0 {
 				text = "📝 " + text
 			}
-			
+
 			// Add source indicator if person has citations
 			if count, err := getStore().CountCitationsForPerson(p.ID); err == nil && count > 0 {
 				text = "📚 " + text
@@ -424,7 +424,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 			if count, err := getStore().CountResearchLogsForPerson(p.ID); err == nil && count > 0 {
 				text = "🔍 " + text
 			}
-			
+
 			if p.BirthDate != "" {
 				text += fmt.Sprintf(" (%s)", p.BirthDate)
 			}
@@ -594,56 +594,56 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		individualView = NewIndividualView(getStore(), w, navigateToPerson, editPerson)
 		individualView.SetSwitchHandlers(switchToFamily, switchToPedigree)
 
-	// Update tabs with new views
-	tabs.Items[0].Content = familyView
-	tabs.Items[1].Content = pedigreeView
-	tabs.Items[2].Content = individualView
-	tabs.Refresh()
+		// Update tabs with new views
+		tabs.Items[0].Content = familyView
+		tabs.Items[1].Content = pedigreeView
+		tabs.Items[2].Content = individualView
+		tabs.Refresh()
 
-	// Reset split offset to default (prevent narrow left panel issue)
-	if split != nil {
-		split.SetOffset(0.3) // 30% for the index, 70% for views
-	}
+		// Reset split offset to default (prevent narrow left panel issue)
+		if split != nil {
+			split.SetOffset(0.3) // 30% for the index, 70% for views
+		}
 
-	// Reload all data
-	refreshPeopleList()
+		// Reload all data
+		refreshPeopleList()
 
-	// Navigate to appropriate person based on preferences (same logic as startup)
-	var personToLoad int64
-	if cfg != nil {
-		if cfg.OpenWithFocusUser {
-			// Use Focus User if set
-			if focusID := cfg.GetFocusUserForDatabase(newDBPath); focusID > 0 {
-				// Verify this person exists
-				if _, err := newStore.GetPersonByID(focusID); err == nil {
-					personToLoad = focusID
+		// Navigate to appropriate person based on preferences (same logic as startup)
+		var personToLoad int64
+		if cfg != nil {
+			if cfg.OpenWithFocusUser {
+				// Use Focus User if set
+				if focusID := cfg.GetFocusUserForDatabase(newDBPath); focusID > 0 {
+					// Verify this person exists
+					if _, err := newStore.GetPersonByID(focusID); err == nil {
+						personToLoad = focusID
+					}
 				}
-			}
-		} else {
-			// Use Last Person (default)
-			if lastID := cfg.GetLastPersonForDatabase(newDBPath); lastID > 0 {
-				// Verify this person exists
-				if _, err := newStore.GetPersonByID(lastID); err == nil {
-					personToLoad = lastID
+			} else {
+				// Use Last Person (default)
+				if lastID := cfg.GetLastPersonForDatabase(newDBPath); lastID > 0 {
+					// Verify this person exists
+					if _, err := newStore.GetPersonByID(lastID); err == nil {
+						personToLoad = lastID
+					}
 				}
 			}
 		}
-	}
 
-	// Fallback to first person if no preference or person not found
-	if personToLoad == 0 && len(people) > 0 {
-		personToLoad = people[0].ID
-	}
+		// Fallback to first person if no preference or person not found
+		if personToLoad == 0 && len(people) > 0 {
+			personToLoad = people[0].ID
+		}
 
-	// Navigate to the selected person or clear view
-	if personToLoad > 0 {
-		navigateToPerson(personToLoad)
-	} else {
-		currentPersonID = 0
-		familyView.SetPerson(nil)
-		pedigreeView.SetPerson(nil)
-		individualView.SetPerson(nil)
-	}
+		// Navigate to the selected person or clear view
+		if personToLoad > 0 {
+			navigateToPerson(personToLoad)
+		} else {
+			currentPersonID = 0
+			familyView.SetPerson(nil)
+			pedigreeView.SetPerson(nil)
+			individualView.SetPerson(nil)
+		}
 
 		// NOW close the old database after everything is set up
 		if oldStore != nil {
@@ -690,8 +690,8 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 			return
 		}
 		dialog.ShowConfirm("Delete Person",
-		fmt.Sprintf("Are you sure you want to delete %s? This will remove all relationships.",
-			formatPersonName(*person)),
+			fmt.Sprintf("Are you sure you want to delete %s? This will remove all relationships.",
+				formatPersonName(*person)),
 			func(confirmed bool) {
 				if !confirmed {
 					return
@@ -740,10 +740,10 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 			dialog.ShowError(err, w)
 			return
 		}
-		
-	dialog.ShowConfirm("Set Focus Person",
-		fmt.Sprintf("Set %s as your focus person?\n\nThe focus person is used for relationship calculations and quick navigation.",
-			formatPersonName(*person)),
+
+		dialog.ShowConfirm("Set Focus Person",
+			fmt.Sprintf("Set %s as your focus person?\n\nThe focus person is used for relationship calculations and quick navigation.",
+				formatPersonName(*person)),
 			func(confirmed bool) {
 				if confirmed {
 					cfg.SetFocusUserForDatabase(dbPath, currentPersonID)
@@ -756,18 +756,15 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 					if updateStatus != nil {
 						updateStatus()
 					}
-			dialog.ShowInformation("Focus Person Set",
-				fmt.Sprintf("%s is now your focus person.\n\nUse the 'Focus Person' button to quickly navigate back to them.",
-					formatPersonName(*person)), w)
+					dialog.ShowInformation("Focus Person Set",
+						fmt.Sprintf("%s is now your focus person.\n\nUse the 'Focus Person' button to quickly navigate back to them.",
+							formatPersonName(*person)), w)
 				}
 			}, w)
 	})
 
-	addMediaBtn := widget.NewButton("📷 Add Media", func() {
-		showGlobalMediaDialog(w, getStore())
-	})
-
-	mediaLibraryBtn := widget.NewButton("🖼️ Media Library", func() {
+	// Media Library button (for keyboard shortcut)
+	mediaLibraryBtn := widget.NewButton("Media Library", func() {
 		showMediaLibrary(w, getStore())
 	})
 
@@ -884,12 +881,16 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		showDuplicateDetectionReport(w, getStore(), navigateToPerson, refreshAll)
 	})
 
-	descendantBtn := widget.NewButton("Descendant Report", func() {
+	descendantBtn := widget.NewButton("Descendant (Pedigree) Report", func() {
 		showDescendantReport(w, getStore(), currentPersonID, navigateToPerson)
 	})
 
-	ancestorBtn := widget.NewButton("Ancestor Report", func() {
+	ancestorBtn := widget.NewButton("Ancestor (Ahnentafel) Report", func() {
 		showAncestorReport(w, getStore(), currentPersonID, navigateToPerson)
+	})
+
+	familyGroupBtn := widget.NewButton("Family Group Sheet", func() {
+		showFamilyGroupSheet(w, getStore(), currentPersonID, navigateToPerson)
 	})
 
 	timelineBtn := widget.NewButton("Timeline View", func() {
@@ -903,8 +904,39 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		})
 	})
 
-	// Top toolbar - simplified, most actions moved to menus
-	toolbar := container.NewHBox(focusPersonBtn, setFocusBtn, bookmarkBtn, addPersonBtn, deletePersonBtn, addMediaBtn, mediaLibraryBtn, viewMediaBtn)
+	// Popup menu buttons for toolbar (defined after all individual buttons)
+	// File button - shows popup menu with file operations
+	fileBtn := widget.NewButton("📁 File", func() {
+		showFilePopupMenu(w, cfg, dbPath, getStore, reloadWithDatabase, newDatabaseBtn, openDatabaseBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn)
+	})
+
+	// Media button - shows popup menu with media options
+	mediaBtn := widget.NewButton("🖼️ Media", func() {
+		showMediaPopupMenu(w, getStore(), currentPersonID)
+	})
+
+	// Tools button - shows popup menu with tools
+	toolsBtn := widget.NewButton("🔧 Tools", func() {
+		showToolsPopupMenu(w, getStore())
+	})
+
+	// Reports button - shows popup menu with all reports
+	reportsBtn := widget.NewButton("📊 Reports", func() {
+		showReportsPopupMenu(w, getStore(), currentPersonID, navigateToPerson)
+	})
+
+	// Settings button - shows popup menu with settings options
+	settingsPopupBtn := widget.NewButton("⚙️ Settings", func() {
+		showSettingsPopupMenu(w, cfg, dbPath, getStore, settingsBtn)
+	})
+
+	// Help button - shows popup menu with help options
+	helpBtn := widget.NewButton("❓ Help", func() {
+		showHelpPopupMenu(w, cfg, reloadWithDatabase)
+	})
+
+	// Top toolbar - with quick access popup menus
+	toolbar := container.NewHBox(focusPersonBtn, setFocusBtn, bookmarkBtn, addPersonBtn, deletePersonBtn, fileBtn, mediaBtn, toolsBtn, reportsBtn, settingsPopupBtn, helpBtn)
 
 	// Status bar for statistics and relationship info
 	statusLabel := widget.NewLabel("Ready")
@@ -961,7 +993,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 
 	// Left panel: search + people list
 	leftPanel := container.NewBorder(searchEntry, nil, nil, nil, peopleList)
-	
+
 	// Add minimum width constraint to left panel (prevents narrow panel with short names)
 	minWidthSpacer := canvas.NewRectangle(color.Transparent)
 	minWidthSpacer.SetMinSize(fyne.NewSize(220, 0))
@@ -978,7 +1010,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	w.Resize(fyne.NewSize(1400, 850)) // Increased default size for better usability
 
 	// Setup system tray and menus (if supported)
-	setupMenus(a, w, cfg, newDatabaseBtn, openDatabaseBtn, backupBtn, restoreBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn, dataQualityBtn, livingStatusBtn, conflictsBtn, duplicatesBtn, descendantBtn, ancestorBtn, timelineBtn, settingsBtn, getStore, navigateToPerson, refreshAll, func() int64 { return currentPersonID }, reloadWithDatabase)
+	setupMenus(a, w, cfg, newDatabaseBtn, openDatabaseBtn, backupBtn, restoreBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn, dataQualityBtn, livingStatusBtn, conflictsBtn, duplicatesBtn, descendantBtn, ancestorBtn, familyGroupBtn, timelineBtn, settingsBtn, getStore, navigateToPerson, refreshAll, func() int64 { return currentPersonID }, reloadWithDatabase)
 
 	// Statistics dashboard button (for keyboard shortcut)
 	statsBtn := widget.NewButton("Statistics", func() {
@@ -987,13 +1019,13 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 
 	// Setup keyboard shortcuts
 	setupKeyboardShortcuts(a, w, cfg, tabs, searchEntry, addPersonBtn, deletePersonBtn, focusPersonBtn,
-		settingsBtn, dataQualityBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn, bookmarkBtn, editPerson, &currentPersonID, getStore, navigateToPerson)
+		settingsBtn, dataQualityBtn, reportsBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn, bookmarkBtn, editPerson, &currentPersonID, getStore, navigateToPerson)
 
 	w.ShowAndRun()
 }
 
 // setupMenus creates the system tray and window menus
-func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBBtn, backupBtn, restoreBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn, dataQBtn, livingStatusBtn, conflictsBtn, duplicatesBtn, descendantBtn, ancestorBtn, timelineBtn, settingsBtn *widget.Button, getStore func() *store.Store, navigateToPerson func(int64), refreshAll func(), getCurrentPersonID func() int64, reloadWithDatabase func(string, ...bool)) {
+func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBBtn, backupBtn, restoreBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn, dataQBtn, livingStatusBtn, conflictsBtn, duplicatesBtn, descendantBtn, ancestorBtn, familyGroupBtn, timelineBtn, settingsBtn *widget.Button, getStore func() *store.Store, navigateToPerson func(int64), refreshAll func(), getCurrentPersonID func() int64, reloadWithDatabase func(string, ...bool)) {
 	desk, ok := a.(desktop.App)
 	if !ok {
 		return // System tray not supported on this platform
@@ -1059,7 +1091,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 				"The recent files list is already empty.", w)
 			return
 		}
-		
+
 		dialog.ShowConfirm("Clear Recent Files",
 			fmt.Sprintf("Clear %d recent file(s) from the list?", len(cfg.RecentDatabases)),
 			func(confirmed bool) {
@@ -1121,12 +1153,16 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		showDuplicateDetectionReport(w, getStore(), navigateToPerson, refreshAll)
 	})
 
-	descendantReport := fyne.NewMenuItem("Descendant Report", func() {
+	descendantReport := fyne.NewMenuItem("Descendant (Pedigree) Report", func() {
 		showDescendantReport(w, getStore(), getCurrentPersonID(), navigateToPerson)
 	})
 
-	ancestorReport := fyne.NewMenuItem("Ancestor Report", func() {
+	ancestorReport := fyne.NewMenuItem("Ancestor (Ahnentafel) Report", func() {
 		showAncestorReport(w, getStore(), getCurrentPersonID(), navigateToPerson)
+	})
+
+	familyGroupReport := fyne.NewMenuItem("Family Group Sheet", func() {
+		showFamilyGroupSheet(w, getStore(), getCurrentPersonID(), navigateToPerson)
 	})
 
 	timelineReport := fyne.NewMenuItem("Timeline View", func() {
@@ -1140,11 +1176,11 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	geographicReport := fyne.NewMenuItem("Geographic Distribution", func() {
 		showGeographicDistributionReport(w, getStore(), navigateToPerson)
 	})
-	
+
 	fanChartView := fyne.NewMenuItem("Fan Chart...", func() {
 		showFanChartDialog(w, getStore(), getCurrentPersonID(), navigateToPerson)
 	})
-	
+
 	descendantChartView := fyne.NewMenuItem("Descendant Chart...", func() {
 		showDescendantChartDialog(w, getStore(), getCurrentPersonID(), navigateToPerson)
 	})
@@ -1256,14 +1292,18 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	loadDemo := fyne.NewMenuItem("Load Demo Database", func() {
 		showLoadDemoDialog(w, cfg, reloadWithDatabase)
 	})
-	
+
 	// Tools menu items
 	globalSearchReplace := fyne.NewMenuItem("Global Search and Replace...", func() {
 		showGlobalSearchReplaceDialog(w, getStore())
 	})
-	
+
 	nameCaseConversion := fyne.NewMenuItem("Name Case Conversion...", func() {
 		showNameCaseConversionDialog(w, getStore())
+	})
+
+	dateCalculator := fyne.NewMenuItem("Date Calculator...", func() {
+		showDateCalculatorDialog(w)
 	})
 
 	// System tray menu with proper submenus using ChildMenu
@@ -1288,32 +1328,41 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	mediaMenuItem := fyne.NewMenuItem("Media", nil)
 	mediaMenuItem.ChildMenu = mediaSubMenu
 
-	// Create Reports submenu
+	// Create Reports submenu (alphabetically sorted within groups)
 	reportsSubMenu := fyne.NewMenu("Reports",
-		statistics,
+		// Utilities (alphabetical)
 		advancedSearch,
 		relationshipCalc,
+		statistics,
 		fyne.NewMenuItemSeparator(),
-		recentPeopleReport,
-		bookmarkedPeopleReport,
+		// List Reports (alphabetical)
 		allTodosReport,
+		bookmarkedPeopleReport,
 		completedTodosReport,
+		recentPeopleReport,
+		recentResearchReport,
 		fyne.NewMenuItemSeparator(),
-		dataQuality,
-		livingStatus,
-		conflictsReport,
-		duplicatesReport,
-		unsourcedPeopleReport,
+		// Data Quality Reports (alphabetical)
 		allSourcesReport,
+		conflictsReport,
+		dataQuality,
+		duplicatesReport,
+		livingStatus,
+		unsourcedPeopleReport,
 		wellDocumentedReport,
 		fyne.NewMenuItemSeparator(),
-		descendantReport,
+		// Individual Reports (alphabetical)
 		ancestorReport,
+		descendantReport,
+		familyGroupReport,
 		timelineReport,
-		geographicReport,
-		fanChartView,
-		descendantChartView,
 		fyne.NewMenuItemSeparator(),
+		// Chart Views (alphabetical)
+		descendantChartView,
+		fanChartView,
+		geographicReport,
+		fyne.NewMenuItemSeparator(),
+		// Actions (alphabetical)
 		massMarkLivingReport,
 		reviewedItemsReport)
 	reportsMenuItem := fyne.NewMenuItem("Reports", nil)
@@ -1344,7 +1393,8 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	// Tools menu items (defined earlier in the file)
 	toolsSubMenu := fyne.NewMenu("Tools",
 		globalSearchReplace,
-		nameCaseConversion)
+		nameCaseConversion,
+		dateCalculator)
 	toolsMenuItem := fyne.NewMenuItem("Tools", nil)
 	toolsMenuItem.ChildMenu = toolsSubMenu
 
@@ -1367,12 +1417,25 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		backup, restore, maintenance, fyne.NewMenuItemSeparator(),
 		importGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(), quit)
 	mediaMenu := fyne.NewMenu("Media", mediaLibraryMenuItem, addMediaMenuItem, fyne.NewMenuItemSeparator(), sourcesLibraryMenuItem, researchLogMenuItem)
-	toolsMenu := fyne.NewMenu("Tools", globalSearchReplace, nameCaseConversion)
-	reportsMenu := fyne.NewMenu("Reports", statistics, advancedSearch, relationshipCalc, fyne.NewMenuItemSeparator(),
-		recentPeopleReport, bookmarkedPeopleReport, allTodosReport, completedTodosReport, recentResearchReport, fyne.NewMenuItemSeparator(),
-		dataQuality, livingStatus, conflictsReport, duplicatesReport, unsourcedPeopleReport, allSourcesReport, wellDocumentedReport,
-		fyne.NewMenuItemSeparator(), descendantReport, ancestorReport, timelineReport, geographicReport, fanChartView, descendantChartView,
-		fyne.NewMenuItemSeparator(), massMarkLivingReport, reviewedItemsReport)
+	toolsMenu := fyne.NewMenu("Tools", globalSearchReplace, nameCaseConversion, dateCalculator)
+	reportsMenu := fyne.NewMenu("Reports",
+		// Utilities (alphabetical)
+		advancedSearch, relationshipCalc, statistics,
+		fyne.NewMenuItemSeparator(),
+		// List Reports (alphabetical)
+		allTodosReport, bookmarkedPeopleReport, completedTodosReport, recentPeopleReport, recentResearchReport,
+		fyne.NewMenuItemSeparator(),
+		// Data Quality Reports (alphabetical)
+		allSourcesReport, conflictsReport, dataQuality, duplicatesReport, livingStatus, unsourcedPeopleReport, wellDocumentedReport,
+		fyne.NewMenuItemSeparator(),
+		// Individual Reports (alphabetical)
+		ancestorReport, descendantReport, familyGroupReport, timelineReport,
+		fyne.NewMenuItemSeparator(),
+		// Chart Views (alphabetical)
+		descendantChartView, fanChartView, geographicReport,
+		fyne.NewMenuItemSeparator(),
+		// Actions (alphabetical)
+		massMarkLivingReport, reviewedItemsReport)
 	settingsMenu := fyne.NewMenu("Settings", settingsDialog, keyboardShortcuts, fyne.NewMenuItemSeparator(),
 		settingsLight, settingsDark, settingsSystem)
 	helpMenu := fyne.NewMenu("Help", about, updtchk, help, fyne.NewMenuItemSeparator(), loadDemo)
@@ -1380,9 +1443,340 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	w.SetMainMenu(cmenu)
 }
 
+// showReportsPopupMenu shows a popup menu with all reports organized in submenus
+func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, navigateFunc func(int64)) {
+	// Utilities submenu
+	utilitiesMenu := fyne.NewMenu("",
+		fyne.NewMenuItem("Advanced Search", func() {
+			showAdvancedSearchDialog(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Relationship Calculator", func() {
+			showRelationshipCalculator(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Statistics Dashboard", func() {
+			showStatisticsDashboard(w, s)
+		}),
+	)
+	utilities := fyne.NewMenuItem("Utilities", nil)
+	utilities.ChildMenu = utilitiesMenu
+	
+	// Lists submenu
+	listsMenu := fyne.NewMenu("",
+		fyne.NewMenuItem("All To-Dos", func() {
+			showAllTodosReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Bookmarked People", func() {
+			showBookmarkedPeopleReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Completed To-Dos", func() {
+			showCompletedTodosReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Recent People", func() {
+			showRecentPeopleReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Recent Research", func() {
+			showRecentResearchReport(w, s)
+		}),
+	)
+	lists := fyne.NewMenuItem("Lists", nil)
+	lists.ChildMenu = listsMenu
+	
+	// Data Quality submenu
+	dataQualityMenu := fyne.NewMenu("",
+		fyne.NewMenuItem("All Sources", func() {
+			showSourcesLibrary(w, s)
+		}),
+		fyne.NewMenuItem("Conflicts Report", func() {
+			showConflictsReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Data Quality Report", func() {
+			showDataQualityReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Duplicate Detection", func() {
+			showDuplicateDetectionReport(w, s, navigateFunc, func() {})
+		}),
+		fyne.NewMenuItem("Living Status Report", func() {
+			showLivingStatusReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Unsourced People", func() {
+			showUnsourcedPeopleReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Well Documented", func() {
+			showWellDocumentedPeopleReport(w, s, navigateFunc)
+		}),
+	)
+	dataQuality := fyne.NewMenuItem("Data Quality", nil)
+	dataQuality.ChildMenu = dataQualityMenu
+	
+	// Individual Reports submenu
+	individualMenu := fyne.NewMenu("",
+		fyne.NewMenuItem("Ancestor Report", func() {
+			showAncestorReport(w, s, currentPersonID, navigateFunc)
+		}),
+		fyne.NewMenuItem("Descendant Report", func() {
+			showDescendantReport(w, s, currentPersonID, navigateFunc)
+		}),
+		fyne.NewMenuItem("Family Group Sheet", func() {
+			showFamilyGroupSheet(w, s, currentPersonID, navigateFunc)
+		}),
+		fyne.NewMenuItem("Timeline View", func() {
+			showTimelineView(w, s, navigateFunc)
+		}),
+	)
+	individual := fyne.NewMenuItem("Individual Reports", nil)
+	individual.ChildMenu = individualMenu
+	
+	// Chart Views submenu
+	chartsMenu := fyne.NewMenu("",
+		fyne.NewMenuItem("Descendant Chart View", func() {
+			showDescendantChartDialog(w, s, currentPersonID, navigateFunc)
+		}),
+		fyne.NewMenuItem("Fan Chart View", func() {
+			showFanChartDialog(w, s, currentPersonID, navigateFunc)
+		}),
+		fyne.NewMenuItem("Geographic Distribution", func() {
+			showGeographicDistributionReport(w, s, navigateFunc)
+		}),
+	)
+	charts := fyne.NewMenuItem("Chart Views", nil)
+	charts.ChildMenu = chartsMenu
+	
+	// Actions submenu
+	actionsMenu := fyne.NewMenu("",
+		fyne.NewMenuItem("Mass Mark Living", func() {
+			showMassMarkLivingReport(w, s, func() {})
+		}),
+		fyne.NewMenuItem("Reviewed Items", func() {
+			showReviewedItemsReport(w, s, navigateFunc)
+		}),
+	)
+	actions := fyne.NewMenuItem("Actions", nil)
+	actions.ChildMenu = actionsMenu
+	
+	// Main menu with submenus
+	items := []*fyne.MenuItem{
+		utilities,
+		lists,
+		dataQuality,
+		individual,
+		charts,
+		actions,
+	}
+	
+	menu := fyne.NewMenu("", items...)
+	
+	// Show popup at center of window
+	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
+	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
+}
+
+// showMediaPopupMenu shows a popup menu with all media options
+func showMediaPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64) {
+	items := []*fyne.MenuItem{
+		fyne.NewMenuItem("Add Media", func() {
+			showGlobalMediaDialog(w, s)
+		}),
+		fyne.NewMenuItem("Media Library", func() {
+			showMediaLibrary(w, s)
+		}),
+		fyne.NewMenuItem("Research Log Manager", func() {
+			showResearchLogManager(w, s)
+		}),
+		fyne.NewMenuItem("Sources Library", func() {
+			showSourcesLibrary(w, s)
+		}),
+	}
+	
+	// Add View Media if current person has media
+	if currentPersonID > 0 {
+		if media, err := s.GetMediaForPerson(currentPersonID); err == nil && len(media) > 0 {
+			person, err := s.GetPersonByID(currentPersonID)
+			if err == nil {
+				items = append(items, fyne.NewMenuItemSeparator())
+				items = append(items, fyne.NewMenuItem(fmt.Sprintf("View Media (%d)", len(media)), func() {
+					showMediaManager(w, s, currentPersonID, fmt.Sprintf("%s %s", person.GivenName, person.Surname))
+				}))
+			}
+		}
+	}
+	
+	menu := fyne.NewMenu("", items...)
+	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
+	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
+}
+
+// showFilePopupMenu shows a popup menu with file operations
+func showFilePopupMenu(w fyne.Window, cfg *config.Config, dbPath string, getStore func() *store.Store, reloadWithDatabase func(string, ...bool), newDBBtn, openDBBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn *widget.Button) {
+	items := []*fyne.MenuItem{
+		fyne.NewMenuItem("New Database", func() {
+			if newDBBtn != nil {
+				newDBBtn.OnTapped()
+			}
+		}),
+		fyne.NewMenuItem("Open Database", func() {
+			if openDBBtn != nil {
+				openDBBtn.OnTapped()
+			}
+		}),
+	}
+	
+	// Add Recent Files submenu if there are any
+	if len(cfg.RecentDatabases) > 0 {
+		recentFilesMenu := fyne.NewMenu("")
+		for i, recentDB := range cfg.RecentDatabases {
+			if i >= 10 {
+				break // Limit to 10 recent files
+			}
+			dbPathCopy := recentDB
+			recentFilesMenu.Items = append(recentFilesMenu.Items,
+				fyne.NewMenuItem(filepath.Base(recentDB), func() {
+					reloadWithDatabase(dbPathCopy, true) // true = skip confirmation
+				}))
+		}
+		
+		recentFilesItem := fyne.NewMenuItem("Recent Files", nil)
+		recentFilesItem.ChildMenu = recentFilesMenu
+		items = append(items, recentFilesItem)
+		
+		items = append(items, fyne.NewMenuItem("Clear Recent Files", func() {
+			if len(cfg.RecentDatabases) == 0 {
+				dialog.ShowInformation("Clear Recent Files", "The recent files list is already empty.", w)
+				return
+			}
+			dialog.ShowConfirm("Clear Recent Files",
+				fmt.Sprintf("Are you sure you want to clear %d recent file(s)?", len(cfg.RecentDatabases)),
+				func(ok bool) {
+					if ok {
+						cfg.RecentDatabases = []string{}
+						_ = cfg.Save()
+						dialog.ShowInformation("Cleared", "Recent files list has been cleared.", w)
+					}
+				}, w)
+		}))
+	}
+	
+	items = append(items, fyne.NewMenuItemSeparator())
+	items = append(items, fyne.NewMenuItem("Backup Database", func() {
+		showBackupDialog(w, dbPath, getStore)
+	}))
+	items = append(items, fyne.NewMenuItem("Database Maintenance", func() {
+		showDatabaseMaintenanceDialog(w, getStore())
+	}))
+	items = append(items, fyne.NewMenuItem("Restore Database", func() {
+		showRestoreDialog(w, dbPath, reloadWithDatabase)
+	}))
+	items = append(items, fyne.NewMenuItemSeparator())
+	items = append(items, fyne.NewMenuItem("Export GEDCOM", func() {
+		if exportBtn != nil {
+			exportBtn.OnTapped()
+		}
+	}))
+	items = append(items, fyne.NewMenuItem("Import GEDCOM", func() {
+		if importBtn != nil {
+			importBtn.OnTapped()
+		}
+	}))
+	items = append(items, fyne.NewMenuItem("Import from GenoPro", func() {
+		if importGenoProBtn != nil {
+			importGenoProBtn.OnTapped()
+		}
+	}))
+	items = append(items, fyne.NewMenuItem("Import from Gramps", func() {
+		if importGrampsBtn != nil {
+			importGrampsBtn.OnTapped()
+		}
+	}))
+	
+	menu := fyne.NewMenu("", items...)
+	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
+	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
+}
+
+// showToolsPopupMenu shows a popup menu with tools
+func showToolsPopupMenu(w fyne.Window, s *store.Store) {
+	items := []*fyne.MenuItem{
+		fyne.NewMenuItem("Date Calculator", func() {
+			showDateCalculatorDialog(w)
+		}),
+		fyne.NewMenuItem("Global Search & Replace", func() {
+			showGlobalSearchReplaceDialog(w, s)
+		}),
+		fyne.NewMenuItem("Name Case Conversion", func() {
+			showNameCaseConversionDialog(w, s)
+		}),
+	}
+	
+	menu := fyne.NewMenu("", items...)
+	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
+	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
+}
+
+// showSettingsPopupMenu shows a popup menu with settings options
+func showSettingsPopupMenu(w fyne.Window, cfg *config.Config, dbPath string, getStore func() *store.Store, settingsBtn *widget.Button) {
+	items := []*fyne.MenuItem{
+		fyne.NewMenuItem("Settings", func() {
+			if settingsBtn != nil {
+				settingsBtn.OnTapped()
+			}
+		}),
+		fyne.NewMenuItem("Keyboard Shortcuts", func() {
+			showKeyboardShortcutsDialog(w, cfg)
+		}),
+		fyne.NewMenuItemSeparator(),
+		fyne.NewMenuItem("Light Theme", func() {
+			if LightThemeFunc != nil {
+				LightThemeFunc()
+			}
+		}),
+		fyne.NewMenuItem("Dark Theme", func() {
+			if DarkThemeFunc != nil {
+				DarkThemeFunc()
+			}
+		}),
+		fyne.NewMenuItem("System Theme", func() {
+			if SystemThemeFunc != nil {
+				SystemThemeFunc()
+			}
+		}),
+	}
+	
+	menu := fyne.NewMenu("", items...)
+	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
+	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
+}
+
+// showHelpPopupMenu shows a popup menu with help options
+func showHelpPopupMenu(w fyne.Window, cfg *config.Config, reloadWithDatabase func(string, ...bool)) {
+	items := []*fyne.MenuItem{
+		fyne.NewMenuItem("About", func() {
+			if ShowAboutFunc != nil {
+				ShowAboutFunc()
+			}
+		}),
+		fyne.NewMenuItem("Check for Updates", func() {
+			if CheckUpdateFunc != nil {
+				CheckUpdateFunc()
+			}
+		}),
+		fyne.NewMenuItem("Help", func() {
+			if ShowHelpFunc != nil {
+				ShowHelpFunc()
+			}
+		}),
+		fyne.NewMenuItemSeparator(),
+		fyne.NewMenuItem("Load Demo Database", func() {
+			showLoadDemoDialog(w, cfg, reloadWithDatabase)
+		}),
+	}
+	
+	menu := fyne.NewMenu("", items...)
+	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
+	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
+}
+
 // setupKeyboardShortcuts registers keyboard shortcuts for common actions
 func setupKeyboardShortcuts(a fyne.App, w fyne.Window, cfg *config.Config, tabs *container.AppTabs, searchEntry *widget.Entry,
-	addPersonBtn, deletePersonBtn, focusPersonBtn, settingsBtn, dataQualityBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn, bookmarkBtn *widget.Button,
+	addPersonBtn, deletePersonBtn, focusPersonBtn, settingsBtn, dataQualityBtn, reportsBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn, bookmarkBtn *widget.Button,
 	editPerson func(int64), currentPersonID *int64, getStore func() *store.Store, navigateToPerson func(int64)) {
 
 	// Helper to register both Cmd (Mac) and Ctrl (Win/Linux) shortcuts
@@ -1462,10 +1856,10 @@ func setupKeyboardShortcuts(a fyne.App, w fyne.Window, cfg *config.Config, tabs 
 		}
 	})
 
-	// Data Quality Report
+	// Reports Menu (changed from Data Quality direct shortcut)
 	addShortcut(config.StringToKeyName(cfg.GetShortcut("DataQuality")), func() {
-		if dataQualityBtn != nil {
-			dataQualityBtn.OnTapped()
+		if reportsBtn != nil {
+			reportsBtn.OnTapped()
 		}
 	})
 
@@ -1494,7 +1888,7 @@ func setupKeyboardShortcuts(a fyne.App, w fyne.Window, cfg *config.Config, tabs 
 			w.Canvas().AddShortcut(cmdShiftShortcut, func(shortcut fyne.Shortcut) {
 				showAdvancedSearchDialog(w, getStore(), navigateToPerson)
 			})
-			
+
 			// Ctrl+Shift+Key for Windows/Linux
 			ctrlShiftShortcut := &desktop.CustomShortcut{
 				KeyName:  key,
@@ -3004,7 +3398,7 @@ func calculateRelationship(s *store.Store, fromID, toID int64) string {
 	if cousins != "" {
 		return cousins
 	}
-	
+
 	// Check if toID is a cousin of my parent (making them my cousin once removed)
 	myParentsAgain, _ := s.GetRelatedPeople(fromID, "parent")
 	for _, parent := range myParentsAgain {
@@ -3024,7 +3418,7 @@ func calculateRelationship(s *store.Store, fromID, toID int64) string {
 				return "2nd cousin twice removed"
 			}
 		}
-		
+
 		// Check if toID is spouse of parent's cousin
 		parentCousins := getCousinsList(s, parent.ID)
 		for _, cousin := range parentCousins {
@@ -3042,7 +3436,7 @@ func calculateRelationship(s *store.Store, fromID, toID int64) string {
 			}
 		}
 	}
-	
+
 	// Check if toID is a cousin of my child (making them my child's cousin once removed)
 	myChildrenForCousins, _ := s.GetRelatedPeople(fromID, "child")
 	for _, child := range myChildrenForCousins {
@@ -3166,40 +3560,40 @@ func getCousinInfo(s *store.Store, fromID, toID int64) string {
 				}
 			}
 		}
-		
+
 		// Check for second cousins (children of parent's first cousins)
 		// Get great-grandparents
 		for _, grandparent := range grandparents {
 			greatGrandparents, _ := s.GetRelatedPeople(grandparent.ID, "parent")
-			
+
 			for _, greatGrandparent := range greatGrandparents {
 				// Get all children of great-grandparent
 				grandAuntsUncles, _ := s.GetRelatedPeople(greatGrandparent.ID, "child")
-				
+
 				for _, grandAuntUncle := range grandAuntsUncles {
 					if grandAuntUncle.ID == grandparent.ID {
 						continue // Skip my grandparent
 					}
-					
+
 					// Get their children (parent's first cousins)
 					parentsFirstCousins, _ := s.GetRelatedPeople(grandAuntUncle.ID, "child")
-					
+
 					for _, parentsFirstCousin := range parentsFirstCousins {
 						// Get their children (my second cousins)
 						secondCousins, _ := s.GetRelatedPeople(parentsFirstCousin.ID, "child")
-						
+
 						for _, secondCousin := range secondCousins {
 							if secondCousin.ID == toID {
 								return "2nd cousin"
 							}
-							
+
 							// Check for 2nd cousin once removed (their children)
 							secondCousinChildren, _ := s.GetRelatedPeople(secondCousin.ID, "child")
 							for _, secondCousinChild := range secondCousinChildren {
 								if secondCousinChild.ID == toID {
 									return "2nd cousin once removed"
 								}
-								
+
 								// Check for 2nd cousin twice removed
 								secondCousinGrandchildren, _ := s.GetRelatedPeople(secondCousinChild.ID, "child")
 								for _, secondCousinGrandchild := range secondCousinGrandchildren {
@@ -3222,7 +3616,7 @@ func getCousinInfo(s *store.Store, fromID, toID int64) string {
 func getCousinsList(s *store.Store, personID int64) []store.Person {
 	var cousins []store.Person
 	visited := make(map[int64]bool)
-	
+
 	parents, _ := s.GetRelatedPeople(personID, "parent")
 	for _, parent := range parents {
 		grandparents, _ := s.GetRelatedPeople(parent.ID, "parent")
@@ -3242,7 +3636,7 @@ func getCousinsList(s *store.Store, personID int64) []store.Person {
 			}
 		}
 	}
-	
+
 	return cousins
 }
 
@@ -3535,28 +3929,28 @@ func showLoadDemoDialog(w fyne.Window, cfg *config.Config, reloadWithDatabase fu
 			// Switch to the demo database (silently, we'll show our own message)
 			reloadWithDatabase(demoDestPath, true)
 
-		// Show welcome message
-		welcomeMsg := fmt.Sprintf(
-			"✅ Demo database generated!\n\n"+
-				"📍 Location: %s\n\n"+
-				"👋 Welcome! This database contains 50+ people across\n"+
-				"   5-6 generations with international locations.\n\n"+
-				"👤 Focus Person: Michael Harrison\n"+
-				"   (Notice he has 2 marriages!)\n"+
-				"   Explore his children's spouses for interesting discoveries...\n\n"+
-				"📷 Note: Media files are not included in this generated demo.\n"+
-				"   To get the full demo with photos & documents, download\n"+
-				"   demo.db from the GitHub repository.\n\n"+
-				"🎯 Try these features:\n"+
-				"  • Browse the family tree in all 3 views\n"+
-				"  • Try Reports → Data Quality Report\n"+
-				"  • Check Reports → Conflicts Report\n"+
-				"  • Use Reports → Statistics Dashboard\n"+
-				"  • Press G to return to Michael Harrison\n"+
-				"  • Use Add Media to attach your own photos\n\n"+
-				"💡 This demo showcases all the features you can use\n"+
-				"for your own family history!",
-			demoDestPath)
+			// Show welcome message
+			welcomeMsg := fmt.Sprintf(
+				"✅ Demo database generated!\n\n"+
+					"📍 Location: %s\n\n"+
+					"👋 Welcome! This database contains 50+ people across\n"+
+					"   5-6 generations with international locations.\n\n"+
+					"👤 Focus Person: Michael Harrison\n"+
+					"   (Notice he has 2 marriages!)\n"+
+					"   Explore his children's spouses for interesting discoveries...\n\n"+
+					"📷 Note: Media files are not included in this generated demo.\n"+
+					"   To get the full demo with photos & documents, download\n"+
+					"   demo.db from the GitHub repository.\n\n"+
+					"🎯 Try these features:\n"+
+					"  • Browse the family tree in all 3 views\n"+
+					"  • Try Reports → Data Quality Report\n"+
+					"  • Check Reports → Conflicts Report\n"+
+					"  • Use Reports → Statistics Dashboard\n"+
+					"  • Press G to return to Michael Harrison\n"+
+					"  • Use Add Media to attach your own photos\n\n"+
+					"💡 This demo showcases all the features you can use\n"+
+					"for your own family history!",
+				demoDestPath)
 
 			dialog.ShowInformation("Demo Loaded", welcomeMsg, w)
 		}, w)
@@ -5174,7 +5568,7 @@ func showDescendantReport(w fyne.Window, s *store.Store, rootPersonID int64, nav
 	}
 
 	if rootPersonID <= 0 {
-		dialog.ShowInformation("Descendant Report", "Please select a person first", w)
+		dialog.ShowInformation("Descendant (Pedigree) Report", "Please select a person first", w)
 		return
 	}
 
@@ -5249,7 +5643,7 @@ func showDescendantReport(w fyne.Window, s *store.Store, rootPersonID int64, nav
 	scroll := container.NewVScroll(content)
 	scroll.SetMinSize(fyne.NewSize(600, 400))
 
-	descendantDialog = fyne.CurrentApp().NewWindow("Descendant Report")
+	descendantDialog = fyne.CurrentApp().NewWindow("Descendant (Pedigree) Report")
 	descendantDialog.SetContent(scroll)
 	descendantDialog.Resize(fyne.NewSize(700, 600))
 	descendantDialog.SetOnClosed(func() {
@@ -5304,7 +5698,7 @@ func showAncestorReport(w fyne.Window, s *store.Store, rootPersonID int64, navig
 	}
 
 	if rootPersonID <= 0 {
-		dialog.ShowInformation("Ancestor Report", "Please select a person first", w)
+		dialog.ShowInformation("Ancestor (Ahnentafel) Report", "Please select a person first", w)
 		return
 	}
 
@@ -5374,7 +5768,7 @@ func showAncestorReport(w fyne.Window, s *store.Store, rootPersonID int64, navig
 	scroll := container.NewVScroll(content)
 	scroll.SetMinSize(fyne.NewSize(700, 400))
 
-	ancestorDialog = fyne.CurrentApp().NewWindow("Ancestor Report")
+	ancestorDialog = fyne.CurrentApp().NewWindow("Ancestor (Ahnentafel) Report")
 	ancestorDialog.SetContent(scroll)
 	ancestorDialog.Resize(fyne.NewSize(800, 600))
 	ancestorDialog.SetOnClosed(func() {
@@ -5458,6 +5852,342 @@ func getAhnentafelRelationship(num int) string {
 	}
 	generations := int(math.Log2(float64(num)))
 	return fmt.Sprintf("%dth Great-Grandparent", generations-2)
+}
+
+// Family Group Sheet
+var familyGroupDialog fyne.Window
+
+func showFamilyGroupSheet(w fyne.Window, s *store.Store, personID int64, navigateFunc func(int64)) {
+	// Check if already open
+	if familyGroupDialog != nil {
+		familyGroupDialog.RequestFocus()
+		familyGroupDialog.Show()
+		return
+	}
+
+	if personID <= 0 {
+		dialog.ShowInformation("Family Group Sheet", "Please select a person first", w)
+		return
+	}
+
+	person, err := s.GetPersonByID(personID)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load person: %w", err), w)
+		return
+	}
+
+	// Build content
+	content := container.NewVBox()
+
+	title := widget.NewLabelWithStyle(
+		fmt.Sprintf("Family Group Sheet - %s", formatPersonName(*person)),
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	content.Add(title)
+	content.Add(widget.NewSeparator())
+
+	// Get spouse(s) with marriage information
+	spouseInfos, _ := s.GetSpouses(personID)
+	
+	if len(spouseInfos) > 0 {
+		// Sort spouses chronologically by marriage date (earliest first)
+		sort.Slice(spouseInfos, func(i, j int) bool {
+			return spouseInfos[i].MarriageDate < spouseInfos[j].MarriageDate
+		})
+		
+		// Show as married couple with children
+		for _, spouseInfo := range spouseInfos {
+			spouseCopy := spouseInfo.Spouse
+			renderMarriedFamily(content, s, person, &spouseCopy, navigateFunc)
+			content.Add(widget.NewSeparator())
+		}
+	} else {
+		// Show person's parents and siblings (person is the child)
+		parents, _ := s.GetRelatedPeople(personID, "parent")
+		renderParentalFamily(content, s, person, parents, navigateFunc)
+	}
+
+	scroll := container.NewVScroll(content)
+	scroll.SetMinSize(fyne.NewSize(700, 400))
+
+	familyGroupDialog = fyne.CurrentApp().NewWindow("Family Group Sheet")
+	familyGroupDialog.SetContent(scroll)
+	familyGroupDialog.Resize(fyne.NewSize(800, 600))
+	familyGroupDialog.SetOnClosed(func() {
+		familyGroupDialog = nil
+	})
+	familyGroupDialog.Show()
+}
+
+func renderMarriedFamily(content *fyne.Container, s *store.Store, person *store.Person, spouse *store.Person, navigateFunc func(int64)) {
+	// Determine husband and wife based on gender
+	var husband, wife *store.Person
+	if person.Gender == "M" {
+		husband = person
+		wife = spouse
+	} else {
+		husband = spouse
+		wife = person
+	}
+
+	// Husband section
+	content.Add(widget.NewLabelWithStyle("HUSBAND", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+	if husband != nil {
+		husbandCopy := *husband
+		husbandBtn := widget.NewButton(
+			formatPersonName(husbandCopy),
+			func() { navigateFunc(husbandCopy.ID) })
+		content.Add(husbandBtn)
+		content.Add(widget.NewLabel(fmt.Sprintf("  Born: %s", formatFGSDate(husband.BirthDate))))
+		if husband.BirthPlace != "" {
+			content.Add(widget.NewLabel(fmt.Sprintf("  Place: %s", husband.BirthPlace)))
+		}
+		if !husband.IsLiving {
+			content.Add(widget.NewLabel(fmt.Sprintf("  Died: %s", formatFGSDate(husband.DeathDate))))
+			if husband.DeathPlace != "" {
+				content.Add(widget.NewLabel(fmt.Sprintf("  Place: %s", husband.DeathPlace)))
+			}
+		}
+	}
+	content.Add(widget.NewLabel(""))
+
+	// Wife section
+	content.Add(widget.NewLabelWithStyle("WIFE", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+	if wife != nil {
+		wifeCopy := *wife
+		wifeBtn := widget.NewButton(
+			formatPersonName(wifeCopy),
+			func() { navigateFunc(wifeCopy.ID) })
+		content.Add(wifeBtn)
+		content.Add(widget.NewLabel(fmt.Sprintf("  Born: %s", formatFGSDate(wife.BirthDate))))
+		if wife.BirthPlace != "" {
+			content.Add(widget.NewLabel(fmt.Sprintf("  Place: %s", wife.BirthPlace)))
+		}
+		if !wife.IsLiving {
+			content.Add(widget.NewLabel(fmt.Sprintf("  Died: %s", formatFGSDate(wife.DeathDate))))
+			if wife.DeathPlace != "" {
+				content.Add(widget.NewLabel(fmt.Sprintf("  Place: %s", wife.DeathPlace)))
+			}
+		}
+	}
+	content.Add(widget.NewLabel(""))
+
+	// Marriage information
+	var marriageDate string
+	var marriagePlace string
+	if husband != nil && wife != nil {
+		// Try to get marriage relationship between husband and wife
+		relationships, _ := s.GetRelationshipsBetween(husband.ID, wife.ID, "spouse")
+		if len(relationships) > 0 {
+			marriageDate = relationships[0].MarriageDate
+			marriagePlace = relationships[0].MarriagePlace
+		}
+	}
+	content.Add(widget.NewLabelWithStyle("MARRIAGE", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+	if marriageDate != "" || marriagePlace != "" {
+		if marriageDate != "" {
+			content.Add(widget.NewLabel(fmt.Sprintf("  Date: %s", formatFGSDate(marriageDate))))
+		}
+		if marriagePlace != "" {
+			content.Add(widget.NewLabel(fmt.Sprintf("  Place: %s", marriagePlace)))
+		}
+	} else {
+		content.Add(widget.NewLabel("  (No marriage record)"))
+	}
+	content.Add(widget.NewLabel(""))
+
+	// Children section
+	content.Add(widget.NewLabelWithStyle("CHILDREN", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+	
+	// Get children of this specific couple
+	var children []store.Person
+	if husband != nil && wife != nil {
+		// Get all children of the husband
+		husbandChildren, _ := s.GetRelatedPeople(husband.ID, "child")
+		// Filter to only include children who have this wife as mother
+		for _, child := range husbandChildren {
+			parents, _ := s.GetRelatedPeople(child.ID, "parent")
+			hasWifeAsParent := false
+			for _, parent := range parents {
+				if parent.ID == wife.ID {
+					hasWifeAsParent = true
+					break
+				}
+			}
+			if hasWifeAsParent {
+				children = append(children, child)
+			}
+		}
+	} else if husband != nil {
+		// Only husband, get all his children
+		children, _ = s.GetRelatedPeople(husband.ID, "child")
+	} else if wife != nil {
+		// Only wife, get all her children
+		children, _ = s.GetRelatedPeople(wife.ID, "child")
+	}
+	
+	if len(children) == 0 {
+		content.Add(widget.NewLabel("  (No children recorded)"))
+	} else {
+		// Sort children by birth date
+		sort.Slice(children, func(i, j int) bool {
+			return children[i].BirthDate < children[j].BirthDate
+		})
+		
+		for i, child := range children {
+			childCopy := child
+			childNum := widget.NewLabelWithStyle(fmt.Sprintf("%d.", i+1), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+			content.Add(childNum)
+			
+			childBtn := widget.NewButton(
+				fmt.Sprintf("  %s", formatPersonName(childCopy)),
+				func() { navigateFunc(childCopy.ID) })
+			content.Add(childBtn)
+			
+			content.Add(widget.NewLabel(fmt.Sprintf("    Born: %s", formatFGSDate(child.BirthDate))))
+			if child.BirthPlace != "" {
+				content.Add(widget.NewLabel(fmt.Sprintf("    Place: %s", child.BirthPlace)))
+			}
+			
+			// Show spouse if married
+			childSpouses, _ := s.GetRelatedPeople(child.ID, "spouse")
+			if len(childSpouses) > 0 {
+				spouseNames := make([]string, len(childSpouses))
+				for j, sp := range childSpouses {
+					spouseNames[j] = formatPersonName(sp)
+				}
+				content.Add(widget.NewLabel(fmt.Sprintf("    Spouse: %s", strings.Join(spouseNames, ", "))))
+			}
+			
+			// Show grandchildren (children of this child)
+			grandchildren, _ := s.GetRelatedPeople(child.ID, "child")
+			if len(grandchildren) > 0 {
+				// Sort grandchildren by birth date
+				sort.Slice(grandchildren, func(a, b int) bool {
+					return grandchildren[a].BirthDate < grandchildren[b].BirthDate
+				})
+				grandchildNames := make([]string, len(grandchildren))
+				for j, gc := range grandchildren {
+					grandchildNames[j] = fmt.Sprintf("%s (%s)", formatPersonName(gc), formatFGSDate(gc.BirthDate))
+				}
+				content.Add(widget.NewLabel(fmt.Sprintf("    Children: %s", strings.Join(grandchildNames, ", "))))
+			}
+			
+			if !child.IsLiving {
+				content.Add(widget.NewLabel(fmt.Sprintf("    Died: %s", formatFGSDate(child.DeathDate))))
+				if child.DeathPlace != "" {
+					content.Add(widget.NewLabel(fmt.Sprintf("    Place: %s", child.DeathPlace)))
+				}
+			}
+			content.Add(widget.NewLabel(""))
+		}
+	}
+}
+
+func renderParentalFamily(content *fyne.Container, s *store.Store, person *store.Person, parents []store.Person, navigateFunc func(int64)) {
+	// Show person's parents
+	var father, mother *store.Person
+	for i := range parents {
+		if parents[i].Gender == "M" {
+			father = &parents[i]
+		} else {
+			mother = &parents[i]
+		}
+	}
+	
+	if father != nil || mother != nil {
+		content.Add(widget.NewLabelWithStyle("PARENTS", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+		
+		if father != nil {
+			fatherCopy := *father
+			fatherBtn := widget.NewButton(
+				fmt.Sprintf("Father: %s", formatPersonName(fatherCopy)),
+				func() { navigateFunc(fatherCopy.ID) })
+			content.Add(fatherBtn)
+		}
+		
+		if mother != nil {
+			motherCopy := *mother
+			motherBtn := widget.NewButton(
+				fmt.Sprintf("Mother: %s", formatPersonName(motherCopy)),
+				func() { navigateFunc(motherCopy.ID) })
+			content.Add(motherBtn)
+		}
+		content.Add(widget.NewLabel(""))
+	}
+	
+	// Show the person themselves
+	content.Add(widget.NewLabelWithStyle("PERSON", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+	personCopy := *person
+	personBtn := widget.NewButton(
+		formatPersonName(personCopy),
+		func() { navigateFunc(personCopy.ID) })
+	content.Add(personBtn)
+	content.Add(widget.NewLabel(fmt.Sprintf("  Born: %s", formatFGSDate(person.BirthDate))))
+	if person.BirthPlace != "" {
+		content.Add(widget.NewLabel(fmt.Sprintf("  Place: %s", person.BirthPlace)))
+	}
+	if !person.IsLiving {
+		content.Add(widget.NewLabel(fmt.Sprintf("  Died: %s", formatFGSDate(person.DeathDate))))
+		if person.DeathPlace != "" {
+			content.Add(widget.NewLabel(fmt.Sprintf("  Place: %s", person.DeathPlace)))
+		}
+	}
+	content.Add(widget.NewLabel(""))
+	
+	// Show siblings
+	content.Add(widget.NewLabelWithStyle("SIBLINGS", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+	siblings := []store.Person{}
+	
+	// Get siblings through parents
+	if father != nil {
+		fatherChildren, _ := s.GetRelatedPeople(father.ID, "child")
+		for _, child := range fatherChildren {
+			if child.ID != person.ID {
+				siblings = append(siblings, child)
+			}
+		}
+	} else if mother != nil {
+		motherChildren, _ := s.GetRelatedPeople(mother.ID, "child")
+		for _, child := range motherChildren {
+			if child.ID != person.ID {
+				siblings = append(siblings, child)
+			}
+		}
+	}
+	
+	if len(siblings) == 0 {
+		content.Add(widget.NewLabel("  (No siblings recorded)"))
+	} else {
+		// Remove duplicates
+		uniqueSiblings := make(map[int64]store.Person)
+		for _, sib := range siblings {
+			uniqueSiblings[sib.ID] = sib
+		}
+		
+		// Convert back to slice and sort
+		siblings = []store.Person{}
+		for _, sib := range uniqueSiblings {
+			siblings = append(siblings, sib)
+		}
+		sort.Slice(siblings, func(i, j int) bool {
+			return siblings[i].BirthDate < siblings[j].BirthDate
+		})
+		
+		for _, sibling := range siblings {
+			siblingCopy := sibling
+			sibBtn := widget.NewButton(
+				fmt.Sprintf("  %s (%s)", formatPersonName(siblingCopy), formatFGSDate(sibling.BirthDate)),
+				func() { navigateFunc(siblingCopy.ID) })
+			content.Add(sibBtn)
+		}
+	}
+}
+
+func formatFGSDate(date string) string {
+	if date == "" {
+		return "Unknown"
+	}
+	return date
 }
 
 // Timeline View
@@ -6516,7 +7246,7 @@ func showTodoManager(parentWindow fyne.Window, s *store.Store, personID int64, p
 	todoWindow.SetOnClosed(func() {
 		delete(todoManagerWindows, personID)
 	})
-	
+
 	todoManagerWindows[personID] = todoWindow
 	todoWindow.Show()
 }

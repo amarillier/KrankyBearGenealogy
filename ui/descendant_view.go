@@ -48,7 +48,7 @@ func NewDescendantView(s *store.Store, w fyne.Window, onNavigate func(personID i
 		window:           w,
 		onNavigate:       onNavigate,
 		maxGenerations:   4,
-		colorMode:        ColorNone,
+		colorMode:        ColorByGender,
 		zoomLevel:        1.0,
 		collapsedBranches: make(map[int64]bool),
 	}
@@ -121,7 +121,7 @@ func (dv *DescendantView) createControlPanel() fyne.CanvasObject {
 		}
 		dv.refresh()
 	})
-	dv.colorSelect.SetSelected("No Color")
+	dv.colorSelect.SetSelected("By Gender")
 	
 	// Zoom slider
 	dv.zoomSlider = widget.NewSlider(0.5, 2.0)
@@ -622,11 +622,37 @@ func (dv *DescendantView) getChildren(personID int64) []store.Person {
 	return children
 }
 
-// showExportDialog shows export options (placeholder for now)
+// showExportDialog shows export options
 func (dv *DescendantView) showExportDialog() {
-	dialog.ShowInformation("Export Chart", 
-		"Export functionality coming soon!\n\nPlanned formats:\n- PDF\n- PNG Image\n- Text Report", 
-		dv.window)
+	chartContent := dv.buildDescendantChart()
+	if dv.currentPerson == nil {
+		dialog.ShowError(fmt.Errorf("No person selected"), dv.window)
+		return
+	}
+	title := fmt.Sprintf("Descendant Chart - %s", formatPersonName(*dv.currentPerson))
+	
+	// Collect all people in the chart
+	people := dv.collectAllDescendants(dv.currentPerson, 1)
+	
+	showChartExportDialogWithStore(dv.window, title, chartContent, people, dv.store)
+}
+
+// collectAllDescendants recursively collects all descendants for export
+func (dv *DescendantView) collectAllDescendants(person *store.Person, generation int) []*store.Person {
+	if person == nil || generation > dv.maxGenerations {
+		return nil
+	}
+	
+	people := []*store.Person{person}
+	
+	// Get children
+	children, _ := dv.store.GetRelatedPeople(person.ID, "child")
+	for i := range children {
+		childPeople := dv.collectAllDescendants(&children[i], generation+1)
+		people = append(people, childPeople...)
+	}
+	
+	return people
 }
 
 // UpdateAllDescendantCharts updates all open descendant charts to show a new person

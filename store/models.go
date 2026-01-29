@@ -162,3 +162,12 @@ type ResearchLog struct {
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
+
+// SavedSearch represents a saved search criteria for reuse
+type SavedSearch struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	CriteriaJSON string   `json:"criteria_json"` // JSON-encoded SearchCriteria
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}

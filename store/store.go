@@ -238,6 +238,14 @@ func (s *Store) InitSchema() error {
 		`CREATE INDEX IF NOT EXISTS idx_research_log_people_person ON research_log_people(person_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_citations_source ON citations(source_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_citations_person ON citations(person_id);`,
+		`CREATE TABLE IF NOT EXISTS saved_searches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            criteria_json TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );`,
+		`CREATE INDEX IF NOT EXISTS idx_saved_searches_name ON saved_searches(name);`,
 	}
 
 	tx, err := s.DB.Begin()
@@ -2772,4 +2780,66 @@ func (s *Store) GetPeopleForResearchLog(logID int64) ([]Person, error) {
 		people = append(people, p)
 	}
 	return people, rows.Err()
+}
+
+// CreateSavedSearch creates a new saved search
+func (s *Store) CreateSavedSearch(name string, criteriaJSON string) error {
+	_, err := s.DB.Exec(`
+		INSERT INTO saved_searches (name, criteria_json, created_at, updated_at)
+		VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`, name, criteriaJSON)
+	return err
+}
+
+// GetSavedSearches returns all saved searches
+func (s *Store) GetSavedSearches() ([]SavedSearch, error) {
+	rows, err := s.DB.Query(`
+		SELECT id, name, criteria_json, created_at, updated_at
+		FROM saved_searches
+		ORDER BY name
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var searches []SavedSearch
+	for rows.Next() {
+		var ss SavedSearch
+		if err := rows.Scan(&ss.ID, &ss.Name, &ss.CriteriaJSON, &ss.CreatedAt, &ss.UpdatedAt); err != nil {
+			return nil, err
+		}
+		searches = append(searches, ss)
+	}
+	return searches, rows.Err()
+}
+
+// GetSavedSearchByID returns a saved search by ID
+func (s *Store) GetSavedSearchByID(id int64) (*SavedSearch, error) {
+	var ss SavedSearch
+	err := s.DB.QueryRow(`
+		SELECT id, name, criteria_json, created_at, updated_at
+		FROM saved_searches
+		WHERE id = ?
+	`, id).Scan(&ss.ID, &ss.Name, &ss.CriteriaJSON, &ss.CreatedAt, &ss.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &ss, nil
+}
+
+// UpdateSavedSearch updates an existing saved search
+func (s *Store) UpdateSavedSearch(id int64, name string, criteriaJSON string) error {
+	_, err := s.DB.Exec(`
+		UPDATE saved_searches
+		SET name = ?, criteria_json = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, name, criteriaJSON, id)
+	return err
+}
+
+// DeleteSavedSearch deletes a saved search
+func (s *Store) DeleteSavedSearch(id int64) error {
+	_, err := s.DB.Exec(`DELETE FROM saved_searches WHERE id = ?`, id)
+	return err
 }
