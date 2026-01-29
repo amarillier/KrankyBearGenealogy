@@ -1,5 +1,599 @@
 KrankyBear Genealogy - Release Notes
 
+1.4.0 - January 29, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+HTML Export & Complete Website Generation (Phase 11)
+
+Major Features:
+• HTML Export for Individual Reports (Family Group Sheet, Descendants, Ancestors)
+• Complete Multi-Page Website Generation with Navigation
+• Privacy Controls (Hide/Limit Living People)
+• Photo & Media Embedding (Base64 Encoded)
+• Places Index Page (Geographic Organization)
+• Timeline Page (Chronological Events with Living Section)
+• Statistics Dashboard (Interactive Charts with Hyperlinks)
+• Source Citations Page (Research Documentation by Type)
+• JavaScript Search (Real-time Client-Side Search)
+• Enhanced Navigation (Breadcrumbs, Feature Cards, Folder Creation)
+
+📄 Family Group Sheet HTML Export (Phase 11):
+  • Export beautiful, professional HTML reports:
+    - Single-page HTML file with embedded CSS styling
+    - Clean, modern design that's easy to read
+    - Print-friendly layout for paper copies
+    - Responsive design works on any device
+  • Complete family information included:
+    - Husband and wife sections with full details
+    - Marriage information (date, place)
+    - All children chronologically ordered
+    - Grandchildren listed with birth dates
+    - Multiple marriages shown chronologically
+  • Professional styling features:
+    - Color-coded sections with visual hierarchy
+    - Clean typography and spacing
+    - Box shadows and rounded corners
+    - Print-optimized CSS for paper output
+  • Easy sharing:
+    - Single HTML file contains everything
+    - Open in any web browser
+    - Email to family members
+    - Upload to websites or cloud storage
+  • Export from:
+    - Family Group Sheet dialog → "Export to HTML" button
+    - Default filename: FamilyGroup_Surname_GivenName.html
+  • Perfect for:
+    - Sharing research with family members who don't have the app
+    - Creating web pages for family history websites
+    - Printing professional-looking reports
+    - Archiving family records in universal format
+    - Email distribution to relatives
+
+📊 Descendant Report HTML Export (Phase 11):
+  • Export comprehensive descendant reports in HTML:
+    - Beautiful generational layout with color-coding
+    - Visual hierarchy with indentation per generation
+    - Each generation shown in different colors
+    - Birth and death dates for all descendants
+  • Statistics and summary:
+    - Total descendant count
+    - Generation-by-generation breakdown
+    - Clear generational grouping
+  • Professional features:
+    - Responsive design for all devices
+    - Print-optimized CSS
+    - Clean, modern typography
+    - Color-coded borders by generation (up to 7+ generations)
+  • Export from:
+    - Descendant Report dialog → "Export to HTML" button
+    - Default filename: Descendants_Surname_GivenName.html
+  • Ideal for:
+    - Tracking family lines forward in time
+    - Showing all living and deceased descendants
+    - Sharing family tree branches with relatives
+    - Understanding family growth across generations
+
+📈 Ancestor Report HTML Export (Phase 11):
+  • Export professional Ahnentafel-numbered ancestor reports:
+    - Traditional German genealogical numbering system
+    - Each ancestor numbered (father=even, mother=odd)
+    - Relationship descriptions (father, mother, paternal grandfather, etc.)
+    - Generation indicators for each ancestor
+  • Advanced analysis features:
+    - Pedigree collapse detection and warnings
+    - Explanation of what pedigree collapse means
+    - Total ancestor count
+    - Unique ancestor identification
+  • Complete biographical data:
+    - Full names with dates
+    - Birth and death locations
+    - Generation numbers
+    - Relationship to root person
+  • Professional styling:
+    - Ahnentafel number prominently displayed
+    - Clear hierarchy and formatting
+    - Educational footer explaining the numbering system
+    - Warning sections for pedigree collapse
+  • Export from:
+    - Ancestor Report dialog → "Export to HTML" button
+    - Default filename: Ancestors_Surname_GivenName.html
+  • Perfect for:
+    - Research documentation with standard numbering
+    - Academic genealogy presentations
+    - Identifying research gaps (missing ancestors)
+    - Detecting cousin marriages (pedigree collapse)
+    - Professional genealogy submissions
+
+🔒 Privacy Controls for HTML Exports (Phase 11):
+  • Flexible privacy options for all HTML exports:
+    - Privacy settings dialog appears before every export
+    - Two privacy modes to choose from:
+      * Hide all living people (complete exclusion)
+      * Show limited information for living (name only, no dates/places/marriage details)
+    - Default: all information included
+  • Smart filtering across all report types:
+    - Family Group Sheet: filters spouses, children, grandchildren, siblings, marriage details
+    - Descendant Report: filters all descendants by generation
+    - Ancestor Report: filters all ancestors in Ahnentafel list
+  • Privacy-friendly presentation:
+    - Living people with limited info show "(Living)" indicator
+    - Hidden people show "(Information withheld for privacy)" message
+    - Marriage details hidden when both spouses are living (with limited info mode)
+    - Maintains report structure while protecting sensitive data
+  • UX Improvements:
+    - Privacy dialog now appears as modal on report window (not main window)
+    - Dialog stays visible and centered on report
+    - Closing report window automatically closes any open privacy dialogs
+    - No more dialogs appearing behind windows
+  • Use cases:
+    - Public website publication (hide all living)
+    - Family sharing with privacy (show names only for living)
+    - Research collaboration (limit personal details)
+    - GDPR and privacy law compliance
+    - Social media sharing (protect living relatives)
+  • Professional features:
+    - Clear explanatory text in privacy dialog
+    - Mutually exclusive options (prevent confusion)
+    - Consistent privacy handling across all exports
+    - Maintains data integrity while respecting privacy
+
+🌐 Complete Genealogy Website Generation (Phase 11):
+  • Generate complete, multi-page HTML websites:
+    - One command creates an entire browsable website
+    - Multiple interconnected HTML pages with navigation
+    - Shared CSS styling across all pages
+    - Ready to upload to any web host
+  • Website Structure:
+    - index.html: Home page with statistics and overview
+    - surnames.html: Surname index with all individuals grouped
+    - person_[id].html: Individual page for each person
+    - style.css: Professional CSS styling
+  • Navigation Features:
+    - Consistent header and navigation bar on every page
+    - Clickable links between related individuals
+    - Browse by surname with counts
+    - Home and Surnames menu always accessible
+  • Individual Person Pages Include:
+    - Personal information (birth, death, places)
+    - Parents with clickable links
+    - Spouses with clickable links
+    - Children with clickable links
+    - Respects privacy settings for living people
+  • Statistics Dashboard:
+    - Total people count
+    - Number of surnames
+    - Living vs deceased counts (respects privacy)
+    - Visual stat cards with large numbers
+  • Professional Web Design:
+    - Modern, clean responsive layout
+    - Blue and gray color scheme
+    - Card-based design for readability
+    - Print-friendly CSS
+    - Mobile-responsive design
+  • Privacy Integration:
+    - Uses same privacy controls as single-page exports
+    - Privacy note displayed on home page
+    - Filtered navigation (no links to hidden people)
+    - Consistent privacy handling throughout site
+  • Use Cases:
+    - Publish family history on personal website
+    - Share via Dropbox, Google Drive, or cloud storage
+    - Create offline archive on USB drive
+    - Distribute to family on CD/DVD
+    - Host on GitHub Pages, Netlify, or any web host
+  • Export Location:
+    - Select folder for website files
+    - All files generated in chosen directory
+    - Open index.html in browser to view
+  • Access From:
+    - Reports menu → Actions → "Generate Family Website"
+    - Available from popup Reports button in main toolbar
+
+📷 Photo & Media Embedding in HTML Exports (Phase 11):
+  • Photos automatically embedded in all HTML exports:
+    - Individual person pages show photo galleries
+    - Website generation includes all photos
+    - Images embedded as base64 data URIs (no separate files needed)
+    - Single-file exports remain truly portable
+  • Photo Gallery Features:
+    - Responsive grid layout (auto-adjusts to screen size)
+    - High-quality full-resolution images
+    - Photo captions and titles displayed
+    - Date taken shown below each photo
+    - Professional card-based design with shadows
+  • Smart Media Handling:
+    - Uses full-resolution images when available
+    - Falls back to thumbnails if needed
+    - Filters to image media only (documents/audio/video excluded)
+    - Handles both embedded and external media
+  • Photo Display:
+    - Grid layout: 3-4 photos per row on desktop
+    - Responsive: adjusts for tablets and phones
+    - Print-friendly: 2-3 photos per row when printing
+    - Consistent styling across all exports
+  • Integration:
+    - Works with Family Group Sheet HTML export
+    - Works with person pages in website generation
+    - Respects privacy settings (no photos for hidden people)
+    - Automatically included in all relevant exports
+  • Visual Polish:
+    - 200x150px thumbnail display
+    - Object-fit cover (no distortion)
+    - Rounded corners and subtle shadows
+    - Clean caption typography
+    - Color-coded dates in gray
+  • Technical Implementation:
+    - Base64 encoding for portability
+    - No external dependencies
+    - Works offline
+    - Single HTML file contains everything
+  • Use Cases:
+    - Share illustrated family histories
+    - Create visual family websites
+    - Print family albums
+    - Archive photos with context
+    - Email rich family reports
+
+📍 Places Index Page (Phase 11):
+  • Geographic organization of family history:
+    - All birth and death places collected and organized
+    - People grouped by associated places
+    - Counts of events for each location
+    - Alphabetically sorted place names
+  • Smart Data Presentation:
+    - Shows all people born in each place
+    - Shows all people who died in each place
+    - Links to individual person pages
+    - Respects privacy settings (filters living people)
+  • Professional Layout:
+    - Card-based design for each place
+    - Clear section headers for birth/death groupings
+    - Clickable person names
+    - Responsive design for all devices
+  • Access From:
+    - Main navigation: "Places" link
+    - Homepage feature card
+    - Available in all generated websites
+  • Use Cases:
+    - Research migration patterns
+    - Identify geographic clusters in family history
+    - Plan heritage travel destinations
+    - Understand family settlement patterns
+    - Connect with local historical societies
+
+📅 Timeline Page (Phase 11):
+  • Chronological view of all family events:
+    - All births and deaths in chronological order
+    - Events grouped by century
+    - Proper date sorting (not alphabetical)
+    - Living people shown at end with privacy protection
+  • Smart Privacy Handling:
+    - Living people appear in dedicated "Living" section
+    - Birth dates/places hidden for living people when privacy enabled
+    - Message: "(birth information withheld for privacy)"
+    - Living people sorted alphabetically by name
+  • Visual Organization:
+    - Emoji icons for events (👶 births, ✝️ deaths)
+    - Century groupings (1800s, 1900s, 2000s, Living)
+    - Formatted dates with places
+    - Links to individual person pages
+  • Professional Features:
+    - Event count displayed at top
+    - Clean list-based layout
+    - Print-friendly design
+    - Mobile-responsive
+  • Access From:
+    - Main navigation: "Timeline" link
+    - Homepage feature card
+    - Available in all generated websites
+  • Use Cases:
+    - Visualize family history flow
+    - Identify research gaps in time periods
+    - See family continuity across generations
+    - Plan reunion timelines
+    - Create historical context for family events
+
+📊 Statistics Dashboard (Phase 11):
+  • Comprehensive family tree analytics:
+    - Overall statistics (people, surnames, marriages)
+    - Gender distribution breakdown
+    - Date range coverage (earliest/latest births and deaths)
+    - Top 10 most common surnames with visual bars
+    - Top 10 birth places with visual bars
+    - Top 10 death places with visual bars
+  • Interactive Elements:
+    - Surnames stat card links to surnames page
+    - Surname bars link to surnames page with anchors
+    - Birth/death place bars link to places page
+    - Hover effects on all interactive elements
+  • Visual Data Representation:
+    - Horizontal bar charts with percentage bars
+    - Blue gradient fills
+    - Large number stat cards
+    - Color-coded for clarity
+  • Privacy Aware:
+    - Living count shown/hidden based on privacy settings
+    - Birth information for living excluded from date ranges
+    - Privacy notes displayed when applicable
+  • Professional Design:
+    - Grid-based stat cards
+    - Responsive bar charts
+    - Clean typography
+    - Print-friendly layout
+  • Access From:
+    - Main navigation: "Statistics" link
+    - Homepage feature card
+    - Available in all generated websites
+  • Use Cases:
+    - Understand family tree scope and coverage
+    - Identify research focus areas
+    - See geographic distribution patterns
+    - Prepare presentations about family history
+    - Track research progress over time
+
+📚 Source Citations Page (Phase 11):
+  • Professional research documentation:
+    - All sources organized by type
+    - Citation counts for each source
+    - Links to people who cite each source
+    - Complete source metadata
+  • Source Types Supported:
+    - Vital Records (birth, death, marriage certificates)
+    - Census Records
+    - Church Records
+    - Books & Publications
+    - Websites & Online Resources
+    - Military Records
+    - Land & Property Records
+    - Probate & Court Records
+    - Newspapers
+    - Other Sources
+  • Source Information Displayed:
+    - Source title
+    - Author
+    - Publication details
+    - Repository (archive, library, website)
+    - Call number or reference
+    - Notes about the source
+  • Citation Details:
+    - Number of people citing each source
+    - Links to individual person pages
+    - Citation specifics (page, entry, line number)
+    - Confidence level (high/medium/low) with color-coded badges
+  • Person Page Integration:
+    - Sources & Citations section added to person pages
+    - Shows all sources citing that person
+    - Displays transcriptions when available
+    - Shows confidence levels
+    - Includes citation notes
+  • Professional Design:
+    - Card-based source layout
+    - Color-coded confidence badges (green/yellow/red)
+    - Clean citation lists
+    - Styled transcription blocks
+  • Access From:
+    - Main navigation: "Sources" link
+    - Homepage feature card
+    - Individual person pages (bottom section)
+  • Use Cases:
+    - Document research quality
+    - Track source reliability
+    - Identify research gaps
+    - Meet genealogy standards
+    - Share methodology with collaborators
+    - Prepare for genealogy submissions
+
+🔍 JavaScript Search (Phase 11):
+  • Instant client-side search functionality:
+    - Real-time search as you type
+    - No server required (works with local files)
+    - Searches across all person data
+    - 300ms debounce prevents lag
+  • Search Fields:
+    - Full names
+    - Given names
+    - Surnames
+    - Birth dates and places
+    - Death dates and places
+  • Search Features:
+    - Case-insensitive matching
+    - Partial text matching
+    - Result count displayed
+    - Click results to view person pages
+    - Privacy-aware (respects export settings)
+  • Smart Results Display:
+    - Name prominently shown with link
+    - Birth/death information displayed
+    - Living status indicated
+    - Clean card-based layout
+    - No results message when appropriate
+  • User Experience:
+    - Autofocus on search box
+    - Enter key support
+    - Visual feedback on hover
+    - Fast, responsive interface
+    - "Ready to search X people" status
+  • Technical Implementation:
+    - Data embedded directly in HTML (no CORS issues)
+    - Works perfectly with local file:// protocol
+    - XSS protection with HTML escaping
+    - Lightweight, no dependencies
+  • Access From:
+    - Main navigation: "Search" link (first item)
+    - Homepage feature card (with 🔍 icon)
+  • Use Cases:
+    - Quick person lookup
+    - Find people by location
+    - Search by date ranges
+    - Mobile-friendly family tree browsing
+    - Offline genealogy research
+
+🎨 Enhanced Navigation & UX (Phase 11):
+  • Website Folder Creation:
+    - Two-step folder creation process
+    - Default name suggestion: FamilyWebsite_YYYY-MM-DD
+    - Browse to select parent directory
+    - Automatic folder creation
+    - Overwrite confirmation for existing folders
+  • Breadcrumb Navigation:
+    - Appears on all person pages
+    - Shows path: Home » Surnames » [Surname] » [Person Name]
+    - Clickable links at each level
+    - Hidden in print view
+  • Enhanced Homepage:
+    - Feature cards for all major sections (Search, Surnames, Places, Timeline, Statistics, Sources)
+    - Modern grid layout
+    - Clear descriptions for each section
+    - Icon-based visual navigation (🔍📋📍📅📊📚)
+  • Consistent Navigation Bar:
+    - Same navigation on every page
+    - Current page highlighted
+    - Responsive design for mobile
+    - Clean, professional styling
+  • Visual Polish:
+    - Hover effects on all interactive elements
+    - Smooth transitions
+    - Color-coded sections
+    - Card shadows and depth
+    - Professional blue/gray color scheme
+
+📄 PDF Export for Reports (Phase 11):
+  • Professional PDF generation for all report types:
+    - Family Group Sheet → Clean two-column layout
+    - Descendant Report → Indented generational hierarchy
+    - Ancestor Report → Ahnentafel numbering with relationships
+    - Timeline Report → Year-grouped chronological events
+  • Family Group Sheet PDF:
+    - Husband and wife sections with full biographical data
+    - Marriage information with dates and places
+    - Children listed chronologically with spouses
+    - Grandchildren included per child
+    - Parental family information for context
+    - Clean formatting with section headers
+  • Descendant Report PDF:
+    - Generation-based indentation (visual hierarchy)
+    - Each descendant numbered by generation
+    - Birth and death information included
+    - Statistics summary (total count, generation breakdown)
+    - Page breaks between major sections
+  • Ancestor Report PDF:
+    - Traditional Ahnentafel numbering system
+    - Relationship descriptions (e.g., "paternal grandmother")
+    - Pedigree collapse detection with warnings
+    - Generation tracking for each ancestor
+    - Statistics on unique vs total ancestors
+    - Educational footer explaining numbering
+  • Timeline Report PDF:
+    - Events grouped by year with clear headers
+    - Birth (👶), Death (✝️), and Marriage (💍) icons
+    - Chronologically sorted events
+    - Location information for each event
+    - Statistics summary (event counts by type)
+    - Date range coverage
+  • Privacy Controls:
+    - Same privacy dialog for PDF as HTML exports
+    - Hide living people or show limited info
+    - Consistent privacy handling across formats
+    - Marriage details hidden for living couples
+  • Professional Features:
+    - Page numbers on all reports
+    - Headers with report title
+    - Clean typography and spacing
+    - Consistent formatting throughout
+    - Print-ready output
+  • Export Access:
+    - Each report dialog has "Export to PDF" button
+    - Default filenames match report type
+    - Save dialog with format: .pdf
+  • Use Cases:
+    - Print physical copies for family members
+    - Email professional-looking reports
+    - Archive research in portable format
+    - Submit to genealogy societies
+    - Share with relatives without HTML knowledge
+
+📊 CSV Export for Data Analysis (Phase 11):
+  • Comprehensive data exports for analysis and backup:
+    - People list with all biographical data
+    - Timeline events in chronological order
+    - Surname statistics with counts
+    - Place statistics (births and deaths)
+    - Source citations with details
+  • People Export (people_export.csv):
+    - Complete person records: ID, names, gender
+    - Birth dates and places
+    - Death dates and places
+    - Living status indicator
+    - Perfect for: spreadsheet analysis, mail merge, data verification
+  • Timeline Export (timeline_export.csv):
+    - All events with dates
+    - Event type (Birth/Death/Marriage)
+    - Person ID and name
+    - Place information
+    - Chronologically sorted
+    - Perfect for: timeline visualization, date analysis, event tracking
+  • Surnames Export (surnames_export.csv):
+    - All unique surnames
+    - Person count per surname
+    - Sorted by count (descending)
+    - Perfect for: surname research, frequency analysis, focus planning
+  • Places Export (places_export.csv):
+    - All unique places mentioned
+    - Birth count per place
+    - Death count per place
+    - Total event count
+    - Perfect for: migration mapping, geographic analysis, research planning
+  • Sources Export (sources_export.csv):
+    - Complete source details: ID, title, author
+    - Publication information
+    - Repository and call numbers
+    - Source type classification
+    - Citation count per source
+    - Perfect for: source evaluation, research tracking, bibliography creation
+  • Professional Features:
+    - Standard CSV format (opens in Excel, Google Sheets, etc.)
+    - Proper header rows
+    - Quoted fields for data integrity
+    - UTF-8 encoding for international characters
+    - Clean, consistent formatting
+  • Export Access:
+    - Reports menu → Actions → Export to CSV (submenu)
+    - Five separate export options
+    - Default filenames match export type
+  • Use Cases:
+    - Import into Excel/Google Sheets for analysis
+    - Create custom charts and graphs
+    - Generate mailing lists
+    - Build research databases
+    - Backup data in universal format
+    - Share with non-genealogists
+    - Statistical analysis and reporting
+
+✅ Summary - What's New in v1.4.0:
+All three major features from Phase 11 are now complete:
+
+1. HTML Exports & Website Generation ✓
+   - Individual reports (Family Group Sheet, Descendants, Ancestors)
+   - Complete multi-page websites with navigation
+   - Privacy controls for living people
+   - Photo/media embedding with base64
+   - Places Index, Timeline Page, Statistics Dashboard
+   - Source Citations Page with research documentation
+   - JavaScript real-time search
+   - Enhanced UX (breadcrumbs, folder creation)
+
+2. PDF Exports ✓
+   - All four report types (Family Group Sheet, Descendant, Ancestor, Timeline)
+   - Professional formatting with page numbers
+   - Privacy controls integrated
+   - Print-ready output
+
+3. CSV Exports ✓
+   - Five data sets (People, Timeline, Surnames, Places, Sources)
+   - Standard format for Excel/Sheets
+   - Perfect for data analysis and backup
+
+
+
 1.3.1 - January 29, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━
 Enhanced Utilities and Professional Chart Exports!
@@ -390,6 +984,7 @@ Major UX enhancements with Advanced Search, Enhanced Visualizations, and Batch T
   • Total shortcuts now: 23
   • Advanced Search: Cmd/Ctrl+Shift+F (with Shift modifier support)
   • All existing shortcuts preserved
+
 
 
 1.2.1 - January 24, 2026

@@ -708,6 +708,66 @@ func (s *Store) CountPeople() (int, error) {
 }
 
 // GetPersonByID returns a person by ID.
+func (s *Store) GetAllPeople() ([]Person, error) {
+	rows, err := s.DB.Query(`
+		SELECT id, given_name, surname, preferred_name, birth_year, death_year, 
+		       birth_date, birth_place, death_date, death_place, 
+		       is_living, gender, address, bookmarked
+		FROM persons
+		ORDER BY surname, given_name
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var people []Person
+	for rows.Next() {
+		var p Person
+		var preferredName sql.NullString
+		var birthYear sql.NullInt64
+		var deathYear sql.NullInt64
+		var birthDate sql.NullString
+		var birthPlace sql.NullString
+		var deathDate sql.NullString
+		var deathPlace sql.NullString
+		var isLiving sql.NullInt64
+		var address sql.NullString
+
+		if err := rows.Scan(&p.ID, &p.GivenName, &p.Surname, &preferredName, &birthYear, &deathYear,
+			&birthDate, &birthPlace, &deathDate, &deathPlace,
+			&isLiving, &p.Gender, &address, &p.Bookmarked); err != nil {
+			return nil, err
+		}
+
+		if preferredName.Valid {
+			p.PreferredName = preferredName.String
+		}
+		if birthDate.Valid {
+			p.BirthDate = birthDate.String
+		}
+		if birthPlace.Valid {
+			p.BirthPlace = birthPlace.String
+		}
+		if deathDate.Valid {
+			p.DeathDate = deathDate.String
+		}
+		if deathPlace.Valid {
+			p.DeathPlace = deathPlace.String
+		}
+		if isLiving.Valid {
+			p.IsLiving = isLiving.Int64 != 0
+		}
+		if address.Valid {
+			p.Address = address.String
+		}
+
+		people = append(people, p)
+	}
+
+	return people, rows.Err()
+}
+
 func (s *Store) GetPersonByID(id int64) (*Person, error) {
 	var p Person
 	var preferredName sql.NullString

@@ -62,7 +62,6 @@ setver.sh
 prepare-deps.ps1
 rename-app.sh
 rsrc_windows_amd64.syso
-ROADMAP.md
 
 # ALLOWED
 !Inno/*

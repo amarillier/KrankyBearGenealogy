@@ -2,6 +2,9 @@ package ui
 
 import (
 	"archive/zip"
+	"encoding/base64"
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"image/color"
 	"io"
@@ -14,6 +17,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/jung-kurt/gofpdf"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -1541,8 +1545,35 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 	charts := fyne.NewMenuItem("Chart Views", nil)
 	charts.ChildMenu = chartsMenu
 	
+	// Export submenu
+	exportMenu := fyne.NewMenu("",
+		fyne.NewMenuItem("People to CSV", func() {
+			exportPeopleToCSV(w, s)
+		}),
+		fyne.NewMenuItem("Timeline to CSV", func() {
+			exportTimelineToCSV(w, s)
+		}),
+		fyne.NewMenuItem("Surnames to CSV", func() {
+			exportSurnamesToCSV(w, s)
+		}),
+		fyne.NewMenuItem("Places to CSV", func() {
+			exportPlacesToCSV(w, s)
+		}),
+		fyne.NewMenuItem("Sources to CSV", func() {
+			exportSourcesToCSV(w, s)
+		}),
+	)
+	exports := fyne.NewMenuItem("Export to CSV", nil)
+	exports.ChildMenu = exportMenu
+	
 	// Actions submenu
 	actionsMenu := fyne.NewMenu("",
+		fyne.NewMenuItem("Generate Family Website", func() {
+			exportCompleteWebsite(w, s)
+		}),
+		fyne.NewMenuItemSeparator(),
+		exports,
+		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Mass Mark Living", func() {
 			showMassMarkLivingReport(w, s, func() {})
 		}),
@@ -5644,7 +5675,19 @@ func showDescendantReport(w fyne.Window, s *store.Store, rootPersonID int64, nav
 	scroll.SetMinSize(fyne.NewSize(600, 400))
 
 	descendantDialog = fyne.CurrentApp().NewWindow("Descendant (Pedigree) Report")
-	descendantDialog.SetContent(scroll)
+	
+	// Export buttons - created after dialog window so we can pass it
+	exportHTMLBtn := widget.NewButton("Export to HTML", func() {
+		exportDescendantReportHTML(descendantDialog, s, rootPersonID)
+	})
+	exportPDFBtn := widget.NewButton("Export to PDF", func() {
+		exportDescendantReportPDF(descendantDialog, s, rootPersonID)
+	})
+	exportButtons := container.NewHBox(exportHTMLBtn, exportPDFBtn)
+
+	// Main content with export buttons at bottom
+	mainContent := container.NewBorder(nil, exportButtons, nil, nil, scroll)
+	descendantDialog.SetContent(mainContent)
 	descendantDialog.Resize(fyne.NewSize(700, 600))
 	descendantDialog.SetOnClosed(func() {
 		descendantDialog = nil
@@ -5769,7 +5812,19 @@ func showAncestorReport(w fyne.Window, s *store.Store, rootPersonID int64, navig
 	scroll.SetMinSize(fyne.NewSize(700, 400))
 
 	ancestorDialog = fyne.CurrentApp().NewWindow("Ancestor (Ahnentafel) Report")
-	ancestorDialog.SetContent(scroll)
+	
+	// Export buttons - created after dialog window so we can pass it
+	exportHTMLBtn := widget.NewButton("Export to HTML", func() {
+		exportAncestorReportHTML(ancestorDialog, s, rootPersonID)
+	})
+	exportPDFBtn := widget.NewButton("Export to PDF", func() {
+		exportAncestorReportPDF(ancestorDialog, s, rootPersonID)
+	})
+	exportButtons := container.NewHBox(exportHTMLBtn, exportPDFBtn)
+
+	// Main content with export buttons at bottom
+	mainContent := container.NewBorder(nil, exportButtons, nil, nil, scroll)
+	ancestorDialog.SetContent(mainContent)
 	ancestorDialog.Resize(fyne.NewSize(800, 600))
 	ancestorDialog.SetOnClosed(func() {
 		ancestorDialog = nil
@@ -5910,12 +5965,4350 @@ func showFamilyGroupSheet(w fyne.Window, s *store.Store, personID int64, navigat
 	scroll.SetMinSize(fyne.NewSize(700, 400))
 
 	familyGroupDialog = fyne.CurrentApp().NewWindow("Family Group Sheet")
-	familyGroupDialog.SetContent(scroll)
+	
+	// Export buttons - created after dialog window so we can pass it
+	exportHTMLBtn := widget.NewButton("Export to HTML", func() {
+		exportFamilyGroupSheetHTML(familyGroupDialog, s, personID)
+	})
+	exportPDFBtn := widget.NewButton("Export to PDF", func() {
+		exportFamilyGroupSheetPDF(familyGroupDialog, s, personID)
+	})
+	exportButtons := container.NewHBox(exportHTMLBtn, exportPDFBtn)
+
+	// Main content with export buttons at bottom
+	mainContent := container.NewBorder(nil, exportButtons, nil, nil, scroll)
+	familyGroupDialog.SetContent(mainContent)
 	familyGroupDialog.Resize(fyne.NewSize(800, 600))
 	familyGroupDialog.SetOnClosed(func() {
 		familyGroupDialog = nil
 	})
 	familyGroupDialog.Show()
+}
+
+// HTMLExportOptions holds privacy settings for HTML exports
+type HTMLExportOptions struct {
+	HideLiving      bool
+	LimitLivingInfo bool
+}
+
+// showHTMLExportOptionsDialog shows privacy options before exporting HTML
+func showHTMLExportOptionsDialog(w fyne.Window, person *store.Person, callback func(HTMLExportOptions)) {
+	options := HTMLExportOptions{
+		HideLiving:      false,
+		LimitLivingInfo: false,
+	}
+
+	// Create checkboxes
+	hideLivingCheck := widget.NewCheck("Hide all living people", func(checked bool) {
+		options.HideLiving = checked
+		// If hiding living people, disable limit option
+		if checked {
+			options.LimitLivingInfo = false
+		}
+	})
+
+	limitInfoCheck := widget.NewCheck("Show living people with limited information (name only)", func(checked bool) {
+		options.LimitLivingInfo = checked
+		// If limiting info, disable hide option
+		if checked {
+			options.HideLiving = false
+		}
+	})
+
+	// Explanation text
+	explanation := widget.NewLabel("Privacy Options:\n\n" +
+		"• Hide all living people: Completely excludes living individuals from the report\n" +
+		"• Limited information: Shows only names for living people (no dates, places, marriage details, or other information)\n" +
+		"• If neither is selected, all information is included\n\n" +
+		"These options help protect privacy when sharing reports publicly.")
+	explanation.Wrapping = fyne.TextWrapWord
+
+	content := container.NewVBox(
+		widget.NewLabelWithStyle("HTML Export Privacy Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewSeparator(),
+		explanation,
+		widget.NewSeparator(),
+		hideLivingCheck,
+		limitInfoCheck,
+	)
+
+	d := dialog.NewCustomConfirm("Export Options", "Continue", "Cancel", content, func(proceed bool) {
+		if proceed {
+			callback(options)
+		}
+	}, w)
+	d.Resize(fyne.NewSize(500, 350))
+	d.Show()
+}
+
+// exportCompleteWebsite generates a multi-page HTML website for the entire genealogy
+func exportCompleteWebsite(w fyne.Window, s *store.Store) {
+	// Show privacy options dialog
+	showHTMLExportOptionsDialog(w, nil, func(options HTMLExportOptions) {
+		// Step 1: Show dialog to get folder name
+		defaultFolderName := "FamilyWebsite_" + time.Now().Format("2006-01-02")
+		folderNameEntry := widget.NewEntry()
+		folderNameEntry.SetText(defaultFolderName)
+		folderNameEntry.SetPlaceHolder("Enter folder name")
+		
+		folderDialog := dialog.NewCustomConfirm(
+			"Website Folder Name",
+			"Next",
+			"Cancel",
+			container.NewVBox(
+				widget.NewLabel("Choose a name for your website folder:"),
+				folderNameEntry,
+				widget.NewLabel("\nYou'll select where to create it in the next step."),
+			),
+			func(proceed bool) {
+				if !proceed {
+					return
+				}
+				
+				folderName := strings.TrimSpace(folderNameEntry.Text)
+				if folderName == "" {
+					folderName = defaultFolderName
+				}
+				
+				// Step 2: Show folder selection dialog for parent directory
+				dialog.ShowFolderOpen(func(uri fyne.ListableURI, err error) {
+					if err != nil || uri == nil {
+						return
+					}
+
+					parentPath := uri.Path()
+					fullFolderPath := filepath.Join(parentPath, folderName)
+					
+					// Check if folder already exists
+					if _, err := os.Stat(fullFolderPath); err == nil {
+						dialog.ShowConfirm(
+							"Folder Exists",
+							fmt.Sprintf("The folder '%s' already exists.\n\nDo you want to overwrite its contents?", folderName),
+							func(overwrite bool) {
+								if overwrite {
+									generateWebsiteInFolder(w, s, fullFolderPath, options)
+								}
+							},
+							w,
+						)
+						return
+					}
+					
+					// Create the folder
+					if err := os.MkdirAll(fullFolderPath, 0755); err != nil {
+						dialog.ShowError(fmt.Errorf("Failed to create folder: %w", err), w)
+						return
+					}
+					
+					// Generate website
+					generateWebsiteInFolder(w, s, fullFolderPath, options)
+				}, w)
+			},
+			w,
+		)
+		folderDialog.Resize(fyne.NewSize(500, 200))
+		folderDialog.Show()
+	})
+}
+
+// generateWebsiteInFolder handles the actual website generation with progress indicator
+func generateWebsiteInFolder(w fyne.Window, s *store.Store, folderPath string, options HTMLExportOptions) {
+	// Generate website with progress indicator
+	progressDialog := dialog.NewCustom("Generating Website", "Close", 
+		widget.NewLabel("Generating family website...\nThis may take a moment."), w)
+	progressDialog.Show()
+
+	go func() {
+		err := generateCompleteWebsite(s, folderPath, options)
+		progressDialog.Hide()
+		
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to generate website: %w", err), w)
+			return
+		}
+
+		dialog.ShowInformation("Website Generated Successfully",
+			fmt.Sprintf("Family website created in:\n%s\n\nOpen index.html in your browser to view.", folderPath), w)
+	}()
+}
+
+// generateCompleteWebsite creates a multi-page HTML genealogy website
+func generateCompleteWebsite(s *store.Store, outputDir string, options HTMLExportOptions) error {
+	// Get all people from database
+	allPeople, err := s.GetAllPeople()
+	if err != nil {
+		return fmt.Errorf("failed to get people: %w", err)
+	}
+
+	// Filter based on privacy settings
+	var people []store.Person
+	for _, p := range allPeople {
+		if shouldShowPerson(&p, options) {
+			people = append(people, p)
+		}
+	}
+
+	if len(people) == 0 {
+		return fmt.Errorf("no people to export after privacy filtering")
+	}
+
+	// Create shared CSS file
+	cssPath := filepath.Join(outputDir, "style.css")
+	if err := os.WriteFile(cssPath, []byte(getWebsiteCSS()), 0644); err != nil {
+		return fmt.Errorf("failed to write CSS: %w", err)
+	}
+
+	// Generate index page
+	indexPath := filepath.Join(outputDir, "index.html")
+	indexHTML := generateIndexPage(s, people, options)
+	if err := os.WriteFile(indexPath, []byte(indexHTML), 0644); err != nil {
+		return fmt.Errorf("failed to write index.html: %w", err)
+	}
+
+	// Generate surname index
+	surnamesPath := filepath.Join(outputDir, "surnames.html")
+	surnamesHTML := generateSurnameIndexPage(s, people, options)
+	if err := os.WriteFile(surnamesPath, []byte(surnamesHTML), 0644); err != nil {
+		return fmt.Errorf("failed to write surnames.html: %w", err)
+	}
+
+	// Generate places index
+	placesPath := filepath.Join(outputDir, "places.html")
+	placesHTML := generatePlacesIndexPage(s, people, options)
+	if err := os.WriteFile(placesPath, []byte(placesHTML), 0644); err != nil {
+		return fmt.Errorf("failed to write places.html: %w", err)
+	}
+
+	// Generate timeline page
+	timelinePath := filepath.Join(outputDir, "timeline.html")
+	timelineHTML := generateTimelinePage(s, people, options)
+	if err := os.WriteFile(timelinePath, []byte(timelineHTML), 0644); err != nil {
+		return fmt.Errorf("failed to write timeline.html: %w", err)
+	}
+
+	// Generate statistics page
+	statsPath := filepath.Join(outputDir, "statistics.html")
+	statsHTML := generateStatisticsPage(s, allPeople, people, options)
+	if err := os.WriteFile(statsPath, []byte(statsHTML), 0644); err != nil {
+		return fmt.Errorf("failed to write statistics.html: %w", err)
+	}
+
+	// Generate sources page
+	sourcesPath := filepath.Join(outputDir, "sources.html")
+	sourcesHTML := generateSourcesPage(s, people, options)
+	if err := os.WriteFile(sourcesPath, []byte(sourcesHTML), 0644); err != nil {
+		return fmt.Errorf("failed to write sources.html: %w", err)
+	}
+
+	// Generate people JSON for search
+	peopleJSON := generatePeopleJSON(people, options)
+
+	// Generate search page with embedded data
+	searchPath := filepath.Join(outputDir, "search.html")
+	searchHTML := generateSearchPage(peopleJSON)
+	if err := os.WriteFile(searchPath, []byte(searchHTML), 0644); err != nil {
+		return fmt.Errorf("failed to write search.html: %w", err)
+	}
+	
+	// Also save standalone JSON file for reference/API use
+	peopleJSONPath := filepath.Join(outputDir, "people.json")
+	if err := os.WriteFile(peopleJSONPath, []byte(peopleJSON), 0644); err != nil {
+		return fmt.Errorf("failed to write people.json: %w", err)
+	}
+
+	// Generate individual person pages
+	for _, person := range people {
+		personPath := filepath.Join(outputDir, fmt.Sprintf("person_%d.html", person.ID))
+		personHTML := generatePersonPage(s, &person, options)
+		if err := os.WriteFile(personPath, []byte(personHTML), 0644); err != nil {
+			return fmt.Errorf("failed to write person_%d.html: %w", person.ID, err)
+		}
+	}
+
+	return nil
+}
+
+// getWebsiteCSS returns the shared CSS for the genealogy website
+func getWebsiteCSS() string {
+	return `/* KrankyBear Genealogy Website Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f5f5;
+}
+
+.header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.header h1 {
+    font-size: 2em;
+    margin-bottom: 10px;
+}
+
+.nav {
+    background-color: #34495e;
+    padding: 15px 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.nav a {
+    color: white;
+    text-decoration: none;
+    padding: 8px 15px;
+    margin-right: 10px;
+    border-radius: 3px;
+    transition: background-color 0.3s;
+}
+
+.nav a:hover {
+    background-color: #2c3e50;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 30px;
+    background-color: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-radius: 8px;
+}
+
+.person-card {
+    background-color: #fafafa;
+    border-left: 4px solid #3498db;
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 3px;
+}
+
+.person-name {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.person-details {
+    color: #555;
+    margin-left: 20px;
+}
+
+.detail-row {
+    margin: 5px 0;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #34495e;
+    display: inline-block;
+    min-width: 120px;
+}
+
+.section {
+    margin: 30px 0;
+}
+
+.section h2 {
+    color: #34495e;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.surname-group {
+    margin: 20px 0;
+}
+
+.surname-group h3 {
+    color: #2c3e50;
+    background-color: #ecf0f1;
+    padding: 10px;
+    border-left: 4px solid #3498db;
+}
+
+.person-list {
+    list-style: none;
+    margin: 10px 0 10px 20px;
+}
+
+.person-list li {
+    padding: 8px;
+    margin: 5px 0;
+    background-color: #fafafa;
+    border-radius: 3px;
+}
+
+.person-list a {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.person-list a:hover {
+    text-decoration: underline;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.stat-card {
+    background-color: #ecf0f1;
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #3498db;
+}
+
+.stat-label {
+    color: #7f8c8d;
+    margin-top: 5px;
+}
+
+.footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #ecf0f1;
+    text-align: center;
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+.privacy-note {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 12px;
+    margin: 20px 0;
+    border-radius: 3px;
+    font-style: italic;
+}
+
+.stat-bars {
+    margin-top: 20px;
+}
+
+.stat-bar-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 60px;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.stat-bar-label {
+    font-weight: 600;
+    color: #2c3e50;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stat-bar-label a {
+    color: #2c3e50;
+    text-decoration: none;
+}
+
+.stat-bar-label a:hover {
+    color: #3498db;
+    text-decoration: underline;
+}
+
+.stat-card a {
+    display: block;
+    transition: transform 0.2s;
+}
+
+.stat-card a:hover {
+    transform: scale(1.05);
+}
+
+.stat-bar-container {
+    background-color: #ecf0f1;
+    border-radius: 10px;
+    height: 30px;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-bar-fill {
+    background: linear-gradient(90deg, #3498db, #2980b9);
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.3s ease;
+}
+
+.stat-bar-value {
+    text-align: right;
+    font-weight: 600;
+    color: #3498db;
+}
+
+.source-card {
+    background-color: white;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    border-left: 4px solid #3498db;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.source-card h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 1.3em;
+}
+
+.source-card p {
+    margin: 8px 0;
+    line-height: 1.6;
+}
+
+.citation-list {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #ecf0f1;
+}
+
+.citation-item {
+    padding: 8px 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.citation-item a {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.citation-item a:hover {
+    text-decoration: underline;
+}
+
+.citation-detail {
+    color: #7f8c8d;
+    font-size: 0.9em;
+    font-style: italic;
+}
+
+.citation-confidence {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.confidence-high {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.confidence-medium {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.confidence-low {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.person-citations {
+    margin-top: 15px;
+}
+
+.person-citation-item {
+    background-color: #f8f9fa;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    border-left: 3px solid #3498db;
+}
+
+.citation-source-title {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-size: 1.1em;
+}
+
+.citation-transcription {
+    font-style: italic;
+    color: #555;
+    margin: 10px 0;
+    padding: 10px;
+    background-color: white;
+    border-left: 3px solid #95a5a6;
+}
+
+.citation-notes {
+    color: #7f8c8d;
+    font-size: 0.9em;
+    margin-top: 8px;
+}
+
+.photo-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.photo-item {
+    background-color: #fafafa;
+    border-radius: 5px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.photo-item img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+}
+
+.photo-caption {
+    padding: 10px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.photo-date {
+    padding: 0 10px 10px 10px;
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+.breadcrumb {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 15px 20px;
+    background-color: #ecf0f1;
+    font-size: 0.9em;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+.breadcrumb a {
+    color: #3498db;
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.breadcrumb span {
+    color: #7f8c8d;
+}
+
+@media print {
+    body {
+        background-color: white;
+    }
+    .container {
+        box-shadow: none;
+        max-width: 100%;
+    }
+    .nav {
+        display: none;
+    }
+    .breadcrumb {
+        display: none;
+    }
+    .photo-gallery {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .photo-item img {
+        height: 150px;
+    }
+}`
+}
+
+// generateIndexPage creates the home page for the website
+func generateIndexPage(s *store.Store, people []store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	// Count statistics
+	totalPeople := len(people)
+	livingCount := 0
+	deceasedCount := 0
+	surnameMap := make(map[string]int)
+
+	for _, p := range people {
+		if p.IsLiving {
+			livingCount++
+		} else {
+			deceasedCount++
+		}
+		if p.Surname != "" {
+			surnameMap[p.Surname]++
+		}
+	}
+
+	html.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Genealogy - Home</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Family Genealogy Website</h1>
+        <p>Explore your family history</p>
+    </div>
+    <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="search.html">Search</a>
+        <a href="surnames.html">Surnames</a>
+        <a href="places.html">Places</a>
+        <a href="timeline.html">Timeline</a>
+        <a href="statistics.html">Statistics</a>
+        <a href="sources.html">Sources</a>
+    </nav>
+    <div class="container">
+        <div class="section">
+            <h2>Welcome to the Family Tree</h2>
+            <p>This website contains information about ` + fmt.Sprintf("%d", totalPeople) + ` individuals across ` + fmt.Sprintf("%d", len(surnameMap)) + ` different surnames.</p>
+        </div>
+`)
+
+	// Privacy note
+	if options.HideLiving || options.LimitLivingInfo {
+		html.WriteString(`        <div class="privacy-note">`)
+		if options.HideLiving {
+			html.WriteString(`            <strong>Privacy Note:</strong> Information about living individuals has been excluded from this website to protect their privacy.`)
+		} else {
+			html.WriteString(`            <strong>Privacy Note:</strong> Information about living individuals is limited to names only to protect their privacy.`)
+		}
+		html.WriteString(`        </div>
+`)
+	}
+
+	// Statistics
+	html.WriteString(`        <div class="section">
+            <h2>Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", totalPeople) + `</div>
+                    <div class="stat-label">Total People</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", len(surnameMap)) + `</div>
+                    <div class="stat-label">Surnames</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", deceasedCount) + `</div>
+                    <div class="stat-label">Deceased</div>
+                </div>
+`)
+	if !options.HideLiving {
+		html.WriteString(`                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", livingCount) + `</div>
+                    <div class="stat-label">Living</div>
+                </div>
+`)
+	}
+	html.WriteString(`            </div>
+        </div>
+
+        <div class="section">
+            <h2>Explore Your Family History</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
+                <div style="background-color: #ecf0f1; padding: 20px; border-radius: 5px;">
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">🔍 Search</h3>
+                    <p>Search for people by name, date, or place</p>
+                    <a href="search.html" style="color: #3498db; font-weight: 600;">Search →</a>
+                </div>
+                <div style="background-color: #ecf0f1; padding: 20px; border-radius: 5px;">
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">📋 Surnames</h3>
+                    <p>Browse all individuals organized by family name</p>
+                    <a href="surnames.html" style="color: #3498db; font-weight: 600;">View Surnames →</a>
+                </div>
+                <div style="background-color: #ecf0f1; padding: 20px; border-radius: 5px;">
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">📍 Places</h3>
+                    <p>Explore family history by geographic location</p>
+                    <a href="places.html" style="color: #3498db; font-weight: 600;">View Places →</a>
+                </div>
+                <div style="background-color: #ecf0f1; padding: 20px; border-radius: 5px;">
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">📅 Timeline</h3>
+                    <p>Chronological view of all family events</p>
+                    <a href="timeline.html" style="color: #3498db; font-weight: 600;">View Timeline →</a>
+                </div>
+                <div style="background-color: #ecf0f1; padding: 20px; border-radius: 5px;">
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">📊 Statistics</h3>
+                    <p>Detailed family history statistics and insights</p>
+                    <a href="statistics.html" style="color: #3498db; font-weight: 600;">View Statistics →</a>
+                </div>
+                <div style="background-color: #ecf0f1; padding: 20px; border-radius: 5px;">
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">📚 Sources</h3>
+                    <p>Research sources and citations documentation</p>
+                    <a href="sources.html" style="color: #3498db; font-weight: 600;">View Sources →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Generated by KrankyBear Genealogy on ` + time.Now().Format("January 2, 2006") + `</p>
+        </div>
+    </div>
+</body>
+</html>`)
+
+	return html.String()
+}
+
+// generateSurnameIndexPage creates the surname index page
+func generateSurnameIndexPage(s *store.Store, people []store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	// Group people by surname
+	surnameMap := make(map[string][]store.Person)
+	for _, p := range people {
+		surname := p.Surname
+		if surname == "" {
+			surname = "(No surname)"
+		}
+		surnameMap[surname] = append(surnameMap[surname], p)
+	}
+
+	// Sort surnames
+	var surnames []string
+	for surname := range surnameMap {
+		surnames = append(surnames, surname)
+	}
+	sort.Strings(surnames)
+
+	html.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Genealogy - Surnames</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Surname Index</h1>
+        <p>Browse all individuals by surname</p>
+    </div>
+    <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="search.html">Search</a>
+        <a href="surnames.html">Surnames</a>
+        <a href="places.html">Places</a>
+        <a href="timeline.html">Timeline</a>
+        <a href="statistics.html">Statistics</a>
+        <a href="sources.html">Sources</a>
+    </nav>
+    <div class="container">
+`)
+
+	// Generate surname groups
+	for _, surname := range surnames {
+		peopleInSurname := surnameMap[surname]
+		// Sort by given name
+		sort.Slice(peopleInSurname, func(i, j int) bool {
+			return peopleInSurname[i].GivenName < peopleInSurname[j].GivenName
+		})
+
+		html.WriteString(`        <div class="surname-group">
+            <h3>` + surname + ` (` + fmt.Sprintf("%d", len(peopleInSurname)) + `)</h3>
+            <ul class="person-list">
+`)
+		for _, person := range peopleInSurname {
+			dates := ""
+			if !options.LimitLivingInfo || !person.IsLiving {
+				if person.BirthDate != "" {
+					dates = fmt.Sprintf(" (b. %s", formatFGSDate(person.BirthDate))
+					if !person.IsLiving && person.DeathDate != "" {
+						dates += fmt.Sprintf(" - d. %s", formatFGSDate(person.DeathDate))
+					}
+					dates += ")"
+				}
+			} else if person.IsLiving {
+				dates = " (Living)"
+			}
+			html.WriteString(`                <li><a href="person_` + fmt.Sprintf("%d", person.ID) + `.html">` + formatPersonName(person) + `</a>` + dates + `</li>
+`)
+		}
+		html.WriteString(`            </ul>
+        </div>
+`)
+	}
+
+	html.WriteString(`        <div class="footer">
+            <p>Generated by KrankyBear Genealogy on ` + time.Now().Format("January 2, 2006") + `</p>
+        </div>
+    </div>
+</body>
+</html>`)
+
+	return html.String()
+}
+
+// generatePlacesIndexPage creates the places index page
+func generatePlacesIndexPage(s *store.Store, people []store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	// Collect all places
+	birthPlaces := make(map[string][]store.Person)
+	deathPlaces := make(map[string][]store.Person)
+	
+	for _, p := range people {
+		if p.BirthPlace != "" && (!options.LimitLivingInfo || !p.IsLiving) {
+			birthPlaces[p.BirthPlace] = append(birthPlaces[p.BirthPlace], p)
+		}
+		if p.DeathPlace != "" && !p.IsLiving {
+			deathPlaces[p.DeathPlace] = append(deathPlaces[p.DeathPlace], p)
+		}
+	}
+
+	// Get unique sorted places
+	placeSet := make(map[string]bool)
+	for place := range birthPlaces {
+		placeSet[place] = true
+	}
+	for place := range deathPlaces {
+		placeSet[place] = true
+	}
+	
+	var places []string
+	for place := range placeSet {
+		places = append(places, place)
+	}
+	sort.Strings(places)
+
+	html.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Genealogy - Places</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Places Index</h1>
+        <p>Browse family history by location</p>
+    </div>
+    <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="search.html">Search</a>
+        <a href="surnames.html">Surnames</a>
+        <a href="places.html">Places</a>
+        <a href="timeline.html">Timeline</a>
+        <a href="statistics.html">Statistics</a>
+        <a href="sources.html">Sources</a>
+    </nav>
+    <div class="container">
+        <div class="section">
+            <p>` + fmt.Sprintf("%d locations", len(places)) + ` recorded in family history</p>
+        </div>
+`)
+
+	for _, place := range places {
+		births := birthPlaces[place]
+		deaths := deathPlaces[place]
+		totalEvents := len(births) + len(deaths)
+		
+		html.WriteString(`        <div class="surname-group">
+            <h3>` + place + ` (` + fmt.Sprintf("%d events", totalEvents) + `)</h3>
+`)
+		
+		if len(births) > 0 {
+			html.WriteString(`            <h4 style="margin: 10px 0 5px 20px; color: #2c3e50;">Births (` + fmt.Sprintf("%d", len(births)) + `)</h4>
+            <ul class="person-list">
+`)
+			// Sort births by date
+			sort.Slice(births, func(i, j int) bool {
+				return births[i].BirthDate < births[j].BirthDate
+			})
+			for _, person := range births {
+				dateStr := ""
+				if person.BirthDate != "" {
+					dateStr = " (" + formatFGSDate(person.BirthDate) + ")"
+				}
+				html.WriteString(`                <li><a href="person_` + fmt.Sprintf("%d", person.ID) + `.html">` + formatPersonName(person) + `</a>` + dateStr + `</li>
+`)
+			}
+			html.WriteString(`            </ul>
+`)
+		}
+		
+		if len(deaths) > 0 {
+			html.WriteString(`            <h4 style="margin: 10px 0 5px 20px; color: #2c3e50;">Deaths (` + fmt.Sprintf("%d", len(deaths)) + `)</h4>
+            <ul class="person-list">
+`)
+			// Sort deaths by date
+			sort.Slice(deaths, func(i, j int) bool {
+				return deaths[i].DeathDate < deaths[j].DeathDate
+			})
+			for _, person := range deaths {
+				dateStr := ""
+				if person.DeathDate != "" {
+					dateStr = " (" + formatFGSDate(person.DeathDate) + ")"
+				}
+				html.WriteString(`                <li><a href="person_` + fmt.Sprintf("%d", person.ID) + `.html">` + formatPersonName(person) + `</a>` + dateStr + `</li>
+`)
+			}
+			html.WriteString(`            </ul>
+`)
+		}
+		
+		html.WriteString(`        </div>
+`)
+	}
+
+	html.WriteString(`        <div class="footer">
+            <p>Generated by KrankyBear Genealogy on ` + time.Now().Format("January 2, 2006") + `</p>
+        </div>
+    </div>
+</body>
+</html>`)
+
+	return html.String()
+}
+
+// generateTimelinePage creates a chronological timeline page
+func generateTimelinePage(s *store.Store, people []store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	// Collect all events
+	type WebTimelineEvent struct {
+		Date   string
+		Year   string
+		Type   string // "birth", "death"
+		Person store.Person
+		Place  string
+	}
+	
+	var events []WebTimelineEvent
+	
+	// Add births
+	for _, p := range people {
+		// Show living people on timeline, but hide details if LimitLivingInfo is set
+		if p.BirthDate != "" {
+			if options.LimitLivingInfo && p.IsLiving {
+				// Add to timeline but without date/place details
+				events = append(events, WebTimelineEvent{
+					Date:   "", // Empty date will show as "Living"
+					Year:   "",
+					Type:   "birth",
+					Person: p,
+					Place:  "",
+				})
+			} else {
+				// Show full details
+				year := extractYear(p.BirthDate)
+				events = append(events, WebTimelineEvent{
+					Date:   p.BirthDate,
+					Year:   year,
+					Type:   "birth",
+					Person: p,
+					Place:  p.BirthPlace,
+				})
+			}
+		}
+	}
+	
+	// Add deaths
+	for _, p := range people {
+		if p.DeathDate != "" && !p.IsLiving {
+			year := extractYear(p.DeathDate)
+			events = append(events, WebTimelineEvent{
+				Date:   p.DeathDate,
+				Year:   year,
+				Type:   "death",
+				Person: p,
+				Place:  p.DeathPlace,
+			})
+		}
+	}
+	
+	// Sort by date chronologically, then alphabetically by name for living people
+	sort.Slice(events, func(i, j int) bool {
+		// Parse dates for proper chronological comparison
+		dateI := normalizeDateForSort(events[i].Date)
+		dateJ := normalizeDateForSort(events[j].Date)
+		
+		// If dates are the same (both empty = living people), sort by name
+		if dateI == dateJ {
+			nameI := formatPersonName(events[i].Person)
+			nameJ := formatPersonName(events[j].Person)
+			return nameI < nameJ
+		}
+		
+		return dateI < dateJ
+	})
+
+	html.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Genealogy - Timeline</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Family Timeline</h1>
+        <p>Chronological view of family events</p>
+    </div>
+    <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="search.html">Search</a>
+        <a href="surnames.html">Surnames</a>
+        <a href="places.html">Places</a>
+        <a href="timeline.html">Timeline</a>
+        <a href="statistics.html">Statistics</a>
+        <a href="sources.html">Sources</a>
+    </nav>
+    <div class="container">
+        <div class="section">
+            <p>` + fmt.Sprintf("%d events", len(events)) + ` in chronological order</p>
+        </div>
+`)
+
+	// Group by century, with living people at the end
+	currentCentury := ""
+	for _, event := range events {
+		// Extract century from year string
+		centuryStr := ""
+		if len(event.Year) >= 4 {
+			if yearInt, err := strconv.Atoi(event.Year); err == nil {
+				century := (yearInt / 100) * 100
+				centuryStr = fmt.Sprintf("%d", century)
+			}
+		} else if event.Date == "" && event.Person.IsLiving {
+			// Living people with hidden dates go in "Living" section
+			centuryStr = "Living"
+		}
+		
+		if centuryStr != "" && centuryStr != currentCentury {
+			if currentCentury != "" {
+				html.WriteString(`            </ul>
+        </div>
+`)
+			}
+			currentCentury = centuryStr
+			sectionTitle := centuryStr
+			if centuryStr != "Living" {
+				sectionTitle = centuryStr + "s"
+			}
+			html.WriteString(`        <div class="surname-group">
+            <h3>` + sectionTitle + `</h3>
+            <ul class="person-list">
+`)
+		}
+		
+		eventIcon := "📅"
+		if event.Type == "birth" {
+			eventIcon = "👶"
+		} else if event.Type == "death" {
+			eventIcon = "✝️"
+		}
+		
+		eventType := event.Type
+		if event.Type == "birth" {
+			eventType = "Born"
+		} else if event.Type == "death" {
+			eventType = "Died"
+		}
+		
+		// Format date and place
+		dateStr := ""
+		if event.Date != "" {
+			dateStr = `<strong>` + formatFGSDate(event.Date) + `</strong> - `
+		}
+		
+		placeStr := ""
+		if event.Place != "" {
+			placeStr = " in " + event.Place
+		} else if event.Date == "" && event.Person.IsLiving {
+			placeStr = " (birth information withheld for privacy)"
+		}
+		
+		html.WriteString(`                <li>` + eventIcon + ` ` + dateStr + eventType + `: <a href="person_` + fmt.Sprintf("%d", event.Person.ID) + `.html">` + formatPersonName(event.Person) + `</a>` + placeStr + `</li>
+`)
+	}
+	
+	if len(events) > 0 {
+		html.WriteString(`            </ul>
+        </div>
+`)
+	}
+
+	html.WriteString(`        <div class="footer">
+            <p>Generated by KrankyBear Genealogy on ` + time.Now().Format("January 2, 2006") + `</p>
+        </div>
+    </div>
+</body>
+</html>`)
+
+	return html.String()
+}
+
+// generateStatisticsPage creates the statistics dashboard page
+func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeople []store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	// Calculate statistics
+	totalPeople := len(visiblePeople)
+	livingCount := 0
+	deceasedCount := 0
+	maleCount := 0
+	femaleCount := 0
+	unknownGenderCount := 0
+	
+	birthCount := 0
+	deathCount := 0
+	marriageCount := 0
+	
+	var earliestBirth, latestBirth, earliestDeath, latestDeath string
+	
+	surnameMap := make(map[string]int)
+	birthPlaceMap := make(map[string]int)
+	deathPlaceMap := make(map[string]int)
+	
+	for _, p := range visiblePeople {
+		// Living/Deceased
+		if p.IsLiving {
+			livingCount++
+		} else {
+			deceasedCount++
+		}
+		
+		// Gender
+		switch p.Gender {
+		case "M":
+			maleCount++
+		case "F":
+			femaleCount++
+		default:
+			unknownGenderCount++
+		}
+		
+		// Surnames
+		if p.Surname != "" {
+			surnameMap[p.Surname]++
+		}
+		
+		// Birth statistics
+		if p.BirthDate != "" && (!options.LimitLivingInfo || !p.IsLiving) {
+			birthCount++
+			if earliestBirth == "" || p.BirthDate < earliestBirth {
+				earliestBirth = p.BirthDate
+			}
+			if latestBirth == "" || p.BirthDate > latestBirth {
+				latestBirth = p.BirthDate
+			}
+			
+			if p.BirthPlace != "" {
+				birthPlaceMap[p.BirthPlace]++
+			}
+		}
+		
+		// Death statistics
+		if p.DeathDate != "" {
+			deathCount++
+			if earliestDeath == "" || p.DeathDate < earliestDeath {
+				earliestDeath = p.DeathDate
+			}
+			if latestDeath == "" || p.DeathDate > latestDeath {
+				latestDeath = p.DeathDate
+			}
+			
+			if p.DeathPlace != "" {
+				deathPlaceMap[p.DeathPlace]++
+			}
+		}
+	}
+	
+	// Count marriages (only for visible people)
+	for _, p := range visiblePeople {
+		spouses, err := s.GetSpouses(p.ID)
+		if err != nil {
+			continue
+		}
+		for _, sp := range spouses {
+			// Only count if both spouses are visible and this is the "first" one (to avoid double-counting)
+			if p.ID < sp.Spouse.ID {
+				spouseVisible := false
+				for _, vp := range visiblePeople {
+					if vp.ID == sp.Spouse.ID {
+						spouseVisible = true
+						break
+					}
+				}
+				if spouseVisible {
+					marriageCount++
+				}
+			}
+		}
+	}
+	
+	// Sort surnames by frequency
+	type SurnameCount struct {
+		Name  string
+		Count int
+	}
+	var surnames []SurnameCount
+	for name, count := range surnameMap {
+		surnames = append(surnames, SurnameCount{Name: name, Count: count})
+	}
+	sort.Slice(surnames, func(i, j int) bool {
+		if surnames[i].Count == surnames[j].Count {
+			return surnames[i].Name < surnames[j].Name
+		}
+		return surnames[i].Count > surnames[j].Count
+	})
+	
+	// Sort places by frequency
+	type PlaceCount struct {
+		Name  string
+		Count int
+	}
+	var birthPlaces []PlaceCount
+	for name, count := range birthPlaceMap {
+		birthPlaces = append(birthPlaces, PlaceCount{Name: name, Count: count})
+	}
+	sort.Slice(birthPlaces, func(i, j int) bool {
+		if birthPlaces[i].Count == birthPlaces[j].Count {
+			return birthPlaces[i].Name < birthPlaces[j].Name
+		}
+		return birthPlaces[i].Count > birthPlaces[j].Count
+	})
+	
+	var deathPlaces []PlaceCount
+	for name, count := range deathPlaceMap {
+		deathPlaces = append(deathPlaces, PlaceCount{Name: name, Count: count})
+	}
+	sort.Slice(deathPlaces, func(i, j int) bool {
+		if deathPlaces[i].Count == deathPlaces[j].Count {
+			return deathPlaces[i].Name < deathPlaces[j].Name
+		}
+		return deathPlaces[i].Count > deathPlaces[j].Count
+	})
+
+	// Start HTML
+	html.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Genealogy - Statistics</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Family Statistics</h1>
+        <p>Overview and insights about the family tree</p>
+    </div>
+    <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="search.html">Search</a>
+        <a href="surnames.html">Surnames</a>
+        <a href="places.html">Places</a>
+        <a href="timeline.html">Timeline</a>
+        <a href="statistics.html">Statistics</a>
+        <a href="sources.html">Sources</a>
+    </nav>
+    <div class="container">
+`)
+
+	// Privacy note
+	if options.HideLiving || options.LimitLivingInfo {
+		html.WriteString(`        <div class="privacy-note">`)
+		if options.HideLiving {
+			html.WriteString(`            <strong>Privacy Note:</strong> Living individuals are excluded from these statistics.`)
+		} else {
+			html.WriteString(`            <strong>Privacy Note:</strong> Birth information for living individuals is excluded from date range and place statistics.`)
+		}
+		html.WriteString(`        </div>
+`)
+	}
+
+	// Overall statistics
+	html.WriteString(`        <div class="section">
+            <h2>Overall Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", totalPeople) + `</div>
+                    <div class="stat-label">Total People</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", deceasedCount) + `</div>
+                    <div class="stat-label">Deceased</div>
+                </div>
+`)
+	if !options.HideLiving {
+		html.WriteString(`                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", livingCount) + `</div>
+                    <div class="stat-label">Living</div>
+                </div>
+`)
+	}
+	html.WriteString(`                <div class="stat-card">
+                    <a href="surnames.html" style="text-decoration: none; color: inherit;">
+                        <div class="stat-number">` + fmt.Sprintf("%d", len(surnameMap)) + `</div>
+                        <div class="stat-label">Surnames</div>
+                    </a>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", marriageCount) + `</div>
+                    <div class="stat-label">Marriages</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Gender Distribution</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", maleCount) + `</div>
+                    <div class="stat-label">Male</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", femaleCount) + `</div>
+                    <div class="stat-label">Female</div>
+                </div>
+`)
+	if unknownGenderCount > 0 {
+		html.WriteString(`                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", unknownGenderCount) + `</div>
+                    <div class="stat-label">Unknown</div>
+                </div>
+`)
+	}
+	html.WriteString(`            </div>
+        </div>
+`)
+
+	// Date ranges
+	if earliestBirth != "" || latestBirth != "" || earliestDeath != "" || latestDeath != "" {
+		html.WriteString(`        <div class="section">
+            <h2>Date Ranges</h2>
+            <div class="stats-grid">
+`)
+		if earliestBirth != "" {
+			html.WriteString(`                <div class="stat-card">
+                    <div class="stat-number" style="font-size: 1.5rem;">` + formatFGSDate(earliestBirth) + `</div>
+                    <div class="stat-label">Earliest Birth</div>
+                </div>
+`)
+		}
+		if latestBirth != "" {
+			html.WriteString(`                <div class="stat-card">
+                    <div class="stat-number" style="font-size: 1.5rem;">` + formatFGSDate(latestBirth) + `</div>
+                    <div class="stat-label">Latest Birth</div>
+                </div>
+`)
+		}
+		if earliestDeath != "" {
+			html.WriteString(`                <div class="stat-card">
+                    <div class="stat-number" style="font-size: 1.5rem;">` + formatFGSDate(earliestDeath) + `</div>
+                    <div class="stat-label">Earliest Death</div>
+                </div>
+`)
+		}
+		if latestDeath != "" {
+			html.WriteString(`                <div class="stat-card">
+                    <div class="stat-number" style="font-size: 1.5rem;">` + formatFGSDate(latestDeath) + `</div>
+                    <div class="stat-label">Latest Death</div>
+                </div>
+`)
+		}
+		html.WriteString(`            </div>
+        </div>
+`)
+	}
+
+	// Top 10 Surnames
+	if len(surnames) > 0 {
+		html.WriteString(`        <div class="section">
+            <h2>Most Common Surnames</h2>
+            <div class="stat-bars">
+`)
+		maxCount := surnames[0].Count
+		displayCount := 10
+		if len(surnames) < displayCount {
+			displayCount = len(surnames)
+		}
+		
+		for i := 0; i < displayCount; i++ {
+			sn := surnames[i]
+			percentage := float64(sn.Count) / float64(maxCount) * 100
+			html.WriteString(`                <div class="stat-bar-row">
+                    <div class="stat-bar-label"><a href="surnames.html#` + sn.Name + `">` + sn.Name + `</a></div>
+                    <div class="stat-bar-container">
+                        <div class="stat-bar-fill" style="width: ` + fmt.Sprintf("%.1f", percentage) + `%;"></div>
+                    </div>
+                    <div class="stat-bar-value">` + fmt.Sprintf("%d", sn.Count) + `</div>
+                </div>
+`)
+		}
+		html.WriteString(`            </div>
+        </div>
+`)
+	}
+
+	// Top 10 Birth Places
+	if len(birthPlaces) > 0 {
+		html.WriteString(`        <div class="section">
+            <h2>Most Common Birth Places</h2>
+            <div class="stat-bars">
+`)
+		maxCount := birthPlaces[0].Count
+		displayCount := 10
+		if len(birthPlaces) < displayCount {
+			displayCount = len(birthPlaces)
+		}
+		
+		for i := 0; i < displayCount; i++ {
+			pl := birthPlaces[i]
+			percentage := float64(pl.Count) / float64(maxCount) * 100
+			html.WriteString(`                <div class="stat-bar-row">
+                    <div class="stat-bar-label"><a href="places.html">` + pl.Name + `</a></div>
+                    <div class="stat-bar-container">
+                        <div class="stat-bar-fill" style="width: ` + fmt.Sprintf("%.1f", percentage) + `%;"></div>
+                    </div>
+                    <div class="stat-bar-value">` + fmt.Sprintf("%d", pl.Count) + `</div>
+                </div>
+`)
+		}
+		html.WriteString(`            </div>
+        </div>
+`)
+	}
+
+	// Top 10 Death Places
+	if len(deathPlaces) > 0 {
+		html.WriteString(`        <div class="section">
+            <h2>Most Common Death Places</h2>
+            <div class="stat-bars">
+`)
+		maxCount := deathPlaces[0].Count
+		displayCount := 10
+		if len(deathPlaces) < displayCount {
+			displayCount = len(deathPlaces)
+		}
+		
+		for i := 0; i < displayCount; i++ {
+			pl := deathPlaces[i]
+			percentage := float64(pl.Count) / float64(maxCount) * 100
+			html.WriteString(`                <div class="stat-bar-row">
+                    <div class="stat-bar-label"><a href="places.html">` + pl.Name + `</a></div>
+                    <div class="stat-bar-container">
+                        <div class="stat-bar-fill" style="width: ` + fmt.Sprintf("%.1f", percentage) + `%;"></div>
+                    </div>
+                    <div class="stat-bar-value">` + fmt.Sprintf("%d", pl.Count) + `</div>
+                </div>
+`)
+		}
+		html.WriteString(`            </div>
+        </div>
+`)
+	}
+
+	html.WriteString(`        <div class="footer">
+            <p>Generated by KrankyBear Genealogy on ` + time.Now().Format("January 2, 2006") + `</p>
+        </div>
+    </div>
+</body>
+</html>`)
+
+	return html.String()
+}
+
+// generateSourcesPage creates the sources and citations page
+func generateSourcesPage(s *store.Store, visiblePeople []store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	// Get all sources
+	allSources, err := s.GetAllSources()
+	if err != nil {
+		allSources = []store.Source{}
+	}
+
+	// Create a map of visible person IDs for quick lookup
+	visiblePersonIDs := make(map[int64]bool)
+	for _, p := range visiblePeople {
+		visiblePersonIDs[p.ID] = true
+	}
+
+	// Group sources by type and collect citation counts
+	type SourceWithCitations struct {
+		Source      store.Source
+		Citations   []store.Citation
+		PeopleCount int
+	}
+	
+	sourcesByType := make(map[string][]SourceWithCitations)
+	
+	for _, source := range allSources {
+		citations, err := s.GetCitationsForSource(source.ID)
+		if err != nil {
+			continue
+		}
+		
+		// Filter citations to only include visible people
+		var visibleCitations []store.Citation
+		for _, cit := range citations {
+			if visiblePersonIDs[cit.PersonID] {
+				visibleCitations = append(visibleCitations, cit)
+			}
+		}
+		
+		// Only include sources that have visible citations
+		if len(visibleCitations) > 0 {
+			sourceType := source.SourceType
+			if sourceType == "" {
+				sourceType = "other"
+			}
+			
+			sourcesByType[sourceType] = append(sourcesByType[sourceType], SourceWithCitations{
+				Source:      source,
+				Citations:   visibleCitations,
+				PeopleCount: len(visibleCitations),
+			})
+		}
+	}
+
+	// Source type labels
+	sourceTypeLabels := map[string]string{
+		"vital_record": "Vital Records",
+		"census":       "Census Records",
+		"church":       "Church Records",
+		"book":         "Books & Publications",
+		"website":      "Websites & Online Resources",
+		"military":     "Military Records",
+		"land":         "Land & Property Records",
+		"probate":      "Probate & Court Records",
+		"newspaper":    "Newspapers",
+		"other":        "Other Sources",
+	}
+
+	// Start HTML
+	html.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Genealogy - Sources</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Research Sources</h1>
+        <p>Documentation and citations for family history research</p>
+    </div>
+    <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="search.html">Search</a>
+        <a href="surnames.html">Surnames</a>
+        <a href="places.html">Places</a>
+        <a href="timeline.html">Timeline</a>
+        <a href="statistics.html">Statistics</a>
+        <a href="sources.html">Sources</a>
+    </nav>
+    <div class="container">
+`)
+
+	if len(sourcesByType) == 0 {
+		html.WriteString(`        <div class="section">
+            <p>No sources have been added to the database yet.</p>
+        </div>
+`)
+	} else {
+		// Count totals
+		totalSources := len(allSources)
+		totalCitations := 0
+		for _, sources := range sourcesByType {
+			for _, swc := range sources {
+				totalCitations += len(swc.Citations)
+			}
+		}
+
+		html.WriteString(`        <div class="section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", totalSources) + `</div>
+                    <div class="stat-label">Total Sources</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", totalCitations) + `</div>
+                    <div class="stat-label">Total Citations</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">` + fmt.Sprintf("%d", len(sourcesByType)) + `</div>
+                    <div class="stat-label">Source Types</div>
+                </div>
+            </div>
+        </div>
+`)
+
+		// Display sources grouped by type
+		// Sort types for consistent display
+		var sortedTypes []string
+		for sourceType := range sourcesByType {
+			sortedTypes = append(sortedTypes, sourceType)
+		}
+		sort.Strings(sortedTypes)
+
+		for _, sourceType := range sortedTypes {
+			sources := sourcesByType[sourceType]
+			typeLabel := sourceTypeLabels[sourceType]
+			if typeLabel == "" {
+				typeLabel = sourceType
+			}
+
+			html.WriteString(`        <div class="section">
+            <h2>` + typeLabel + ` (` + fmt.Sprintf("%d", len(sources)) + `)</h2>
+`)
+
+			// Sort sources by title
+			sort.Slice(sources, func(i, j int) bool {
+				return sources[i].Source.Title < sources[j].Source.Title
+			})
+
+			for _, swc := range sources {
+				src := swc.Source
+				
+				html.WriteString(`            <div class="source-card">
+                <h3>` + src.Title + `</h3>
+`)
+
+				if src.Author != "" {
+					html.WriteString(`                <p><strong>Author:</strong> ` + src.Author + `</p>
+`)
+				}
+				if src.Publication != "" {
+					html.WriteString(`                <p><strong>Publication:</strong> ` + src.Publication + `</p>
+`)
+				}
+				if src.Repository != "" {
+					html.WriteString(`                <p><strong>Repository:</strong> ` + src.Repository + `</p>
+`)
+				}
+				if src.CallNumber != "" {
+					html.WriteString(`                <p><strong>Call Number:</strong> ` + src.CallNumber + `</p>
+`)
+				}
+				if src.Notes != "" {
+					html.WriteString(`                <p><strong>Notes:</strong> ` + src.Notes + `</p>
+`)
+				}
+
+				html.WriteString(`                <p><strong>Citations:</strong> ` + fmt.Sprintf("%d", len(swc.Citations)) + ` people</p>
+                <div class="citation-list">
+`)
+
+				// Show people who cite this source
+				for _, cit := range swc.Citations {
+					person, err := s.GetPersonByID(cit.PersonID)
+					if err != nil {
+						continue
+					}
+					
+					html.WriteString(`                    <div class="citation-item">
+                        <a href="person_` + fmt.Sprintf("%d", person.ID) + `.html">` + formatPersonName(*person) + `</a>
+`)
+					
+					if cit.CitationDetail != "" {
+						html.WriteString(`                        <span class="citation-detail">` + cit.CitationDetail + `</span>
+`)
+					}
+					if cit.Confidence != "" {
+						confidenceClass := "confidence-" + cit.Confidence
+						html.WriteString(`                        <span class="citation-confidence ` + confidenceClass + `">` + cit.Confidence + `</span>
+`)
+					}
+					
+					html.WriteString(`                    </div>
+`)
+				}
+
+				html.WriteString(`                </div>
+            </div>
+`)
+			}
+
+			html.WriteString(`        </div>
+`)
+		}
+	}
+
+	html.WriteString(`        <div class="footer">
+            <p>Generated by KrankyBear Genealogy on ` + time.Now().Format("January 2, 2006") + `</p>
+        </div>
+    </div>
+</body>
+</html>`)
+
+	return html.String()
+}
+
+// generatePeopleJSON creates a JSON file with searchable person data
+func generatePeopleJSON(people []store.Person, options HTMLExportOptions) string {
+	type PersonJSON struct {
+		ID         int64  `json:"id"`
+		Name       string `json:"name"`
+		GivenName  string `json:"given_name"`
+		Surname    string `json:"surname"`
+		BirthDate  string `json:"birth_date,omitempty"`
+		BirthPlace string `json:"birth_place,omitempty"`
+		DeathDate  string `json:"death_date,omitempty"`
+		DeathPlace string `json:"death_place,omitempty"`
+		IsLiving   bool   `json:"is_living"`
+	}
+
+	jsonPeople := make([]PersonJSON, 0, len(people))
+	for _, p := range people {
+		personJSON := PersonJSON{
+			ID:        p.ID,
+			Name:      formatPersonName(p),
+			GivenName: p.GivenName,
+			Surname:   p.Surname,
+			IsLiving:  p.IsLiving,
+		}
+
+		// Include birth/death info based on privacy settings
+		if !options.LimitLivingInfo || !p.IsLiving {
+			personJSON.BirthDate = p.BirthDate
+			personJSON.BirthPlace = p.BirthPlace
+		}
+		if !p.IsLiving {
+			personJSON.DeathDate = p.DeathDate
+			personJSON.DeathPlace = p.DeathPlace
+		}
+
+		jsonPeople = append(jsonPeople, personJSON)
+	}
+
+	// Marshal to JSON with indentation for readability
+	jsonBytes, err := json.MarshalIndent(jsonPeople, "", "  ")
+	if err != nil {
+		// Fallback to empty array
+		fmt.Printf("Error marshaling people JSON: %v\n", err)
+		return "[]"
+	}
+	return string(jsonBytes)
+}
+
+// generateSearchPage creates the search page with JavaScript functionality
+func generateSearchPage(peopleJSON string) string {
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Genealogy - Search</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .search-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .search-box {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1em;
+            border: 2px solid #3498db;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+        .search-box:focus {
+            outline: none;
+            border-color: #2980b9;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+        }
+        .search-results {
+            margin-top: 20px;
+        }
+        .search-result-item {
+            background-color: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .search-result-item:hover {
+            transform: translateX(5px);
+        }
+        .search-result-name {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .search-result-name a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .search-result-name a:hover {
+            text-decoration: underline;
+        }
+        .search-result-details {
+            color: #7f8c8d;
+            font-size: 0.95em;
+        }
+        .search-result-highlight {
+            background-color: #fff3cd;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+        .search-stats {
+            color: #7f8c8d;
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+        .no-results {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 40px;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Search Family Tree</h1>
+        <p>Search by name, date, or place</p>
+    </div>
+    <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="search.html">Search</a>
+        <a href="surnames.html">Surnames</a>
+        <a href="places.html">Places</a>
+        <a href="timeline.html">Timeline</a>
+        <a href="statistics.html">Statistics</a>
+        <a href="sources.html">Sources</a>
+    </nav>
+    <div class="container">
+        <div class="section search-container">
+            <input type="text" id="searchBox" class="search-box" placeholder="Search for people by name, date, or place..." autofocus>
+            <div id="searchStats" class="search-stats"></div>
+            <div id="searchResults" class="search-results"></div>
+        </div>
+        <div class="footer">
+            <p>Generated by KrankyBear Genealogy</p>
+        </div>
+    </div>
+
+    <script>
+        // Embedded people data (avoids CORS issues with local files)
+        const allPeople = ` + peopleJSON + `;
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Loaded ' + allPeople.length + ' people');
+            document.getElementById('searchStats').textContent = 'Ready to search ' + allPeople.length + ' people';
+        });
+
+        // Search function
+        function searchPeople(query) {
+            if (!query || query.trim().length < 2) {
+                document.getElementById('searchResults').innerHTML = '';
+                document.getElementById('searchStats').textContent = 'Ready to search ' + allPeople.length + ' people';
+                return;
+            }
+
+            query = query.toLowerCase().trim();
+            const results = allPeople.filter(person => {
+                return (
+                    person.name.toLowerCase().includes(query) ||
+                    person.given_name.toLowerCase().includes(query) ||
+                    person.surname.toLowerCase().includes(query) ||
+                    (person.birth_date && person.birth_date.toLowerCase().includes(query)) ||
+                    (person.birth_place && person.birth_place.toLowerCase().includes(query)) ||
+                    (person.death_date && person.death_date.toLowerCase().includes(query)) ||
+                    (person.death_place && person.death_place.toLowerCase().includes(query))
+                );
+            });
+
+            displayResults(results, query);
+        }
+
+        // Display results
+        function displayResults(results, query) {
+            const resultsDiv = document.getElementById('searchResults');
+            const statsDiv = document.getElementById('searchStats');
+
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="no-results">No results found for "' + escapeHtml(query) + '"</div>';
+                statsDiv.textContent = '0 results';
+                return;
+            }
+
+            statsDiv.textContent = results.length + ' result' + (results.length === 1 ? '' : 's') + ' found';
+
+            let html = '';
+            results.forEach(person => {
+                let details = [];
+                
+                if (person.birth_date) {
+                    details.push('Born: ' + person.birth_date);
+                }
+                if (person.birth_place) {
+                    details.push(person.birth_place);
+                }
+                if (person.death_date) {
+                    details.push('Died: ' + person.death_date);
+                }
+                if (person.death_place && person.death_place !== person.birth_place) {
+                    details.push(person.death_place);
+                }
+                if (person.is_living) {
+                    details.push('Living');
+                }
+
+                html += '<div class="search-result-item">';
+                html += '<div class="search-result-name"><a href="person_' + person.id + '.html">' + escapeHtml(person.name) + '</a></div>';
+                if (details.length > 0) {
+                    html += '<div class="search-result-details">' + escapeHtml(details.join(' • ')) + '</div>';
+                }
+                html += '</div>';
+            });
+
+            resultsDiv.innerHTML = html;
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Add event listener for search box
+        const searchBox = document.getElementById('searchBox');
+        let searchTimeout;
+        searchBox.addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchPeople(e.target.value);
+            }, 300); // Debounce for 300ms
+        });
+
+        // Handle Enter key
+        searchBox.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                clearTimeout(searchTimeout);
+                searchPeople(e.target.value);
+            }
+        });
+    </script>
+</body>
+</html>`
+}
+
+// normalizeDateForSort converts various date formats to YYYY-MM-DD for sorting
+func normalizeDateForSort(dateStr string) string {
+	if dateStr == "" {
+		return "9999-99-99" // Put empty dates at end
+	}
+	
+	// If already in YYYY-MM-DD format (or close), return as-is
+	if len(dateStr) >= 10 && dateStr[4] == '-' && dateStr[7] == '-' {
+		return dateStr
+	}
+	
+	// Try parsing common formats
+	layouts := []string{
+		"2006-01-02",
+		"02 Jan 2006",
+		"Jan 2006",
+		"2006",
+	}
+	
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, dateStr); err == nil {
+			return t.Format("2006-01-02")
+		}
+	}
+	
+	// If we can't parse, return as-is
+	return dateStr
+}
+
+// generatePersonPage creates an individual person page
+func generatePersonPage(s *store.Store, person *store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	html.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>` + formatPersonName(*person) + `</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>` + formatPersonName(*person) + `</h1>
+    </div>
+    <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="search.html">Search</a>
+        <a href="surnames.html">Surnames</a>
+        <a href="places.html">Places</a>
+        <a href="timeline.html">Timeline</a>
+        <a href="statistics.html">Statistics</a>
+        <a href="sources.html">Sources</a>
+    </nav>
+    <div class="breadcrumb">
+        <a href="index.html">Home</a> &raquo; 
+        <a href="surnames.html">Surnames</a> &raquo; 
+        <a href="surnames.html#` + person.Surname + `">` + person.Surname + `</a> &raquo; 
+        <span>` + formatPersonName(*person) + `</span>
+    </div>
+    <div class="container">
+`)
+
+	// Personal Details
+	html.WriteString(`        <div class="section">
+            <h2>Personal Information</h2>
+            <div class="person-details">
+`)
+	if options.LimitLivingInfo && person.IsLiving {
+		html.WriteString(`                <div class="detail-row"><span class="detail-label">Status:</span> Living (limited information)</div>
+`)
+	} else {
+		if person.BirthDate != "" {
+			html.WriteString(`                <div class="detail-row"><span class="detail-label">Born:</span> ` + formatFGSDate(person.BirthDate) + `</div>
+`)
+		}
+		if person.BirthPlace != "" {
+			html.WriteString(`                <div class="detail-row"><span class="detail-label">Birth Place:</span> ` + person.BirthPlace + `</div>
+`)
+		}
+		if !person.IsLiving {
+			if person.DeathDate != "" {
+				html.WriteString(`                <div class="detail-row"><span class="detail-label">Died:</span> ` + formatFGSDate(person.DeathDate) + `</div>
+`)
+			}
+			if person.DeathPlace != "" {
+				html.WriteString(`                <div class="detail-row"><span class="detail-label">Death Place:</span> ` + person.DeathPlace + `</div>
+`)
+			}
+		}
+	}
+	html.WriteString(`            </div>
+        </div>
+`)
+
+	// Photo Gallery
+	photoGalleryHTML := generatePhotoGalleryHTML(s, person.ID)
+	if photoGalleryHTML != "" {
+		html.WriteString(`        <div class="section">
+            <h2>Photos</h2>
+`)
+		html.WriteString(photoGalleryHTML)
+		html.WriteString(`        </div>
+`)
+	}
+
+	// Parents
+	parents, _ := s.GetRelatedPeople(person.ID, "parent")
+	if len(parents) > 0 {
+		html.WriteString(`        <div class="section">
+            <h2>Parents</h2>
+            <ul class="person-list">
+`)
+		for _, parent := range parents {
+			if shouldShowPerson(&parent, options) {
+				html.WriteString(`                <li><a href="person_` + fmt.Sprintf("%d", parent.ID) + `.html">` + formatPersonName(parent) + `</a></li>
+`)
+			}
+		}
+		html.WriteString(`            </ul>
+        </div>
+`)
+	}
+
+	// Spouses
+	spouses, _ := s.GetRelatedPeople(person.ID, "spouse")
+	if len(spouses) > 0 {
+		filteredSpouses := []store.Person{}
+		for _, sp := range spouses {
+			if shouldShowPerson(&sp, options) {
+				filteredSpouses = append(filteredSpouses, sp)
+			}
+		}
+		if len(filteredSpouses) > 0 {
+			html.WriteString(`        <div class="section">
+            <h2>Spouses</h2>
+            <ul class="person-list">
+`)
+			for _, spouse := range filteredSpouses {
+				html.WriteString(`                <li><a href="person_` + fmt.Sprintf("%d", spouse.ID) + `.html">` + formatPersonName(spouse) + `</a></li>
+`)
+			}
+			html.WriteString(`            </ul>
+        </div>
+`)
+		}
+	}
+
+	// Children
+	children, _ := s.GetRelatedPeople(person.ID, "child")
+	if len(children) > 0 {
+		filteredChildren := []store.Person{}
+		for _, child := range children {
+			if shouldShowPerson(&child, options) {
+				filteredChildren = append(filteredChildren, child)
+			}
+		}
+		if len(filteredChildren) > 0 {
+			html.WriteString(`        <div class="section">
+            <h2>Children</h2>
+            <ul class="person-list">
+`)
+			for _, child := range filteredChildren {
+				html.WriteString(`                <li><a href="person_` + fmt.Sprintf("%d", child.ID) + `.html">` + formatPersonName(child) + `</a></li>
+`)
+			}
+			html.WriteString(`            </ul>
+        </div>
+`)
+		}
+	}
+
+	// Sources & Citations
+	citations, err := s.GetCitationsForPerson(person.ID)
+	if err == nil && len(citations) > 0 {
+		html.WriteString(`        <div class="section">
+            <h2>Sources & Citations</h2>
+            <div class="person-citations">
+`)
+		for _, cit := range citations {
+			source, err := s.GetSourceByID(cit.SourceID)
+			if err != nil {
+				continue
+			}
+			
+			html.WriteString(`                <div class="person-citation-item">
+                    <div class="citation-source-title">` + source.Title + `</div>
+`)
+			if cit.CitationDetail != "" {
+				html.WriteString(`                    <div class="citation-detail">` + cit.CitationDetail + `</div>
+`)
+			}
+			if cit.Transcription != "" {
+				html.WriteString(`                    <div class="citation-transcription">"` + cit.Transcription + `"</div>
+`)
+			}
+			if cit.Confidence != "" {
+				confidenceClass := "confidence-" + cit.Confidence
+				html.WriteString(`                    <span class="citation-confidence ` + confidenceClass + `">Confidence: ` + cit.Confidence + `</span>
+`)
+			}
+			if cit.Notes != "" {
+				html.WriteString(`                    <div class="citation-notes">` + cit.Notes + `</div>
+`)
+			}
+			html.WriteString(`                </div>
+`)
+		}
+		html.WriteString(`            </div>
+        </div>
+`)
+	}
+
+	html.WriteString(`        <div class="footer">
+            <p>Generated by KrankyBear Genealogy on ` + time.Now().Format("January 2, 2006") + `</p>
+        </div>
+    </div>
+</body>
+</html>`)
+
+	return html.String()
+}
+
+// exportFamilyGroupSheetPDF exports the Family Group Sheet to PDF format
+func exportFamilyGroupSheetPDF(w fyne.Window, s *store.Store, personID int64) {
+	if personID <= 0 {
+		dialog.ShowInformation("Export Family Group Sheet", "Please select a person first", w)
+		return
+	}
+
+	person, err := s.GetPersonByID(personID)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load person: %w", err), w)
+		return
+	}
+
+	// Show privacy options dialog
+	showHTMLExportOptionsDialog(w, person, func(options HTMLExportOptions) {
+		// Show file save dialog
+		fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+			if err != nil || uc == nil {
+				return
+			}
+			defer uc.Close()
+
+			// Generate PDF content with privacy options
+			err = generateFamilyGroupSheetPDF(s, person, options, uc.URI().Path())
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to generate PDF: %w", err), w)
+				return
+			}
+
+			dialog.ShowInformation("Export Successful",
+				fmt.Sprintf("Family Group Sheet exported to:\n%s", uc.URI().Path()), w)
+		}, w)
+
+		// Set default filename
+		defaultName := fmt.Sprintf("FamilyGroup_%s_%s.pdf",
+			strings.ReplaceAll(person.Surname, " ", "_"),
+			strings.ReplaceAll(person.GivenName, " ", "_"))
+		fd.SetFileName(defaultName)
+		fd.Show()
+	})
+}
+
+// generateFamilyGroupSheetPDF creates a PDF document for the family group sheet
+func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options HTMLExportOptions, filepath string) error {
+	pdf := gofpdf.New("P", "mm", "Letter", "")
+	pdf.AddPage()
+	
+	// Title
+	pdf.SetFont("Arial", "B", 16)
+	pdf.CellFormat(0, 10, "Family Group Sheet", "", 1, "C", false, 0, "")
+	pdf.Ln(2)
+	
+	// Main person name
+	pdf.SetFont("Arial", "B", 14)
+	pdf.CellFormat(0, 8, formatPersonName(*person), "", 1, "C", false, 0, "")
+	pdf.Ln(3)
+	
+	// Get spouse(s)
+	spouseInfos, _ := s.GetSpouses(person.ID)
+	
+	if len(spouseInfos) > 0 {
+		// Sort spouses chronologically
+		sort.Slice(spouseInfos, func(i, j int) bool {
+			return spouseInfos[i].MarriageDate < spouseInfos[j].MarriageDate
+		})
+		
+		// Show each marriage
+		for idx, spouseInfo := range spouseInfos {
+			if idx > 0 {
+				pdf.AddPage()
+			}
+			
+			spouse := spouseInfo.Spouse
+			
+			// Husband section
+			pdf.SetFont("Arial", "B", 12)
+			pdf.SetFillColor(52, 152, 219) // Blue
+			pdf.SetTextColor(255, 255, 255)
+			pdf.CellFormat(0, 8, "Husband", "", 1, "L", true, 0, "")
+			pdf.SetTextColor(0, 0, 0)
+			pdf.SetFont("Arial", "", 10)
+			
+			husband := person
+			wife := &spouse
+			if person.Gender == "F" {
+				husband = &spouse
+				wife = person
+			}
+			
+			addPersonDetailsToPDF(pdf, husband, options, "husband")
+			pdf.Ln(2)
+			
+			// Wife section
+			pdf.SetFont("Arial", "B", 12)
+			pdf.SetFillColor(231, 76, 60) // Red/Pink
+			pdf.SetTextColor(255, 255, 255)
+			pdf.CellFormat(0, 8, "Wife", "", 1, "L", true, 0, "")
+			pdf.SetTextColor(0, 0, 0)
+			pdf.SetFont("Arial", "", 10)
+			
+			addPersonDetailsToPDF(pdf, wife, options, "wife")
+			pdf.Ln(2)
+			
+			// Marriage information
+			pdf.SetFont("Arial", "B", 12)
+			pdf.SetFillColor(46, 204, 113) // Green
+			pdf.SetTextColor(255, 255, 255)
+			pdf.CellFormat(0, 8, "Marriage", "", 1, "L", true, 0, "")
+			pdf.SetTextColor(0, 0, 0)
+			pdf.SetFont("Arial", "", 10)
+			
+			// Check if both are living for privacy
+			bothLiving := husband.IsLiving && wife.IsLiving
+			if options.LimitLivingInfo && bothLiving {
+				pdf.CellFormat(0, 6, "(Marriage information withheld for privacy - both spouses living)", "", 1, "L", false, 0, "")
+			} else {
+				if spouseInfo.MarriageDate != "" {
+					pdf.CellFormat(60, 6, "Marriage Date:", "", 0, "L", false, 0, "")
+					pdf.CellFormat(0, 6, formatFGSDate(spouseInfo.MarriageDate), "", 1, "L", false, 0, "")
+				}
+				if spouseInfo.MarriagePlace != "" {
+					pdf.CellFormat(60, 6, "Marriage Place:", "", 0, "L", false, 0, "")
+					pdf.MultiCell(0, 6, spouseInfo.MarriagePlace, "", "L", false)
+				}
+			}
+			pdf.Ln(2)
+			
+			// Children section
+			pdf.SetFont("Arial", "B", 12)
+			pdf.SetFillColor(155, 89, 182) // Purple
+			pdf.SetTextColor(255, 255, 255)
+			pdf.CellFormat(0, 8, "Children", "", 1, "L", true, 0, "")
+			pdf.SetTextColor(0, 0, 0)
+			pdf.SetFont("Arial", "", 10)
+			
+			// Get children
+			children, _ := s.GetRelatedPeople(person.ID, "child")
+			
+			// Filter children by this spouse
+			var marriageChildren []store.Person
+			for _, child := range children {
+				parents, _ := s.GetRelatedPeople(child.ID, "parent")
+				for _, parent := range parents {
+					if parent.ID == spouse.ID {
+						marriageChildren = append(marriageChildren, child)
+						break
+					}
+				}
+			}
+			
+			// Sort children by birth date
+			sort.Slice(marriageChildren, func(i, j int) bool {
+				return marriageChildren[i].BirthDate < marriageChildren[j].BirthDate
+			})
+			
+			if len(marriageChildren) == 0 {
+				pdf.CellFormat(0, 6, "No children recorded", "", 1, "L", false, 0, "")
+			} else {
+				for childIdx, child := range marriageChildren {
+					if shouldShowPerson(&child, options) {
+						pdf.SetFont("Arial", "B", 10)
+						pdf.CellFormat(0, 6, fmt.Sprintf("%d. %s", childIdx+1, formatPersonName(child)), "", 1, "L", false, 0, "")
+						pdf.SetFont("Arial", "", 9)
+						
+						details := formatPersonDetailsPDF(&child, options)
+						if details != "" {
+							pdf.CellFormat(10, 5, "", "", 0, "L", false, 0, "")
+							pdf.MultiCell(0, 5, details, "", "L", false)
+						}
+					}
+				}
+			}
+		}
+	} else {
+		// Show parental family
+		parents, _ := s.GetRelatedPeople(person.ID, "parent")
+		
+		pdf.SetFont("Arial", "B", 12)
+		pdf.SetFillColor(52, 152, 219)
+		pdf.SetTextColor(255, 255, 255)
+		pdf.CellFormat(0, 8, "Parents", "", 1, "L", true, 0, "")
+		pdf.SetTextColor(0, 0, 0)
+		pdf.SetFont("Arial", "", 10)
+		
+		if len(parents) == 0 {
+			pdf.CellFormat(0, 6, "No parents recorded", "", 1, "L", false, 0, "")
+		} else {
+			for _, parent := range parents {
+				if shouldShowPerson(&parent, options) {
+					pdf.SetFont("Arial", "B", 10)
+					pdf.CellFormat(0, 6, formatPersonName(parent), "", 1, "L", false, 0, "")
+					pdf.SetFont("Arial", "", 9)
+					details := formatPersonDetailsPDF(&parent, options)
+					if details != "" {
+						pdf.CellFormat(10, 5, "", "", 0, "L", false, 0, "")
+						pdf.MultiCell(0, 5, details, "", "L", false)
+					}
+				}
+			}
+		}
+		
+		pdf.Ln(2)
+		
+		// Siblings
+		siblings, _ := s.GetRelatedPeople(person.ID, "sibling")
+		if len(siblings) > 0 {
+			pdf.SetFont("Arial", "B", 12)
+			pdf.SetFillColor(155, 89, 182)
+			pdf.SetTextColor(255, 255, 255)
+			pdf.CellFormat(0, 8, "Siblings", "", 1, "L", true, 0, "")
+			pdf.SetTextColor(0, 0, 0)
+			pdf.SetFont("Arial", "", 10)
+			
+			for _, sibling := range siblings {
+				if shouldShowPerson(&sibling, options) {
+					pdf.CellFormat(0, 6, formatPersonName(sibling), "", 1, "L", false, 0, "")
+				}
+			}
+		}
+	}
+	
+	// Save PDF
+	return pdf.OutputFileAndClose(filepath)
+}
+
+// formatPersonDetailsPDF returns plain text person details for PDF
+func formatPersonDetailsPDF(person *store.Person, options HTMLExportOptions) string {
+	if options.LimitLivingInfo && person.IsLiving {
+		return "(Living)"
+	}
+	
+	var details []string
+	if person.BirthDate != "" {
+		birthStr := "Born: " + formatFGSDate(person.BirthDate)
+		if person.BirthPlace != "" {
+			birthStr += " in " + person.BirthPlace
+		}
+		details = append(details, birthStr)
+	}
+	
+	if !person.IsLiving {
+		if person.DeathDate != "" {
+			deathStr := "Died: " + formatFGSDate(person.DeathDate)
+			if person.DeathPlace != "" {
+				deathStr += " in " + person.DeathPlace
+			}
+			details = append(details, deathStr)
+		}
+	}
+	
+	if len(details) == 0 && person.IsLiving {
+		return "(Living)"
+	}
+	
+	return strings.Join(details, "; ")
+}
+
+// addPersonDetailsToPDF adds person details to PDF with privacy handling
+func addPersonDetailsToPDF(pdf *gofpdf.Fpdf, person *store.Person, options HTMLExportOptions, role string) {
+	pdf.CellFormat(60, 6, "Full Name:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 6, formatPersonName(*person), "", 1, "L", false, 0, "")
+	
+	if options.LimitLivingInfo && person.IsLiving {
+		pdf.CellFormat(0, 6, "(Limited information - person is living)", "", 1, "L", false, 0, "")
+	} else {
+		if person.BirthDate != "" {
+			pdf.CellFormat(60, 6, "Birth Date:", "", 0, "L", false, 0, "")
+			pdf.CellFormat(0, 6, formatFGSDate(person.BirthDate), "", 1, "L", false, 0, "")
+		}
+		if person.BirthPlace != "" {
+			pdf.CellFormat(60, 6, "Birth Place:", "", 0, "L", false, 0, "")
+			pdf.MultiCell(0, 6, person.BirthPlace, "", "L", false)
+		}
+		if !person.IsLiving {
+			if person.DeathDate != "" {
+				pdf.CellFormat(60, 6, "Death Date:", "", 0, "L", false, 0, "")
+				pdf.CellFormat(0, 6, formatFGSDate(person.DeathDate), "", 1, "L", false, 0, "")
+			}
+			if person.DeathPlace != "" {
+				pdf.CellFormat(60, 6, "Death Place:", "", 0, "L", false, 0, "")
+				pdf.MultiCell(0, 6, person.DeathPlace, "", "L", false)
+			}
+		}
+	}
+}
+
+// exportFamilyGroupSheetHTML exports the Family Group Sheet to HTML format
+func exportFamilyGroupSheetHTML(w fyne.Window, s *store.Store, personID int64) {
+	if personID <= 0 {
+		dialog.ShowInformation("Export Family Group Sheet", "Please select a person first", w)
+		return
+	}
+
+	person, err := s.GetPersonByID(personID)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load person: %w", err), w)
+		return
+	}
+
+	// Show privacy options dialog
+	showHTMLExportOptionsDialog(w, person, func(options HTMLExportOptions) {
+		// Show file save dialog
+		fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+			if err != nil || uc == nil {
+				return
+			}
+			defer uc.Close()
+
+			// Generate HTML content with privacy options
+			html := generateFamilyGroupSheetHTML(s, person, options)
+
+			// Write to file
+			_, err = uc.Write([]byte(html))
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to write HTML file: %w", err), w)
+				return
+			}
+
+			dialog.ShowInformation("Export Successful",
+				fmt.Sprintf("Family Group Sheet exported to:\n%s", uc.URI().Path()), w)
+		}, w)
+
+		// Set default filename
+		defaultName := fmt.Sprintf("FamilyGroup_%s_%s.html",
+			strings.ReplaceAll(person.Surname, " ", "_"),
+			strings.ReplaceAll(person.GivenName, " ", "_"))
+		fd.SetFileName(defaultName)
+		fd.Show()
+	})
+}
+
+// shouldShowPerson returns true if the person should be included in export based on privacy options
+func shouldShowPerson(person *store.Person, options HTMLExportOptions) bool {
+	if options.HideLiving && person.IsLiving {
+		return false
+	}
+	return true
+}
+
+// exportPeopleToCSV exports all people to a CSV file
+func exportPeopleToCSV(w fyne.Window, s *store.Store) {
+	// Get all people
+	allPeople, err := s.GetAllPeople()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to get people: %w", err), w)
+		return
+	}
+
+	// Show file save dialog
+	fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+		if err != nil || uc == nil {
+			return
+		}
+		defer uc.Close()
+
+		// Create CSV writer
+		writer := csv.NewWriter(uc)
+		defer writer.Flush()
+
+		// Write header
+		header := []string{"ID", "Given Name", "Surname", "Gender", "Birth Date", "Birth Place", "Death Date", "Death Place", "Is Living"}
+		if err := writer.Write(header); err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to write CSV header: %w", err), w)
+			return
+		}
+
+		// Write data
+		for _, person := range allPeople {
+			livingStr := "No"
+			if person.IsLiving {
+				livingStr = "Yes"
+			}
+			
+			row := []string{
+				fmt.Sprintf("%d", person.ID),
+				person.GivenName,
+				person.Surname,
+				person.Gender,
+				person.BirthDate,
+				person.BirthPlace,
+				person.DeathDate,
+				person.DeathPlace,
+				livingStr,
+			}
+			if err := writer.Write(row); err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to write CSV row: %w", err), w)
+				return
+			}
+		}
+
+		dialog.ShowInformation("Export Successful",
+			fmt.Sprintf("Exported %d people to:\n%s", len(allPeople), uc.URI().Path()), w)
+	}, w)
+
+	fd.SetFileName("people_export.csv")
+	fd.Show()
+}
+
+// exportTimelineToCSV exports timeline events to a CSV file
+func exportTimelineToCSV(w fyne.Window, s *store.Store) {
+	// Get all people
+	allPeople, err := s.GetAllPeople()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to get people: %w", err), w)
+		return
+	}
+
+	// Show file save dialog
+	fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+		if err != nil || uc == nil {
+			return
+		}
+		defer uc.Close()
+
+		// Create CSV writer
+		writer := csv.NewWriter(uc)
+		defer writer.Flush()
+
+		// Write header
+		header := []string{"Date", "Year", "Type", "Person ID", "Person Name", "Place"}
+		if err := writer.Write(header); err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to write CSV header: %w", err), w)
+			return
+		}
+
+		// Collect events
+		eventCount := 0
+		for _, p := range allPeople {
+			// Birth events
+			if p.BirthDate != "" {
+				year := extractYear(p.BirthDate)
+				row := []string{
+					p.BirthDate,
+					year,
+					"Birth",
+					fmt.Sprintf("%d", p.ID),
+					formatPersonName(p),
+					p.BirthPlace,
+				}
+				if err := writer.Write(row); err != nil {
+					dialog.ShowError(fmt.Errorf("Failed to write CSV row: %w", err), w)
+					return
+				}
+				eventCount++
+			}
+			
+			// Death events
+			if p.DeathDate != "" {
+				year := extractYear(p.DeathDate)
+				row := []string{
+					p.DeathDate,
+					year,
+					"Death",
+					fmt.Sprintf("%d", p.ID),
+					formatPersonName(p),
+					p.DeathPlace,
+				}
+				if err := writer.Write(row); err != nil {
+					dialog.ShowError(fmt.Errorf("Failed to write CSV row: %w", err), w)
+					return
+				}
+				eventCount++
+			}
+		}
+
+		dialog.ShowInformation("Export Successful",
+			fmt.Sprintf("Exported %d timeline events to:\n%s", eventCount, uc.URI().Path()), w)
+	}, w)
+
+	fd.SetFileName("timeline_export.csv")
+	fd.Show()
+}
+
+// exportSurnamesToCSV exports surname statistics to a CSV file
+func exportSurnamesToCSV(w fyne.Window, s *store.Store) {
+	// Get all people
+	allPeople, err := s.GetAllPeople()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to get people: %w", err), w)
+		return
+	}
+
+	// Count surnames
+	surnameMap := make(map[string]int)
+	for _, p := range allPeople {
+		if p.Surname != "" {
+			surnameMap[p.Surname]++
+		}
+	}
+
+	// Sort by count
+	type SurnameCount struct {
+		Name  string
+		Count int
+	}
+	var surnames []SurnameCount
+	for name, count := range surnameMap {
+		surnames = append(surnames, SurnameCount{Name: name, Count: count})
+	}
+	sort.Slice(surnames, func(i, j int) bool {
+		if surnames[i].Count == surnames[j].Count {
+			return surnames[i].Name < surnames[j].Name
+		}
+		return surnames[i].Count > surnames[j].Count
+	})
+
+	// Show file save dialog
+	fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+		if err != nil || uc == nil {
+			return
+		}
+		defer uc.Close()
+
+		// Create CSV writer
+		writer := csv.NewWriter(uc)
+		defer writer.Flush()
+
+		// Write header
+		header := []string{"Surname", "Count"}
+		if err := writer.Write(header); err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to write CSV header: %w", err), w)
+			return
+		}
+
+		// Write data
+		for _, sn := range surnames {
+			row := []string{
+				sn.Name,
+				fmt.Sprintf("%d", sn.Count),
+			}
+			if err := writer.Write(row); err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to write CSV row: %w", err), w)
+				return
+			}
+		}
+
+		dialog.ShowInformation("Export Successful",
+			fmt.Sprintf("Exported %d surnames to:\n%s", len(surnames), uc.URI().Path()), w)
+	}, w)
+
+	fd.SetFileName("surnames_export.csv")
+	fd.Show()
+}
+
+// exportPlacesToCSV exports place statistics to a CSV file
+func exportPlacesToCSV(w fyne.Window, s *store.Store) {
+	// Get all people
+	allPeople, err := s.GetAllPeople()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to get people: %w", err), w)
+		return
+	}
+
+	// Count places
+	placeMap := make(map[string]struct {
+		BirthCount int
+		DeathCount int
+	})
+	
+	for _, p := range allPeople {
+		if p.BirthPlace != "" {
+			entry := placeMap[p.BirthPlace]
+			entry.BirthCount++
+			placeMap[p.BirthPlace] = entry
+		}
+		if p.DeathPlace != "" {
+			entry := placeMap[p.DeathPlace]
+			entry.DeathCount++
+			placeMap[p.DeathPlace] = entry
+		}
+	}
+
+	// Sort by total count
+	type PlaceCount struct {
+		Name       string
+		BirthCount int
+		DeathCount int
+		TotalCount int
+	}
+	var places []PlaceCount
+	for name, counts := range placeMap {
+		places = append(places, PlaceCount{
+			Name:       name,
+			BirthCount: counts.BirthCount,
+			DeathCount: counts.DeathCount,
+			TotalCount: counts.BirthCount + counts.DeathCount,
+		})
+	}
+	sort.Slice(places, func(i, j int) bool {
+		if places[i].TotalCount == places[j].TotalCount {
+			return places[i].Name < places[j].Name
+		}
+		return places[i].TotalCount > places[j].TotalCount
+	})
+
+	// Show file save dialog
+	fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+		if err != nil || uc == nil {
+			return
+		}
+		defer uc.Close()
+
+		// Create CSV writer
+		writer := csv.NewWriter(uc)
+		defer writer.Flush()
+
+		// Write header
+		header := []string{"Place", "Birth Count", "Death Count", "Total Count"}
+		if err := writer.Write(header); err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to write CSV header: %w", err), w)
+			return
+		}
+
+		// Write data
+		for _, pl := range places {
+			row := []string{
+				pl.Name,
+				fmt.Sprintf("%d", pl.BirthCount),
+				fmt.Sprintf("%d", pl.DeathCount),
+				fmt.Sprintf("%d", pl.TotalCount),
+			}
+			if err := writer.Write(row); err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to write CSV row: %w", err), w)
+				return
+			}
+		}
+
+		dialog.ShowInformation("Export Successful",
+			fmt.Sprintf("Exported %d places to:\n%s", len(places), uc.URI().Path()), w)
+	}, w)
+
+	fd.SetFileName("places_export.csv")
+	fd.Show()
+}
+
+// exportSourcesToCSV exports sources and citations to a CSV file
+func exportSourcesToCSV(w fyne.Window, s *store.Store) {
+	// Get all sources
+	sources, err := s.GetAllSources()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to get sources: %w", err), w)
+		return
+	}
+
+	// Show file save dialog
+	fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+		if err != nil || uc == nil {
+			return
+		}
+		defer uc.Close()
+
+		// Create CSV writer
+		writer := csv.NewWriter(uc)
+		defer writer.Flush()
+
+		// Write header
+		header := []string{"Source ID", "Title", "Author", "Publication", "Repository", "Call Number", "Type", "Citation Count"}
+		if err := writer.Write(header); err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to write CSV header: %w", err), w)
+			return
+		}
+
+		// Write data
+		for _, source := range sources {
+			// Get citation count
+			citations, _ := s.GetCitationsForSource(source.ID)
+			citationCount := len(citations)
+			
+			row := []string{
+				fmt.Sprintf("%d", source.ID),
+				source.Title,
+				source.Author,
+				source.Publication,
+				source.Repository,
+				source.CallNumber,
+				source.SourceType,
+				fmt.Sprintf("%d", citationCount),
+			}
+			if err := writer.Write(row); err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to write CSV row: %w", err), w)
+				return
+			}
+		}
+
+		dialog.ShowInformation("Export Successful",
+			fmt.Sprintf("Exported %d sources to:\n%s", len(sources), uc.URI().Path()), w)
+	}, w)
+
+	fd.SetFileName("sources_export.csv")
+	fd.Show()
+}
+
+// encodeImageAsDataURI converts image bytes to a base64 data URI
+func encodeImageAsDataURI(imageData []byte, mimeType string) string {
+	encoded := base64.StdEncoding.EncodeToString(imageData)
+	return fmt.Sprintf("data:%s;base64,%s", mimeType, encoded)
+}
+
+// generatePhotoGalleryHTML creates HTML for a person's photo gallery
+func generatePhotoGalleryHTML(s *store.Store, personID int64) string {
+	// Get media list (without BLOB data for performance)
+	mediaList, err := s.GetMediaForPerson(personID)
+	if err != nil || len(mediaList) == 0 {
+		return ""
+	}
+
+	// Filter to only images and load full data including BLOBs
+	var images []store.Media
+	for _, m := range mediaList {
+		if m.MediaType == "image" {
+			// Load the full media data including BLOB images
+			fullMedia, err := s.GetMediaByID(m.ID)
+			if err == nil && fullMedia != nil {
+				images = append(images, *fullMedia)
+			}
+		}
+	}
+
+	if len(images) == 0 {
+		return ""
+	}
+
+	var html strings.Builder
+	html.WriteString(`<div class="photo-gallery">`)
+	
+	for _, img := range images {
+		var imageData []byte
+		var mimeType string
+		
+		if img.IsExternal {
+			// Handle external images - read from file path
+			if img.ExternalPath != "" {
+				fileData, err := os.ReadFile(img.ExternalPath)
+				if err == nil {
+					imageData = fileData
+					mimeType = img.MimeType
+				}
+			}
+		} else {
+			// Handle embedded images - use BLOB data
+			if len(img.FullImage) > 0 {
+				imageData = img.FullImage
+				mimeType = img.MimeType
+			} else if len(img.Thumbnail) > 0 {
+				imageData = img.Thumbnail
+				mimeType = img.MimeType
+			}
+		}
+		
+		if len(imageData) > 0 {
+			dataURI := encodeImageAsDataURI(imageData, mimeType)
+			html.WriteString(`<div class="photo-item">`)
+			html.WriteString(`<img src="` + dataURI + `" alt="` + img.Title + `">`)
+			if img.Title != "" {
+				html.WriteString(`<div class="photo-caption">` + img.Title + `</div>`)
+			}
+			if img.DateTaken != "" {
+				html.WriteString(`<div class="photo-date">` + formatFGSDate(img.DateTaken) + `</div>`)
+			}
+			html.WriteString(`</div>`)
+		}
+	}
+	
+	html.WriteString(`</div>`)
+	return html.String()
+}
+
+// formatPersonDetailsHTML formats person details respecting privacy options
+func formatPersonDetailsHTML(person *store.Person, options HTMLExportOptions, includeLabel bool) string {
+	if !shouldShowPerson(person, options) {
+		return ""
+	}
+
+	var html strings.Builder
+
+	// If limiting info for living people, only show name
+	if options.LimitLivingInfo && person.IsLiving {
+		return `<div><span class="detail-label">Name:</span> ` + formatPersonName(*person) + ` <span style="color: #7f8c8d; font-style: italic;">(Living - limited information)</span></div>`
+	}
+
+	// Show full details
+	if includeLabel {
+		html.WriteString(`<div><span class="detail-label">Born:</span> ` + formatFGSDate(person.BirthDate) + `</div>`)
+	} else {
+		html.WriteString(`<div>` + formatFGSDate(person.BirthDate) + `</div>`)
+	}
+	if person.BirthPlace != "" {
+		html.WriteString(`<div><span class="detail-label">Place:</span> ` + person.BirthPlace + `</div>`)
+	}
+	if !person.IsLiving {
+		html.WriteString(`<div><span class="detail-label">Died:</span> ` + formatFGSDate(person.DeathDate) + `</div>`)
+		if person.DeathPlace != "" {
+			html.WriteString(`<div><span class="detail-label">Place:</span> ` + person.DeathPlace + `</div>`)
+		}
+	}
+	return html.String()
+}
+
+// generateFamilyGroupSheetHTML generates the HTML content for the Family Group Sheet
+func generateFamilyGroupSheetHTML(s *store.Store, person *store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	// HTML header with embedded CSS
+	html.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Group Sheet - ` + formatPersonName(*person) + `</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #3498db;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            background-color: #ecf0f1;
+            padding: 10px;
+            border-left: 4px solid #3498db;
+        }
+        .person-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #fafafa;
+            border-radius: 5px;
+        }
+        .person-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .person-details {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #555;
+            display: inline-block;
+            min-width: 120px;
+        }
+        .child-entry {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: white;
+            border-left: 3px solid #95a5a6;
+            border-radius: 3px;
+        }
+        .child-number {
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 8px;
+        }
+        .grandchildren {
+            margin-left: 30px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #bdc3c7;
+            color: #666;
+            font-size: 0.95em;
+        }
+        .separator {
+            margin: 40px 0;
+            border: 0;
+            border-top: 2px solid #ecf0f1;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        .photo-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .photo-item {
+            background-color: white;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .photo-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+        .photo-caption {
+            padding: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.9em;
+        }
+        .photo-date {
+            padding: 0 8px 8px 8px;
+            color: #7f8c8d;
+            font-size: 0.8em;
+        }
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                max-width: 100%;
+            }
+            .photo-gallery {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            .photo-item img {
+                height: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Family Group Sheet</h1>
+        <h2 style="text-align: center; background-color: transparent; border: none;">` + formatPersonName(*person) + `</h2>
+`)
+
+	// Get spouse(s) with marriage information
+	spouseInfos, _ := s.GetSpouses(person.ID)
+
+	if len(spouseInfos) > 0 {
+		// Sort spouses chronologically by marriage date
+		sort.Slice(spouseInfos, func(i, j int) bool {
+			return spouseInfos[i].MarriageDate < spouseInfos[j].MarriageDate
+		})
+
+		// Generate HTML for each marriage
+		for idx, spouseInfo := range spouseInfos {
+			if idx > 0 {
+				html.WriteString(`<hr class="separator">`)
+			}
+			html.WriteString(generateMarriedFamilyHTML(s, person, &spouseInfo.Spouse, options))
+		}
+	} else {
+		// Show person's parents and siblings
+		parents, _ := s.GetRelatedPeople(person.ID, "parent")
+		html.WriteString(generateParentalFamilyHTML(s, person, parents, options))
+	}
+
+	// Footer
+	html.WriteString(`
+        <div class="footer">
+            <p>Generated by KrankyBear Genealogy on ` + time.Now().Format("January 2, 2006") + `</p>
+        </div>
+    </div>
+</body>
+</html>`)
+
+	return html.String()
+}
+
+// generateMarriedFamilyHTML generates HTML for a married couple with children
+func generateMarriedFamilyHTML(s *store.Store, person *store.Person, spouse *store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	// Determine husband and wife
+	var husband, wife *store.Person
+	if person.Gender == "M" {
+		husband = person
+		wife = spouse
+	} else {
+		husband = spouse
+		wife = person
+	}
+
+	// Husband section
+	html.WriteString(`<div class="person-section">`)
+	html.WriteString(`<h2>HUSBAND</h2>`)
+	if husband != nil && shouldShowPerson(husband, options) {
+		html.WriteString(`<div class="person-name">` + formatPersonName(*husband) + `</div>`)
+		html.WriteString(`<div class="person-details">`)
+		html.WriteString(formatPersonDetailsHTML(husband, options, true))
+		html.WriteString(`</div>`)
+		// Add photo gallery for husband
+		photoGalleryHTML := generatePhotoGalleryHTML(s, husband.ID)
+		if photoGalleryHTML != "" {
+			html.WriteString(photoGalleryHTML)
+		}
+	} else if husband != nil {
+		html.WriteString(`<div class="person-details" style="color: #7f8c8d; font-style: italic;">(Information withheld for privacy)</div>`)
+	}
+	html.WriteString(`</div>`)
+
+	// Wife section
+	html.WriteString(`<div class="person-section">`)
+	html.WriteString(`<h2>WIFE</h2>`)
+	if wife != nil && shouldShowPerson(wife, options) {
+		html.WriteString(`<div class="person-name">` + formatPersonName(*wife) + `</div>`)
+		html.WriteString(`<div class="person-details">`)
+		html.WriteString(formatPersonDetailsHTML(wife, options, true))
+		html.WriteString(`</div>`)
+		// Add photo gallery for wife
+		photoGalleryHTML := generatePhotoGalleryHTML(s, wife.ID)
+		if photoGalleryHTML != "" {
+			html.WriteString(photoGalleryHTML)
+		}
+	} else if wife != nil {
+		html.WriteString(`<div class="person-details" style="color: #7f8c8d; font-style: italic;">(Information withheld for privacy)</div>`)
+	}
+	html.WriteString(`</div>`)
+
+	// Marriage information
+	html.WriteString(`<div class="person-section">`)
+	html.WriteString(`<h2>MARRIAGE</h2>`)
+	if husband != nil && wife != nil {
+		// Check privacy settings - hide marriage details if both spouses are living and limited info is requested
+		bothLiving := husband.IsLiving && wife.IsLiving
+		if options.LimitLivingInfo && bothLiving {
+			html.WriteString(`<div class="person-details" style="color: #7f8c8d; font-style: italic;">(Marriage information withheld for privacy - both spouses living)</div>`)
+		} else {
+			relationships, _ := s.GetRelationshipsBetween(husband.ID, wife.ID, "spouse")
+			if len(relationships) > 0 {
+				html.WriteString(`<div class="person-details">`)
+				if relationships[0].MarriageDate != "" {
+					html.WriteString(`<div><span class="detail-label">Date:</span> ` + formatFGSDate(relationships[0].MarriageDate) + `</div>`)
+				}
+				if relationships[0].MarriagePlace != "" {
+					html.WriteString(`<div><span class="detail-label">Place:</span> ` + relationships[0].MarriagePlace + `</div>`)
+				}
+				html.WriteString(`</div>`)
+			} else {
+				html.WriteString(`<div class="person-details">(No marriage record)</div>`)
+			}
+		}
+	}
+	html.WriteString(`</div>`)
+
+	// Children section
+	html.WriteString(`<div class="person-section">`)
+	html.WriteString(`<h2>CHILDREN</h2>`)
+
+	// Get children of this specific couple
+	var children []store.Person
+	if husband != nil && wife != nil {
+		husbandChildren, _ := s.GetRelatedPeople(husband.ID, "child")
+		for _, child := range husbandChildren {
+			parents, _ := s.GetRelatedPeople(child.ID, "parent")
+			hasWifeAsParent := false
+			for _, parent := range parents {
+				if parent.ID == wife.ID {
+					hasWifeAsParent = true
+					break
+				}
+			}
+			if hasWifeAsParent {
+				children = append(children, child)
+			}
+		}
+	} else if husband != nil {
+		children, _ = s.GetRelatedPeople(husband.ID, "child")
+	} else if wife != nil {
+		children, _ = s.GetRelatedPeople(wife.ID, "child")
+	}
+
+	if len(children) == 0 {
+		html.WriteString(`<div class="person-details">(No children recorded)</div>`)
+	} else {
+		// Sort children by birth date
+		sort.Slice(children, func(i, j int) bool {
+			return children[i].BirthDate < children[j].BirthDate
+		})
+
+		childNum := 0
+		for _, child := range children {
+			// Skip if privacy settings require hiding this child
+			if !shouldShowPerson(&child, options) {
+				continue
+			}
+			childNum++
+
+			html.WriteString(`<div class="child-entry">`)
+			html.WriteString(`<div class="child-number">` + fmt.Sprintf("%d.", childNum) + ` ` + formatPersonName(child) + `</div>`)
+			html.WriteString(`<div class="person-details">`)
+			
+			// Handle privacy for child's details
+			if options.LimitLivingInfo && child.IsLiving {
+				html.WriteString(`<div style="color: #7f8c8d; font-style: italic;">(Living - limited information)</div>`)
+			} else {
+				html.WriteString(`<div><span class="detail-label">Born:</span> ` + formatFGSDate(child.BirthDate) + `</div>`)
+				if child.BirthPlace != "" {
+					html.WriteString(`<div><span class="detail-label">Place:</span> ` + child.BirthPlace + `</div>`)
+				}
+
+				// Show spouse if married
+				childSpouses, _ := s.GetRelatedPeople(child.ID, "spouse")
+				if len(childSpouses) > 0 {
+					spouseNames := []string{}
+					for _, sp := range childSpouses {
+						if shouldShowPerson(&sp, options) {
+							spouseNames = append(spouseNames, formatPersonName(sp))
+						}
+					}
+					if len(spouseNames) > 0 {
+						html.WriteString(`<div><span class="detail-label">Spouse:</span> ` + strings.Join(spouseNames, ", ") + `</div>`)
+					}
+				}
+
+				// Show grandchildren
+				grandchildren, _ := s.GetRelatedPeople(child.ID, "child")
+				if len(grandchildren) > 0 {
+					sort.Slice(grandchildren, func(a, b int) bool {
+						return grandchildren[a].BirthDate < grandchildren[b].BirthDate
+					})
+					grandchildNames := []string{}
+					for _, gc := range grandchildren {
+						if shouldShowPerson(&gc, options) {
+							if options.LimitLivingInfo && gc.IsLiving {
+								grandchildNames = append(grandchildNames, formatPersonName(gc)+" (Living)")
+							} else {
+								grandchildNames = append(grandchildNames, fmt.Sprintf("%s (%s)", formatPersonName(gc), formatFGSDate(gc.BirthDate)))
+							}
+						}
+					}
+					if len(grandchildNames) > 0 {
+						html.WriteString(`<div class="grandchildren"><span class="detail-label">Children:</span> ` + strings.Join(grandchildNames, ", ") + `</div>`)
+					}
+				}
+
+				if !child.IsLiving {
+					html.WriteString(`<div><span class="detail-label">Died:</span> ` + formatFGSDate(child.DeathDate) + `</div>`)
+					if child.DeathPlace != "" {
+						html.WriteString(`<div><span class="detail-label">Place:</span> ` + child.DeathPlace + `</div>`)
+					}
+				}
+				
+				// Add photo gallery for child
+				photoGalleryHTML := generatePhotoGalleryHTML(s, child.ID)
+				if photoGalleryHTML != "" {
+					html.WriteString(photoGalleryHTML)
+				}
+			}
+			html.WriteString(`</div>`)
+			html.WriteString(`</div>`)
+		}
+
+		if childNum == 0 {
+			html.WriteString(`<div class="person-details" style="color: #7f8c8d; font-style: italic;">(Children information withheld for privacy)</div>`)
+		}
+	}
+	html.WriteString(`</div>`)
+
+	return html.String()
+}
+
+// generateParentalFamilyHTML generates HTML for person's parental family
+func generateParentalFamilyHTML(s *store.Store, person *store.Person, parents []store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	// Show person's parents
+	var father, mother *store.Person
+	for i := range parents {
+		if parents[i].Gender == "M" {
+			father = &parents[i]
+		} else {
+			mother = &parents[i]
+		}
+	}
+
+	if father != nil || mother != nil {
+		html.WriteString(`<div class="person-section">`)
+		html.WriteString(`<h2>PARENTS</h2>`)
+		html.WriteString(`<div class="person-details">`)
+		if father != nil && shouldShowPerson(father, options) {
+			html.WriteString(`<div><span class="detail-label">Father:</span> ` + formatPersonName(*father) + `</div>`)
+		}
+		if mother != nil && shouldShowPerson(mother, options) {
+			html.WriteString(`<div><span class="detail-label">Mother:</span> ` + formatPersonName(*mother) + `</div>`)
+		}
+		html.WriteString(`</div>`)
+		html.WriteString(`</div>`)
+	}
+
+	// Show the person themselves
+	html.WriteString(`<div class="person-section">`)
+	html.WriteString(`<h2>PERSON</h2>`)
+	html.WriteString(`<div class="person-name">` + formatPersonName(*person) + `</div>`)
+	html.WriteString(`<div class="person-details">`)
+	html.WriteString(formatPersonDetailsHTML(person, options, true))
+	html.WriteString(`</div>`)
+	// Add photo gallery for person
+	photoGalleryHTML := generatePhotoGalleryHTML(s, person.ID)
+	if photoGalleryHTML != "" {
+		html.WriteString(photoGalleryHTML)
+	}
+	html.WriteString(`</div>`)
+
+	// Show siblings
+	html.WriteString(`<div class="person-section">`)
+	html.WriteString(`<h2>SIBLINGS</h2>`)
+	siblings := []store.Person{}
+
+	if father != nil {
+		fatherChildren, _ := s.GetRelatedPeople(father.ID, "child")
+		for _, child := range fatherChildren {
+			if child.ID != person.ID {
+				siblings = append(siblings, child)
+			}
+		}
+	} else if mother != nil {
+		motherChildren, _ := s.GetRelatedPeople(mother.ID, "child")
+		for _, child := range motherChildren {
+			if child.ID != person.ID {
+				siblings = append(siblings, child)
+			}
+		}
+	}
+
+	if len(siblings) == 0 {
+		html.WriteString(`<div class="person-details">(No siblings recorded)</div>`)
+	} else {
+		// Remove duplicates
+		uniqueSiblings := make(map[int64]store.Person)
+		for _, sib := range siblings {
+			uniqueSiblings[sib.ID] = sib
+		}
+
+		// Convert back to slice and sort
+		siblings = []store.Person{}
+		for _, sib := range uniqueSiblings {
+			siblings = append(siblings, sib)
+		}
+		sort.Slice(siblings, func(i, j int) bool {
+			return siblings[i].BirthDate < siblings[j].BirthDate
+		})
+
+		html.WriteString(`<div class="person-details">`)
+		shownCount := 0
+		for _, sibling := range siblings {
+			if shouldShowPerson(&sibling, options) {
+				if options.LimitLivingInfo && sibling.IsLiving {
+					html.WriteString(`<div>` + formatPersonName(sibling) + ` (Living)</div>`)
+				} else {
+					html.WriteString(`<div>` + formatPersonName(sibling) + ` (` + formatFGSDate(sibling.BirthDate) + `)</div>`)
+				}
+				shownCount++
+			}
+		}
+		if shownCount == 0 {
+			html.WriteString(`<div style="color: #7f8c8d; font-style: italic;">(Sibling information withheld for privacy)</div>`)
+		}
+		html.WriteString(`</div>`)
+	}
+	html.WriteString(`</div>`)
+
+	return html.String()
+}
+
+// exportDescendantReportPDF exports the Descendant Report to PDF format
+func exportDescendantReportPDF(w fyne.Window, s *store.Store, rootPersonID int64) {
+	if rootPersonID <= 0 {
+		dialog.ShowInformation("Export Descendant Report", "Please select a person first", w)
+		return
+	}
+
+	rootPerson, err := s.GetPersonByID(rootPersonID)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load person: %w", err), w)
+		return
+	}
+
+	// Show privacy options dialog
+	showHTMLExportOptionsDialog(w, rootPerson, func(options HTMLExportOptions) {
+		// Show file save dialog
+		fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+			if err != nil || uc == nil {
+				return
+			}
+			defer uc.Close()
+
+			// Generate PDF content with privacy options
+			err = generateDescendantReportPDF(s, rootPerson, options, uc.URI().Path())
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to generate PDF: %w", err), w)
+				return
+			}
+
+			dialog.ShowInformation("Export Successful",
+				fmt.Sprintf("Descendant Report exported to:\n%s", uc.URI().Path()), w)
+		}, w)
+
+		// Set default filename
+		defaultName := fmt.Sprintf("Descendants_%s_%s.pdf",
+			strings.ReplaceAll(rootPerson.Surname, " ", "_"),
+			strings.ReplaceAll(rootPerson.GivenName, " ", "_"))
+		fd.SetFileName(defaultName)
+		fd.Show()
+	})
+}
+
+// generateDescendantReportPDF creates a PDF document for the descendant report
+func generateDescendantReportPDF(s *store.Store, rootPerson *store.Person, options HTMLExportOptions, filepath string) error {
+	pdf := gofpdf.New("P", "mm", "Letter", "")
+	pdf.AddPage()
+	
+	// Title
+	pdf.SetFont("Arial", "B", 16)
+	pdf.CellFormat(0, 10, "Descendant Report", "", 1, "C", false, 0, "")
+	pdf.Ln(2)
+	
+	// Root person
+	pdf.SetFont("Arial", "B", 14)
+	pdf.CellFormat(0, 8, "Descendants of "+formatPersonName(*rootPerson), "", 1, "C", false, 0, "")
+	pdf.Ln(3)
+	
+	// Collect descendants
+	descendants := collectDescendants(s, rootPerson.ID, 1)
+	
+	// Filter based on privacy
+	var filteredDescendants []DescendantNode
+	for _, desc := range descendants {
+		if shouldShowPerson(&desc.Person, options) {
+			filteredDescendants = append(filteredDescendants, desc)
+		}
+	}
+	
+	// Count generations
+	genCounts := make(map[int]int)
+	for _, desc := range filteredDescendants {
+		genCounts[desc.Generation]++
+	}
+	
+	// Statistics
+	pdf.SetFont("Arial", "", 10)
+	pdf.CellFormat(0, 6, fmt.Sprintf("Total Descendants: %d", len(filteredDescendants)), "", 1, "L", false, 0, "")
+	pdf.CellFormat(0, 6, fmt.Sprintf("Generations: %d", len(genCounts)), "", 1, "L", false, 0, "")
+	pdf.Ln(3)
+	
+	// Render descendants
+	for _, node := range filteredDescendants {
+		// Check if we need a new page
+		_, pageHeight := pdf.GetPageSize()
+		_, y := pdf.GetXY()
+		if y > pageHeight-30 {
+			pdf.AddPage()
+		}
+		
+		// Set indent based on generation
+		indent := (node.Generation - 1) * 5
+		leftMargin := 10.0 + float64(indent)
+		pdf.SetLeftMargin(leftMargin)
+		pdf.SetX(leftMargin)
+		
+		// Generation indicator
+		pdf.SetFont("Arial", "B", 10)
+		genLabel := fmt.Sprintf("Gen %d: ", node.Generation)
+		pdf.Cell(20, 6, genLabel)
+		
+		// Person name
+		pdf.SetFont("Arial", "", 10)
+		personInfo := formatPersonName(node.Person)
+		if !options.LimitLivingInfo || !node.Person.IsLiving {
+			if node.Person.BirthDate != "" {
+				personInfo += fmt.Sprintf(" (b. %s)", formatFGSDate(node.Person.BirthDate))
+			}
+		}
+		if !node.Person.IsLiving && node.Person.DeathDate != "" {
+			personInfo += fmt.Sprintf(" - (d. %s)", formatFGSDate(node.Person.DeathDate))
+		} else if node.Person.IsLiving {
+			personInfo += " (Living)"
+		}
+		pdf.MultiCell(0, 6, personInfo, "", "L", false)
+		
+		// Reset margin
+		pdf.SetLeftMargin(10)
+	}
+	
+	return pdf.OutputFileAndClose(filepath)
+}
+
+// exportDescendantReportHTML exports the Descendant Report to HTML format
+func exportDescendantReportHTML(w fyne.Window, s *store.Store, rootPersonID int64) {
+	if rootPersonID <= 0 {
+		dialog.ShowInformation("Export Descendant Report", "Please select a person first", w)
+		return
+	}
+
+	rootPerson, err := s.GetPersonByID(rootPersonID)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load person: %w", err), w)
+		return
+	}
+
+	// Show privacy options dialog
+	showHTMLExportOptionsDialog(w, rootPerson, func(options HTMLExportOptions) {
+		// Show file save dialog
+		fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+			if err != nil || uc == nil {
+				return
+			}
+			defer uc.Close()
+
+			// Generate HTML content with privacy options
+			html := generateDescendantReportHTML(s, rootPerson, options)
+
+			// Write to file
+			_, err = uc.Write([]byte(html))
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to write HTML file: %w", err), w)
+				return
+			}
+
+			dialog.ShowInformation("Export Successful",
+				fmt.Sprintf("Descendant Report exported to:\n%s", uc.URI().Path()), w)
+		}, w)
+
+		// Set default filename
+		defaultName := fmt.Sprintf("Descendants_%s_%s.html",
+			strings.ReplaceAll(rootPerson.Surname, " ", "_"),
+			strings.ReplaceAll(rootPerson.GivenName, " ", "_"))
+		fd.SetFileName(defaultName)
+		fd.Show()
+	})
+}
+
+// generateDescendantReportHTML generates the HTML content for the Descendant Report
+func generateDescendantReportHTML(s *store.Store, rootPerson *store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	// Build descendant tree
+	descendants := collectDescendants(s, rootPerson.ID, 0)
+	
+	// Filter descendants based on privacy settings
+	filteredDescendants := []DescendantNode{}
+	for _, d := range descendants {
+		if shouldShowPerson(&d.Person, options) {
+			filteredDescendants = append(filteredDescendants, d)
+		}
+	}
+	descendants = filteredDescendants
+
+	// HTML header with embedded CSS
+	html.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Descendants of ` + formatPersonName(*rootPerson) + `</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #3498db;
+        }
+        .summary {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        .summary-line {
+            margin: 5px 0;
+            font-size: 1.05em;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            background-color: #ecf0f1;
+            padding: 10px;
+            border-left: 4px solid #3498db;
+        }
+        .person-entry {
+            margin: 10px 0;
+            padding: 12px 15px;
+            background-color: #fafafa;
+            border-radius: 5px;
+            border-left: 3px solid #95a5a6;
+        }
+        .person-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .person-dates {
+            color: #7f8c8d;
+            font-size: 0.95em;
+            margin-left: 10px;
+        }
+        .gen-1 { margin-left: 0; border-left-color: #e74c3c; }
+        .gen-2 { margin-left: 30px; border-left-color: #e67e22; }
+        .gen-3 { margin-left: 60px; border-left-color: #f39c12; }
+        .gen-4 { margin-left: 90px; border-left-color: #27ae60; }
+        .gen-5 { margin-left: 120px; border-left-color: #3498db; }
+        .gen-6 { margin-left: 150px; border-left-color: #9b59b6; }
+        .gen-7 { margin-left: 180px; border-left-color: #e91e63; }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Descendants of ` + formatPersonName(*rootPerson) + `</h1>
+`)
+
+	if len(descendants) == 0 {
+		html.WriteString(`<p>No descendants found.</p>`)
+	} else {
+		// Summary section
+		html.WriteString(`<div class="summary">`)
+		html.WriteString(`<div class="summary-line"><strong>Total descendants:</strong> ` + fmt.Sprintf("%d", len(descendants)) + `</div>`)
+
+		// Count by generation
+		genCounts := make(map[int]int)
+		for _, d := range descendants {
+			genCounts[d.Generation]++
+		}
+		maxGen := 0
+		for gen := range genCounts {
+			if gen > maxGen {
+				maxGen = gen
+			}
+		}
+		for i := 1; i <= maxGen; i++ {
+			html.WriteString(`<div class="summary-line"><strong>Generation ` + fmt.Sprintf("%d", i) + `:</strong> ` + fmt.Sprintf("%d descendants", genCounts[i]) + `</div>`)
+		}
+		html.WriteString(`</div>`)
+
+		// Display descendants by generation
+		for gen := 1; gen <= maxGen; gen++ {
+			html.WriteString(`<h2>Generation ` + fmt.Sprintf("%d", gen) + `</h2>`)
+
+			for _, d := range descendants {
+				if d.Generation == gen {
+					genClass := fmt.Sprintf("gen-%d", gen)
+					if gen > 7 {
+						genClass = "gen-7"
+					}
+					html.WriteString(`<div class="person-entry ` + genClass + `">`)
+					html.WriteString(`<span class="person-name">` + formatPersonName(d.Person) + `</span>`)
+					
+					// Handle privacy for dates
+					if options.LimitLivingInfo && d.Person.IsLiving {
+						html.WriteString(`<span class="person-dates" style="font-style: italic; color: #7f8c8d;">(Living)</span>`)
+					} else if d.Person.BirthDate != "" {
+						html.WriteString(`<span class="person-dates">b. ` + formatFGSDate(d.Person.BirthDate))
+						if !d.Person.IsLiving && d.Person.DeathDate != "" {
+							html.WriteString(` - d. ` + formatFGSDate(d.Person.DeathDate))
+						}
+						html.WriteString(`</span>`)
+					}
+					html.WriteString(`</div>`)
+				}
+			}
+		}
+	}
+
+	// Footer
+	html.WriteString(`
+        <div class="footer">
+            <p>Generated by KrankyBear Genealogy on ` + time.Now().Format("January 2, 2006") + `</p>
+        </div>
+    </div>
+</body>
+</html>`)
+
+	return html.String()
+}
+
+// exportAncestorReportPDF exports the Ancestor Report to PDF format
+func exportAncestorReportPDF(w fyne.Window, s *store.Store, rootPersonID int64) {
+	if rootPersonID <= 0 {
+		dialog.ShowInformation("Export Ancestor Report", "Please select a person first", w)
+		return
+	}
+
+	rootPerson, err := s.GetPersonByID(rootPersonID)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load person: %w", err), w)
+		return
+	}
+
+	// Show privacy options dialog
+	showHTMLExportOptionsDialog(w, rootPerson, func(options HTMLExportOptions) {
+		// Show file save dialog
+		fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+			if err != nil || uc == nil {
+				return
+			}
+			defer uc.Close()
+
+			// Generate PDF content with privacy options
+			err = generateAncestorReportPDF(s, rootPerson, options, uc.URI().Path())
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to generate PDF: %w", err), w)
+				return
+			}
+
+			dialog.ShowInformation("Export Successful",
+				fmt.Sprintf("Ancestor Report exported to:\n%s", uc.URI().Path()), w)
+		}, w)
+
+		// Set default filename
+		defaultName := fmt.Sprintf("Ancestors_%s_%s.pdf",
+			strings.ReplaceAll(rootPerson.Surname, " ", "_"),
+			strings.ReplaceAll(rootPerson.GivenName, " ", "_"))
+		fd.SetFileName(defaultName)
+		fd.Show()
+	})
+}
+
+// generateAncestorReportPDF creates a PDF document for the ancestor report
+func generateAncestorReportPDF(s *store.Store, rootPerson *store.Person, options HTMLExportOptions, filepath string) error {
+	pdf := gofpdf.New("P", "mm", "Letter", "")
+	pdf.AddPage()
+	
+	// Title
+	pdf.SetFont("Arial", "B", 16)
+	pdf.CellFormat(0, 10, "Ancestor Report", "", 1, "C", false, 0, "")
+	pdf.SetFont("Arial", "", 10)
+	pdf.CellFormat(0, 6, "(Ahnentafel Numbering System)", "", 1, "C", false, 0, "")
+	pdf.Ln(2)
+	
+	// Root person
+	pdf.SetFont("Arial", "B", 14)
+	pdf.CellFormat(0, 8, "Ancestors of "+formatPersonName(*rootPerson), "", 1, "C", false, 0, "")
+	pdf.Ln(3)
+	
+	// Collect ancestors
+	ancestors := collectAncestors(s, rootPerson.ID, 1)
+	
+	// Filter based on privacy
+	var filteredAncestors []AncestorNode
+	for _, anc := range ancestors {
+		if shouldShowPerson(&anc.Person, options) {
+			filteredAncestors = append(filteredAncestors, anc)
+		}
+	}
+	
+	// Sort by Ahnentafel number for proper order
+	sort.Slice(filteredAncestors, func(i, j int) bool {
+		return filteredAncestors[i].AhnentafelNumber < filteredAncestors[j].AhnentafelNumber
+	})
+	
+	// Count generations
+	generations := make(map[int]bool)
+	for _, anc := range filteredAncestors {
+		// Calculate generation from Ahnentafel number
+		generation := 0
+		num := anc.AhnentafelNumber
+		for num > 0 {
+			generation++
+			num = num / 2
+		}
+		generations[generation] = true
+	}
+	
+	// Statistics
+	pdf.SetFont("Arial", "", 10)
+	pdf.CellFormat(0, 6, fmt.Sprintf("Total Ancestors: %d", len(filteredAncestors)), "", 1, "L", false, 0, "")
+	pdf.CellFormat(0, 6, fmt.Sprintf("Generations: %d", len(generations)), "", 1, "L", false, 0, "")
+	pdf.Ln(3)
+	
+	// Check for pedigree collapse
+	uniqueIDs := make(map[int64]bool)
+	for _, anc := range filteredAncestors {
+		uniqueIDs[anc.Person.ID] = true
+	}
+	if len(uniqueIDs) < len(filteredAncestors) {
+		pdf.SetFillColor(255, 243, 205)
+		pdf.SetFont("Arial", "B", 10)
+		pdf.MultiCell(0, 6, "Warning: Pedigree Collapse Detected - Some ancestors appear multiple times", "", "L", true)
+		pdf.Ln(2)
+	}
+	
+	// Render ancestors
+	pdf.SetFont("Arial", "", 10)
+	for _, anc := range filteredAncestors {
+		// Check if we need a new page
+		_, pageHeight := pdf.GetPageSize()
+		_, y := pdf.GetXY()
+		if y > pageHeight-30 {
+			pdf.AddPage()
+		}
+		
+		// Ahnentafel number
+		pdf.SetFont("Arial", "B", 10)
+		pdf.Cell(15, 6, fmt.Sprintf("%d.", anc.AhnentafelNumber))
+		
+		// Person name and details
+		pdf.SetFont("Arial", "", 10)
+		personInfo := formatPersonName(anc.Person)
+		if !options.LimitLivingInfo || !anc.Person.IsLiving {
+			if anc.Person.BirthDate != "" {
+				personInfo += fmt.Sprintf(" (b. %s", formatFGSDate(anc.Person.BirthDate))
+				if anc.Person.BirthPlace != "" {
+					personInfo += fmt.Sprintf(", %s", anc.Person.BirthPlace)
+				}
+				personInfo += ")"
+			}
+			if !anc.Person.IsLiving && anc.Person.DeathDate != "" {
+				personInfo += fmt.Sprintf(" (d. %s", formatFGSDate(anc.Person.DeathDate))
+				if anc.Person.DeathPlace != "" {
+					personInfo += fmt.Sprintf(", %s", anc.Person.DeathPlace)
+				}
+				personInfo += ")"
+			}
+		}
+		if anc.Person.IsLiving {
+			personInfo += " (Living)"
+		}
+		pdf.MultiCell(0, 6, personInfo, "", "L", false)
+		
+		// Relationship (calculate from Ahnentafel number)
+		relationship := getAhnentafelRelationship(anc.AhnentafelNumber)
+		if relationship != "" {
+			pdf.SetFont("Arial", "I", 9)
+			pdf.Cell(15, 5, "")
+			pdf.Cell(0, 5, relationship)
+			pdf.Ln(5)
+		}
+	}
+	
+	// Footer with explanation
+	pdf.Ln(3)
+	pdf.SetFont("Arial", "I", 8)
+	pdf.MultiCell(0, 4, "Ahnentafel Numbering: Person 1 is the root. For any person N: father = 2N, mother = 2N+1", "", "L", false)
+	
+	return pdf.OutputFileAndClose(filepath)
+}
+
+// exportAncestorReportHTML exports the Ancestor Report to HTML format
+func exportAncestorReportHTML(w fyne.Window, s *store.Store, rootPersonID int64) {
+	if rootPersonID <= 0 {
+		dialog.ShowInformation("Export Ancestor Report", "Please select a person first", w)
+		return
+	}
+
+	rootPerson, err := s.GetPersonByID(rootPersonID)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load person: %w", err), w)
+		return
+	}
+
+	// Show privacy options dialog
+	showHTMLExportOptionsDialog(w, rootPerson, func(options HTMLExportOptions) {
+		// Show file save dialog
+		fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+			if err != nil || uc == nil {
+				return
+			}
+			defer uc.Close()
+
+			// Generate HTML content with privacy options
+			html := generateAncestorReportHTML(s, rootPerson, options)
+
+			// Write to file
+			_, err = uc.Write([]byte(html))
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to write HTML file: %w", err), w)
+				return
+			}
+
+			dialog.ShowInformation("Export Successful",
+				fmt.Sprintf("Ancestor Report exported to:\n%s", uc.URI().Path()), w)
+		}, w)
+
+		// Set default filename
+		defaultName := fmt.Sprintf("Ancestors_%s_%s.html",
+			strings.ReplaceAll(rootPerson.Surname, " ", "_"),
+			strings.ReplaceAll(rootPerson.GivenName, " ", "_"))
+		fd.SetFileName(defaultName)
+		fd.Show()
+	})
+}
+
+// generateAncestorReportHTML generates the HTML content for the Ancestor Report
+func generateAncestorReportHTML(s *store.Store, rootPerson *store.Person, options HTMLExportOptions) string {
+	var html strings.Builder
+
+	// Build ancestor tree in ahnentafel format
+	ancestors := collectAncestors(s, rootPerson.ID, 1)
+	
+	// Filter ancestors based on privacy settings
+	filteredAncestors := []AncestorNode{}
+	for _, a := range ancestors {
+		if shouldShowPerson(&a.Person, options) {
+			filteredAncestors = append(filteredAncestors, a)
+		}
+	}
+	ancestors = filteredAncestors
+
+	// HTML header with embedded CSS
+	html.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ancestors of ` + formatPersonName(*rootPerson) + ` (Ahnentafel)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #3498db;
+            font-style: italic;
+        }
+        .summary {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        .summary-line {
+            margin: 5px 0;
+            font-size: 1.05em;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 3px;
+        }
+        .ancestor-entry {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #fafafa;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        .ahnentafel-number {
+            font-weight: bold;
+            color: #3498db;
+            font-size: 1.1em;
+            margin-right: 10px;
+        }
+        .person-name {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+        .person-details {
+            color: #555;
+            margin-top: 5px;
+            margin-left: 35px;
+        }
+        .relationship {
+            color: #7f8c8d;
+            font-style: italic;
+            margin-left: 5px;
+        }
+        .generation {
+            color: #95a5a6;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ancestors of ` + formatPersonName(*rootPerson) + `</h1>
+        <div class="subtitle">Ahnentafel Numbering System</div>
+`)
+
+	if len(ancestors) == 0 {
+		html.WriteString(`<p>No ancestors found.</p>`)
+	} else {
+		// Summary section
+		html.WriteString(`<div class="summary">`)
+		html.WriteString(`<div class="summary-line"><strong>Total ancestors:</strong> ` + fmt.Sprintf("%d", len(ancestors)) + `</div>`)
+
+		// Pedigree collapse detection
+		uniqueIDs := make(map[int64]bool)
+		collapseCount := 0
+		for _, a := range ancestors {
+			if uniqueIDs[a.Person.ID] {
+				collapseCount++
+			}
+			uniqueIDs[a.Person.ID] = true
+		}
+		if collapseCount > 0 {
+			html.WriteString(`<div class="summary-line"><strong>⚠️ Pedigree collapse:</strong> ` + fmt.Sprintf("%d ancestors appear multiple times", collapseCount) + `</div>`)
+		}
+		html.WriteString(`</div>`)
+
+		if collapseCount > 0 {
+			html.WriteString(`<div class="warning">`)
+			html.WriteString(`<strong>Note:</strong> Pedigree collapse occurs when ancestors appear in multiple positions in the family tree, indicating intermarriage between related individuals in earlier generations.`)
+			html.WriteString(`</div>`)
+		}
+
+		// Display ancestors in ahnentafel order
+		// Sort by ahnentafel number
+		sort.Slice(ancestors, func(i, j int) bool {
+			return ancestors[i].AhnentafelNumber < ancestors[j].AhnentafelNumber
+		})
+
+		for _, a := range ancestors {
+			generation := int(math.Log2(float64(a.AhnentafelNumber))) + 1
+			relationship := getAhnentafelRelationship(a.AhnentafelNumber)
+
+			html.WriteString(`<div class="ancestor-entry">`)
+			html.WriteString(`<div>`)
+			html.WriteString(`<span class="ahnentafel-number">` + fmt.Sprintf("%d.", a.AhnentafelNumber) + `</span>`)
+			html.WriteString(`<span class="person-name">` + formatPersonName(a.Person) + `</span>`)
+			html.WriteString(`<span class="relationship">` + relationship + `</span>`)
+			html.WriteString(`<span class="generation">[Gen ` + fmt.Sprintf("%d", generation) + `]</span>`)
+			html.WriteString(`</div>`)
+			html.WriteString(`<div class="person-details">`)
+			
+			// Handle privacy for details
+			if options.LimitLivingInfo && a.Person.IsLiving {
+				html.WriteString(`<span style="font-style: italic; color: #7f8c8d;">(Living - limited information)</span>`)
+			} else {
+				if a.Person.BirthDate != "" {
+					html.WriteString(`Born: ` + formatFGSDate(a.Person.BirthDate))
+					if a.Person.BirthPlace != "" {
+						html.WriteString(` in ` + a.Person.BirthPlace)
+					}
+				}
+				if !a.Person.IsLiving && a.Person.DeathDate != "" {
+					if a.Person.BirthDate != "" {
+						html.WriteString(` • `)
+					}
+					html.WriteString(`Died: ` + formatFGSDate(a.Person.DeathDate))
+					if a.Person.DeathPlace != "" {
+						html.WriteString(` in ` + a.Person.DeathPlace)
+					}
+				}
+			}
+			html.WriteString(`</div>`)
+			html.WriteString(`</div>`)
+		}
+	}
+
+	// Footer
+	html.WriteString(`
+        <div class="footer">
+            <p>Generated by KrankyBear Genealogy on ` + time.Now().Format("January 2, 2006") + `</p>
+            <p style="margin-top: 10px; font-size: 0.85em;">Ahnentafel (German for "ancestor table") is a genealogical numbering system where each person is assigned a number. The subject is #1, their father is #2, mother is #3, and so on with fathers always even numbers and mothers odd.</p>
+        </div>
+    </div>
+</body>
+</html>`)
+
+	return html.String()
 }
 
 func renderMarriedFamily(content *fyne.Container, s *store.Store, person *store.Person, spouse *store.Person, navigateFunc func(int64)) {
@@ -6268,7 +10661,19 @@ func showTimelineView(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
 	scroll.SetMinSize(fyne.NewSize(700, 400))
 
 	timelineDialog = fyne.CurrentApp().NewWindow("Timeline View")
-	timelineDialog.SetContent(scroll)
+	
+	// Export buttons
+	exportHTMLBtn := widget.NewButton("Export to HTML", func() {
+		exportTimelineToHTMLFile(timelineDialog, s, events)
+	})
+	exportPDFBtn := widget.NewButton("Export to PDF", func() {
+		exportTimelineToPDFFile(timelineDialog, s, events)
+	})
+	exportButtons := container.NewHBox(exportHTMLBtn, exportPDFBtn)
+	
+	// Main content with export buttons at bottom
+	mainContent := container.NewBorder(nil, exportButtons, nil, nil, scroll)
+	timelineDialog.SetContent(mainContent)
 	timelineDialog.Resize(fyne.NewSize(900, 600))
 	timelineDialog.SetOnClosed(func() {
 		timelineDialog = nil
@@ -6282,6 +10687,270 @@ type TimelineEvent struct {
 	Type       string // "Birth", "Death", "Marriage"
 	Date       string
 	Place      string
+}
+
+// exportTimelineToHTMLFile exports the timeline to an HTML file
+func exportTimelineToHTMLFile(w fyne.Window, s *store.Store, events []TimelineEvent) {
+	// Show file save dialog
+	fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+		if err != nil || uc == nil {
+			return
+		}
+		defer uc.Close()
+
+		// Generate HTML content
+		html := generateTimelineHTMLReport(events)
+
+		// Write to file
+		_, err = uc.Write([]byte(html))
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to write HTML file: %w", err), w)
+			return
+		}
+
+		dialog.ShowInformation("Export Successful",
+			fmt.Sprintf("Timeline exported to:\n%s", uc.URI().Path()), w)
+	}, w)
+
+	fd.SetFileName("timeline_report.html")
+	fd.Show()
+}
+
+// generateTimelineHTMLReport creates an HTML document for the timeline
+func generateTimelineHTMLReport(events []TimelineEvent) string {
+	var html strings.Builder
+	
+	html.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeline Report</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #2c3e50; margin-bottom: 10px; text-align: center; }
+        .summary { text-align: center; color: #7f8c8d; margin-bottom: 30px; }
+        .year-group { margin-bottom: 30px; }
+        .year-header {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .event {
+            padding: 10px;
+            margin-bottom: 8px;
+            background-color: #ecf0f1;
+            border-left: 4px solid #95a5a6;
+        }
+        .event.birth { border-left-color: #27ae60; }
+        .event.death { border-left-color: #e74c3c; }
+        .event.marriage { border-left-color: #9b59b6; }
+        .event-icon { font-size: 1.2em; margin-right: 5px; }
+        .event-date { font-weight: bold; color: #2c3e50; }
+        .event-person { color: #3498db; }
+        .event-place { color: #7f8c8d; font-style: italic; }
+        @media print {
+            body { background-color: white; padding: 0; }
+            .container { box-shadow: none; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Timeline of Life Events</h1>
+        <div class="summary">
+`)
+
+	// Statistics
+	birthCount := 0
+	deathCount := 0
+	marriageCount := 0
+	for _, e := range events {
+		switch e.Type {
+		case "Birth":
+			birthCount++
+		case "Death":
+			deathCount++
+		case "Marriage":
+			marriageCount++
+		}
+	}
+	
+	html.WriteString(fmt.Sprintf("<p>Total events: %d (births: %d, deaths: %d, marriages: %d)</p>", 
+		len(events), birthCount, deathCount, marriageCount))
+	
+	if len(events) > 0 {
+		html.WriteString(fmt.Sprintf("<p>Date range: %s - %s</p>", events[0].Date, events[len(events)-1].Date))
+	}
+	
+	html.WriteString(`        </div>
+`)
+
+	// Group by year
+	currentYear := ""
+	for _, event := range events {
+		year := extractYear(event.Date)
+		
+		if year != currentYear {
+			if currentYear != "" {
+				html.WriteString(`        </div>
+`)
+			}
+			currentYear = year
+			html.WriteString(`        <div class="year-group">
+            <div class="year-header">` + year + `</div>
+`)
+		}
+		
+		// Event
+		eventClass := strings.ToLower(event.Type)
+		eventIcon := ""
+		switch event.Type {
+		case "Birth":
+			eventIcon = "👶"
+		case "Death":
+			eventIcon = "✝️"
+		case "Marriage":
+			eventIcon = "💒"
+		}
+		
+		html.WriteString(`            <div class="event ` + eventClass + `">
+                <span class="event-icon">` + eventIcon + `</span>
+                <span class="event-date">` + formatFGSDate(event.Date) + `</span> - 
+                <span class="event-type">` + event.Type + `:</span> 
+                <span class="event-person">` + event.PersonName + `</span>
+`)
+		if event.Place != "" {
+			html.WriteString(`                <span class="event-place"> (` + event.Place + `)</span>
+`)
+		}
+		html.WriteString(`            </div>
+`)
+	}
+	
+	if currentYear != "" {
+		html.WriteString(`        </div>
+`)
+	}
+	
+	html.WriteString(`    </div>
+</body>
+</html>`)
+
+	return html.String()
+}
+
+// exportTimelineToPDFFile exports the timeline to a PDF file
+func exportTimelineToPDFFile(w fyne.Window, s *store.Store, events []TimelineEvent) {
+	// Show file save dialog
+	fd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+		if err != nil || uc == nil {
+			return
+		}
+		defer uc.Close()
+
+		// Generate PDF
+		err = generateTimelinePDFReport(events, uc.URI().Path())
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to generate PDF: %w", err), w)
+			return
+		}
+
+		dialog.ShowInformation("Export Successful",
+			fmt.Sprintf("Timeline exported to:\n%s", uc.URI().Path()), w)
+	}, w)
+
+	fd.SetFileName("timeline_report.pdf")
+	fd.Show()
+}
+
+// generateTimelinePDFReport creates a PDF document for the timeline
+func generateTimelinePDFReport(events []TimelineEvent, filepath string) error {
+	pdf := gofpdf.New("P", "mm", "Letter", "")
+	pdf.AddPage()
+	
+	// Title
+	pdf.SetFont("Arial", "B", 16)
+	pdf.CellFormat(0, 10, "Timeline of Life Events", "", 1, "C", false, 0, "")
+	pdf.Ln(2)
+	
+	// Statistics
+	pdf.SetFont("Arial", "", 10)
+	birthCount := 0
+	deathCount := 0
+	marriageCount := 0
+	for _, e := range events {
+		switch e.Type {
+		case "Birth":
+			birthCount++
+		case "Death":
+			deathCount++
+		case "Marriage":
+			marriageCount++
+		}
+	}
+	
+	pdf.CellFormat(0, 6, fmt.Sprintf("Total events: %d (births: %d, deaths: %d, marriages: %d)",
+		len(events), birthCount, deathCount, marriageCount), "", 1, "L", false, 0, "")
+	
+	if len(events) > 0 {
+		pdf.CellFormat(0, 6, fmt.Sprintf("Date range: %s - %s", events[0].Date, events[len(events)-1].Date), "", 1, "L", false, 0, "")
+	}
+	
+	pdf.Ln(5)
+	
+	// Group by year
+	currentYear := ""
+	for _, event := range events {
+		// Check if we need a new page
+		_, pageHeight := pdf.GetPageSize()
+		_, y := pdf.GetXY()
+		if y > pageHeight-30 {
+			pdf.AddPage()
+		}
+		
+		year := extractYear(event.Date)
+		
+		if year != currentYear {
+			currentYear = year
+			pdf.Ln(2)
+			pdf.SetFont("Arial", "B", 12)
+			pdf.SetFillColor(52, 152, 219)
+			pdf.SetTextColor(255, 255, 255)
+			pdf.CellFormat(0, 8, year, "", 1, "L", true, 0, "")
+			pdf.SetTextColor(0, 0, 0)
+		}
+		
+		// Event
+		pdf.SetFont("Arial", "B", 10)
+		pdf.Cell(30, 6, formatFGSDate(event.Date))
+		pdf.SetFont("Arial", "", 10)
+		
+		eventText := event.Type + ": " + event.PersonName
+		if event.Place != "" {
+			eventText += " (" + event.Place + ")"
+		}
+		pdf.MultiCell(0, 6, eventText, "", "L", false)
+	}
+	
+	return pdf.OutputFileAndClose(filepath)
 }
 
 func collectTimelineEvents(s *store.Store) []TimelineEvent {
@@ -6337,9 +11006,11 @@ func collectTimelineEvents(s *store.Store) []TimelineEvent {
 		}
 	}
 
-	// Sort by date
+	// Sort by date chronologically
 	sort.Slice(events, func(i, j int) bool {
-		return events[i].Date < events[j].Date
+		dateI := normalizeDateForSort(events[i].Date)
+		dateJ := normalizeDateForSort(events[j].Date)
+		return dateI < dateJ
 	})
 
 	return events
@@ -6356,10 +11027,43 @@ func countEventType(events []TimelineEvent, eventType string) int {
 }
 
 func extractYear(dateStr string) string {
-	// Extract year from date string (YYYY-MM-DD or YYYY)
-	if len(dateStr) >= 4 {
-		return dateStr[:4]
+	// Extract year from various date formats
+	if dateStr == "" {
+		return ""
 	}
+	
+	// Try parsing common formats
+	layouts := []string{
+		"2006-01-02",      // YYYY-MM-DD
+		"02 Jan 2006",     // DD Mon YYYY
+		"Jan 2006",        // Mon YYYY
+		"2006",            // YYYY only
+		"01/02/2006",      // MM/DD/YYYY
+		"02-01-2006",      // DD-MM-YYYY
+	}
+	
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, dateStr); err == nil {
+			return fmt.Sprintf("%d", t.Year())
+		}
+	}
+	
+	// Fallback: if string starts with 4 digits, use those
+	if len(dateStr) >= 4 {
+		// Check if starts with year (19xx or 20xx)
+		if (dateStr[0] == '1' || dateStr[0] == '2') && dateStr[1] >= '0' && dateStr[1] <= '9' {
+			return dateStr[:4]
+		}
+		// Otherwise, try to find year at end (DD Mon YYYY format)
+		parts := strings.Fields(dateStr)
+		if len(parts) > 0 {
+			lastPart := parts[len(parts)-1]
+			if len(lastPart) == 4 {
+				return lastPart
+			}
+		}
+	}
+	
 	return dateStr
 }
 
