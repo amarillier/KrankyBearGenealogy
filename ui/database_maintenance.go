@@ -43,7 +43,9 @@ func createStatisticsTab(w fyne.Window, s *store.Store) fyne.CanvasObject {
 		statsText.SetText("Loading statistics...")
 		go func() {
 			updateStatistics(statsText, s)
-			refreshBtn.Enable()
+			fyne.Do(func() {
+				refreshBtn.Enable()
+			})
 		}()
 	})
 	
@@ -64,7 +66,9 @@ func createStatisticsTab(w fyne.Window, s *store.Store) fyne.CanvasObject {
 func updateStatistics(label *widget.Label, s *store.Store) {
 	stats, err := s.GetDatabaseStats()
 	if err != nil {
-		label.SetText(fmt.Sprintf("Error loading statistics: %v", err))
+		fyne.Do(func() {
+			label.SetText(fmt.Sprintf("Error loading statistics: %v", err))
+		})
 		return
 	}
 	
@@ -111,7 +115,9 @@ func updateStatistics(label *widget.Label, s *store.Store) {
 		sb.WriteString("💡 Use the Maintenance tab to fix these issues.\n\n")
 	}
 	
-	label.SetText(sb.String())
+	fyne.Do(func() {
+		label.SetText(sb.String())
+	})
 }
 
 // createMaintenanceTab creates the maintenance operations tab
@@ -127,15 +133,21 @@ func createMaintenanceTab(w fyne.Window, s *store.Store) fyne.CanvasObject {
 		resultText.SetText("Running VACUUM... This may take a moment...")
 		
 		go func() {
-			defer vacuumBtn.Enable()
+			defer fyne.Do(func() {
+				vacuumBtn.Enable()
+			})
 			
 			report, err := s.VacuumDatabase()
 			if err != nil {
-				resultText.SetText(fmt.Sprintf("Error: %v", err))
+				fyne.Do(func() {
+					resultText.SetText(fmt.Sprintf("Error: %v", err))
+				})
 				return
 			}
 			
-			displayMaintenanceReport(resultText, report)
+			fyne.Do(func() {
+				displayMaintenanceReport(resultText, report)
+			})
 		}()
 	})
 	vacuumBtn.Importance = widget.HighImportance
@@ -151,15 +163,21 @@ func createMaintenanceTab(w fyne.Window, s *store.Store) fyne.CanvasObject {
 		resultText.SetText("Checking database integrity...")
 		
 		go func() {
-			defer integrityBtn.Enable()
+			defer fyne.Do(func() {
+				integrityBtn.Enable()
+			})
 			
 			report, err := s.CheckIntegrity()
 			if err != nil {
-				resultText.SetText(fmt.Sprintf("Error: %v", err))
+				fyne.Do(func() {
+					resultText.SetText(fmt.Sprintf("Error: %v", err))
+				})
 				return
 			}
 			
-			displayMaintenanceReport(resultText, report)
+			fyne.Do(func() {
+				displayMaintenanceReport(resultText, report)
+			})
 		}()
 	})
 	
@@ -181,15 +199,21 @@ func createMaintenanceTab(w fyne.Window, s *store.Store) fyne.CanvasObject {
 				resultText.SetText("Removing orphaned media...")
 				
 				go func() {
-					defer orphanedMediaBtn.Enable()
+					defer fyne.Do(func() {
+						orphanedMediaBtn.Enable()
+					})
 					
 					report, err := s.RemoveOrphanedMedia()
 					if err != nil {
-						resultText.SetText(fmt.Sprintf("Error: %v", err))
+						fyne.Do(func() {
+							resultText.SetText(fmt.Sprintf("Error: %v", err))
+						})
 						return
 					}
 					
-					displayMaintenanceReport(resultText, report)
+					fyne.Do(func() {
+						displayMaintenanceReport(resultText, report)
+					})
 				}()
 			}, w)
 	})
@@ -213,15 +237,21 @@ func createMaintenanceTab(w fyne.Window, s *store.Store) fyne.CanvasObject {
 				resultText.SetText("Removing orphaned relationships...")
 				
 				go func() {
-					defer orphanedRelBtn.Enable()
+					defer fyne.Do(func() {
+						orphanedRelBtn.Enable()
+					})
 					
 					report, err := s.RemoveOrphanedRelationships()
 					if err != nil {
-						resultText.SetText(fmt.Sprintf("Error: %v", err))
+						fyne.Do(func() {
+							resultText.SetText(fmt.Sprintf("Error: %v", err))
+						})
 						return
 					}
 					
-					displayMaintenanceReport(resultText, report)
+					fyne.Do(func() {
+						displayMaintenanceReport(resultText, report)
+					})
 				}()
 			}, w)
 	})
@@ -245,15 +275,21 @@ func createMaintenanceTab(w fyne.Window, s *store.Store) fyne.CanvasObject {
 				resultText.SetText("Removing duplicate relationships...")
 				
 				go func() {
-					defer duplicateRelBtn.Enable()
+					defer fyne.Do(func() {
+						duplicateRelBtn.Enable()
+					})
 					
 					report, err := s.RemoveDuplicateRelationships()
 					if err != nil {
-						resultText.SetText(fmt.Sprintf("Error: %v", err))
+						fyne.Do(func() {
+							resultText.SetText(fmt.Sprintf("Error: %v", err))
+						})
 						return
 					}
 					
-					displayMaintenanceReport(resultText, report)
+					fyne.Do(func() {
+						displayMaintenanceReport(resultText, report)
+					})
 				}()
 			}, w)
 	})
@@ -353,11 +389,15 @@ func createAnalysisTab(w fyne.Window, s *store.Store) fyne.CanvasObject {
 		resultText.SetText("Finding unused sources...")
 		
 		go func() {
-			defer unusedSourcesBtn.Enable()
+			defer fyne.Do(func() {
+				unusedSourcesBtn.Enable()
+			})
 			
 			sources, err := s.GetUnusedSources()
 			if err != nil {
-				resultText.SetText(fmt.Sprintf("Error: %v", err))
+				fyne.Do(func() {
+					resultText.SetText(fmt.Sprintf("Error: %v", err))
+				})
 				return
 			}
 			
@@ -382,7 +422,9 @@ func createAnalysisTab(w fyne.Window, s *store.Store) fyne.CanvasObject {
 				sb.WriteString("💡 These sources have no citations. Consider adding citations or removing them.\n")
 			}
 			
-			resultText.SetText(sb.String())
+			fyne.Do(func() {
+				resultText.SetText(sb.String())
+			})
 		}()
 	})
 	
@@ -397,16 +439,22 @@ func createAnalysisTab(w fyne.Window, s *store.Store) fyne.CanvasObject {
 		resultText.SetText("Running ANALYZE...")
 		
 		go func() {
-			defer analyzeBtn.Enable()
+			defer fyne.Do(func() {
+				analyzeBtn.Enable()
+			})
 			
 			err := s.AnalyzeDatabase()
 			if err != nil {
-				resultText.SetText(fmt.Sprintf("Error: %v", err))
+				fyne.Do(func() {
+					resultText.SetText(fmt.Sprintf("Error: %v", err))
+				})
 				return
 			}
 			
-			resultText.SetText("✅ Database query planner statistics updated successfully.\n\n" +
-				"This helps SQLite optimize queries for better performance.")
+			fyne.Do(func() {
+				resultText.SetText("✅ Database query planner statistics updated successfully.\n\n" +
+					"This helps SQLite optimize queries for better performance.")
+			})
 		}()
 	})
 	

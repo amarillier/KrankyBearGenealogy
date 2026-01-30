@@ -696,38 +696,40 @@ func showAddCitationDialog(w fyne.Window, s *store.Store, personID int64, onSave
 			return
 		}
 
-		// Build checkbox list on UI thread
-		for _, person := range allPeople {
-			if person.ID == personID {
-				continue // Skip current person (already included)
-			}
+		// Build checkbox list and update UI on main thread
+		fyne.Do(func() {
+			for _, person := range allPeople {
+				if person.ID == personID {
+					continue // Skip current person (already included)
+				}
 
-			personCopy := person
-			check := widget.NewCheck(formatPersonName(personCopy), func(checked bool) {
-				if checked {
-					// Add to selected
-					selectedPeopleIDs = append(selectedPeopleIDs, personCopy.ID)
-				} else {
-					// Remove from selected
-					for i, id := range selectedPeopleIDs {
-						if id == personCopy.ID {
-							selectedPeopleIDs = append(selectedPeopleIDs[:i], selectedPeopleIDs[i+1:]...)
-							break
+				personCopy := person
+				check := widget.NewCheck(formatPersonName(personCopy), func(checked bool) {
+					if checked {
+						// Add to selected
+						selectedPeopleIDs = append(selectedPeopleIDs, personCopy.ID)
+					} else {
+						// Remove from selected
+						for i, id := range selectedPeopleIDs {
+							if id == personCopy.ID {
+								selectedPeopleIDs = append(selectedPeopleIDs[:i], selectedPeopleIDs[i+1:]...)
+								break
+							}
 						}
 					}
-				}
-				// Update count label
-				if len(selectedPeopleIDs) == 1 {
-					selectionCountLabel.SetText("Selected: 1 person (current person)")
-				} else {
-					selectionCountLabel.SetText(fmt.Sprintf("Selected: %d people (including current person)", len(selectedPeopleIDs)))
-				}
-			})
-			peopleChecks = append(peopleChecks, PersonCheck{Person: personCopy, Check: check})
-		}
+					// Update count label
+					if len(selectedPeopleIDs) == 1 {
+						selectionCountLabel.SetText("Selected: 1 person (current person)")
+					} else {
+						selectionCountLabel.SetText(fmt.Sprintf("Selected: %d people (including current person)", len(selectedPeopleIDs)))
+					}
+				})
+				peopleChecks = append(peopleChecks, PersonCheck{Person: personCopy, Check: check})
+			}
 
-		// Rebuild list on UI thread
-		rebuildPeopleList("")
+			// Rebuild list
+			rebuildPeopleList("")
+		})
 	}()
 
 	// Set up search filtering

@@ -76,9 +76,13 @@ func ShowPersonContextMenu(
 	items = append(items, fyne.NewMenuItem("View in Fan Chart...", func() {
 		showFanChartDialog(w, s, person.ID, onNavigate)
 	}))
-	
+
 	items = append(items, fyne.NewMenuItem("View in Descendant Chart...", func() {
 		showDescendantChartDialog(w, s, person.ID, onNavigate)
+	}))
+
+	items = append(items, fyne.NewMenuItem("View on Map...", func() {
+		showMapViewDialog(w, s, person.ID, onNavigate)
 	}))
 	
 	// View Media (if person has media)

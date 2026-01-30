@@ -10,6 +10,7 @@ test/*
 *.log
 sampledata/*shm
 sampledata/*wal
+MAP_IMPLEMENTATION_PLAN.md
 
 
 # IDE and editor files

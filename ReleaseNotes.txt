@@ -1,5 +1,53 @@
 KrankyBear Genealogy - Release Notes
 
+1.5.0 - January 30, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Interactive Map Visualization (Phase 12)
+
+Major Features:
+• OpenStreetMap Integration for Life Event Mapping
+• Interactive Markers for Birth, Death, and Marriage Locations
+• Zoom Controls (18 Levels) with Centered Navigation
+• Event-Specific Re-centering
+• Geocoding Tool for Place Name Resolution
+• Internet Connectivity Checking
+
+🗺️ Map View (Phase 12):
+  • Visual geographic representation of life events:
+    - OpenStreetMap tile integration (respects usage policy)
+    - Automatic geocoding of place names to coordinates
+    - SQLite-based geocoding cache to minimize API calls
+    - Support for zoom levels 1-18 (world to street level)
+  • Interactive markers for life events:
+    - 🟢 Green markers for births
+    - ⚫ Black markers for deaths
+    - 💒 Pink markers for marriages
+    - Click markers to view detailed event information
+    - Toggle marker types on/off with checkboxes
+  • Navigation and controls:
+    - Zoom in/out buttons with level indicator
+    - Re-center buttons for each event type
+    - Map automatically centers on birth location
+    - Status bar shows current coordinates and zoom
+  • Geocoding features:
+    - Batch geocoding tool (Tools → Geocoding Tool)
+    - Progress tracking for bulk operations
+    - Database caching prevents redundant API calls
+    - Nominatim API integration with rate limiting
+  • User-friendly features:
+    - Internet connectivity checking
+    - Clear error messages when offline
+    - Accessible from Person Details → "Show on Map" button
+    - Optimized tile loading with concurrent downloads
+    - Thread-safe UI updates for smooth performance
+  • Technical implementation:
+    - Web Mercator projection for accurate positioning
+    - Concurrent tile downloading (respects 3-request limit)
+    - In-memory tile caching for performance
+    - Proper attribution to OpenStreetMap contributors
+
+
+
 1.4.0 - January 30, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━
 HTML Export & Complete Website Generation (Phase 11)

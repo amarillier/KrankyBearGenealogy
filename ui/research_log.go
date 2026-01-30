@@ -258,44 +258,46 @@ func showAddResearchLogDialog(w fyne.Window, s *store.Store, defaultPersonID *in
 
 	// Load people asynchronously to avoid blocking dialog
 	go func() {
-		// Build checkbox list on UI thread
-		for _, person := range allPeople {
-			personCopy := person
+		// Build checkbox list and update UI on main thread
+		fyne.Do(func() {
+			for _, person := range allPeople {
+				personCopy := person
 
-			// Check if this person should be pre-selected
-			isPreSelected := false
-			if defaultPersonID != nil && personCopy.ID == *defaultPersonID {
-				isPreSelected = true
-			}
+				// Check if this person should be pre-selected
+				isPreSelected := false
+				if defaultPersonID != nil && personCopy.ID == *defaultPersonID {
+					isPreSelected = true
+				}
 
-			check := widget.NewCheck(formatPersonName(personCopy), func(checked bool) {
-				if checked {
-					// Add to selected
-					selectedPeopleIDs = append(selectedPeopleIDs, personCopy.ID)
-				} else {
-					// Remove from selected
-					for i, id := range selectedPeopleIDs {
-						if id == personCopy.ID {
-							selectedPeopleIDs = append(selectedPeopleIDs[:i], selectedPeopleIDs[i+1:]...)
-							break
+				check := widget.NewCheck(formatPersonName(personCopy), func(checked bool) {
+					if checked {
+						// Add to selected
+						selectedPeopleIDs = append(selectedPeopleIDs, personCopy.ID)
+					} else {
+						// Remove from selected
+						for i, id := range selectedPeopleIDs {
+							if id == personCopy.ID {
+								selectedPeopleIDs = append(selectedPeopleIDs[:i], selectedPeopleIDs[i+1:]...)
+								break
+							}
 						}
 					}
-				}
-				// Update count label
-				if len(selectedPeopleIDs) == 0 {
-					selectionCountLabel.SetText("Selected: 0 people")
-				} else if len(selectedPeopleIDs) == 1 {
-					selectionCountLabel.SetText("Selected: 1 person")
-				} else {
-					selectionCountLabel.SetText(fmt.Sprintf("Selected: %d people", len(selectedPeopleIDs)))
-				}
-			})
-			check.Checked = isPreSelected
-			peopleChecks = append(peopleChecks, PersonCheck{Person: personCopy, Check: check})
-		}
+					// Update count label
+					if len(selectedPeopleIDs) == 0 {
+						selectionCountLabel.SetText("Selected: 0 people")
+					} else if len(selectedPeopleIDs) == 1 {
+						selectionCountLabel.SetText("Selected: 1 person")
+					} else {
+						selectionCountLabel.SetText(fmt.Sprintf("Selected: %d people", len(selectedPeopleIDs)))
+					}
+				})
+				check.Checked = isPreSelected
+				peopleChecks = append(peopleChecks, PersonCheck{Person: personCopy, Check: check})
+			}
 
-		// Rebuild list on UI thread
-		rebuildPeopleList("")
+			// Rebuild list
+			rebuildPeopleList("")
+		})
 	}()
 
 	// Set up search filtering

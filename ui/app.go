@@ -1189,6 +1189,10 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		showDescendantChartDialog(w, getStore(), getCurrentPersonID(), navigateToPerson)
 	})
 
+	mapView := fyne.NewMenuItem("Map View...", func() {
+		showMapViewDialog(w, getStore(), getCurrentPersonID(), navigateToPerson)
+	})
+
 	recentPeopleReport := fyne.NewMenuItem("Recent People", func() {
 		showRecentPeopleReport(w, getStore(), navigateToPerson)
 	})
@@ -1298,6 +1302,10 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	})
 
 	// Tools menu items
+	geocodingTool := fyne.NewMenuItem("Batch Geocoding...", func() {
+		showGeocodingToolDialog(w, getStore())
+	})
+
 	globalSearchReplace := fyne.NewMenuItem("Global Search and Replace...", func() {
 		showGlobalSearchReplaceDialog(w, getStore())
 	})
@@ -1396,9 +1404,10 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	// Main system tray menu with submenus
 	// Tools menu items (defined earlier in the file)
 	toolsSubMenu := fyne.NewMenu("Tools",
+		geocodingTool,
+		dateCalculator,
 		globalSearchReplace,
-		nameCaseConversion,
-		dateCalculator)
+		nameCaseConversion)
 	toolsMenuItem := fyne.NewMenuItem("Tools", nil)
 	toolsMenuItem.ChildMenu = toolsSubMenu
 
@@ -1421,7 +1430,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		backup, restore, maintenance, fyne.NewMenuItemSeparator(),
 		importGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(), quit)
 	mediaMenu := fyne.NewMenu("Media", mediaLibraryMenuItem, addMediaMenuItem, fyne.NewMenuItemSeparator(), sourcesLibraryMenuItem, researchLogMenuItem)
-	toolsMenu := fyne.NewMenu("Tools", globalSearchReplace, nameCaseConversion, dateCalculator)
+	toolsMenu := fyne.NewMenu("Tools", geocodingTool, dateCalculator, globalSearchReplace, nameCaseConversion)
 	reportsMenu := fyne.NewMenu("Reports",
 		// Utilities (alphabetical)
 		advancedSearch, relationshipCalc, statistics,
@@ -1436,7 +1445,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		ancestorReport, descendantReport, familyGroupReport, timelineReport,
 		fyne.NewMenuItemSeparator(),
 		// Chart Views (alphabetical)
-		descendantChartView, fanChartView, geographicReport,
+		descendantChartView, fanChartView, geographicReport, mapView,
 		fyne.NewMenuItemSeparator(),
 		// Actions (alphabetical)
 		massMarkLivingReport, reviewedItemsReport)
@@ -1537,6 +1546,9 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 		}),
 		fyne.NewMenuItem("Fan Chart View", func() {
 			showFanChartDialog(w, s, currentPersonID, navigateFunc)
+		}),
+		fyne.NewMenuItem("Map View", func() {
+			showMapViewDialog(w, s, currentPersonID, navigateFunc)
 		}),
 		fyne.NewMenuItem("Geographic Distribution", func() {
 			showGeographicDistributionReport(w, s, navigateFunc)
@@ -1726,6 +1738,9 @@ func showFilePopupMenu(w fyne.Window, cfg *config.Config, dbPath string, getStor
 // showToolsPopupMenu shows a popup menu with tools
 func showToolsPopupMenu(w fyne.Window, s *store.Store) {
 	items := []*fyne.MenuItem{
+		fyne.NewMenuItem("Batch Geocoding", func() {
+			showGeocodingToolDialog(w, s)
+		}),
 		fyne.NewMenuItem("Date Calculator", func() {
 			showDateCalculatorDialog(w)
 		}),
@@ -6120,15 +6135,18 @@ func generateWebsiteInFolder(w fyne.Window, s *store.Store, folderPath string, o
 
 	go func() {
 		err := generateCompleteWebsite(s, folderPath, options)
-		progressDialog.Hide()
 		
-		if err != nil {
-			dialog.ShowError(fmt.Errorf("Failed to generate website: %w", err), w)
-			return
-		}
+		fyne.Do(func() {
+			progressDialog.Hide()
+			
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("Failed to generate website: %w", err), w)
+				return
+			}
 
-		dialog.ShowInformation("Website Generated Successfully",
-			fmt.Sprintf("Family website created in:\n%s\n\nOpen index.html in your browser to view.", folderPath), w)
+			dialog.ShowInformation("Website Generated Successfully",
+				fmt.Sprintf("Family website created in:\n%s\n\nOpen index.html in your browser to view.", folderPath), w)
+		})
 	}()
 }
 

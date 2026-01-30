@@ -246,6 +246,20 @@ func (s *Store) InitSchema() error {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );`,
 		`CREATE INDEX IF NOT EXISTS idx_saved_searches_name ON saved_searches(name);`,
+		`CREATE TABLE IF NOT EXISTS place_geocodes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            place_name TEXT NOT NULL UNIQUE,
+            latitude REAL,
+            longitude REAL,
+            country TEXT,
+            state_province TEXT,
+            city TEXT,
+            geocode_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            geocode_status TEXT DEFAULT 'pending',
+            notes TEXT
+        );`,
+		`CREATE INDEX IF NOT EXISTS idx_place_geocodes_name ON place_geocodes(place_name);`,
+		`CREATE INDEX IF NOT EXISTS idx_place_geocodes_status ON place_geocodes(geocode_status);`,
 	}
 
 	tx, err := s.DB.Begin()

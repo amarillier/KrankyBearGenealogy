@@ -686,62 +686,147 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 2. ⏳ Cloud sync capabilities (optional)
 3. ⏳ Cross-platform compatibility enhancements
 
-### Future Releases (v1.5+)
+### ✅ Phase 12: Map Visualization (v1.5.0 - Released January 30, 2026)
 
-**Remaining High-Priority Features:**
+**Phase 12: Map View** 🗺️ WOW FEATURE ⭐ HIGH PRIORITY - COMPLETE
 
-**Phase 8: Map View** 🗺️ WOW FEATURE (Future - High Priority)
-- Map visualization of life events
-- Geographic timeline showing migration patterns
-- Migration paths connecting life events
-- API integration (Google Maps or OpenStreetMap)
-- Geocoding for place names
-- Interactive markers for births, deaths, marriages
-- Note: Deferred until ready for polished implementation
+**See MAP_IMPLEMENTATION_PLAN.md for detailed technical specifications.**
 
-**Phase 8: Data Entry Helpers** (Future - Medium Priority)
+**Completed Features (v1.5.0):**
+1. ✅ **Core Map Integration** (Phase 1) - COMPLETE
+   - ✅ OpenStreetMap integration with Fyne UI
+   - ✅ Interactive map window with zoom controls (18 levels)
+   - ✅ Standalone map view accessible from Person Details
+   - ✅ Control panel for marker filters and display options
+   - ✅ Internet connectivity checking with user-friendly messages
+
+2. ✅ **Geocoding System** (Phase 2) - COMPLETE
+   - ✅ Place name to coordinates conversion using Nominatim API
+   - ✅ SQLite database caching to avoid repeated API calls
+   - ✅ Batch geocoding tool with progress dialog (Tools → Geocoding Tool)
+   - ✅ Rate limiting to respect Nominatim usage policy
+   - ✅ Automatic geocoding for existing place names
+
+3. ✅ **Life Event Markers** (Phase 3) - COMPLETE
+   - ✅ Birth markers (🟢 green circle)
+   - ✅ Death markers (⚫ black circle)
+   - ✅ Marriage markers (💒 pink heart)
+   - ✅ Click markers to view detailed event information
+   - ✅ Toggle marker visibility by event type
+   - ✅ Re-center map on specific event types
+
+4. ✅ **Person-Specific Map View** (Phase 4) - COMPLETE
+   - ✅ Individual life event visualization
+   - ✅ Auto-center on birth location
+   - ✅ "Show on Map" button in Person Details dialog
+   - ✅ Status bar showing coordinates and zoom level
+   - ✅ Clean, optimized rendering with thread-safe UI updates
+
+**Actual Effort:** ~8-10 hours (including debugging and polish)
+
+**Extended Features (v1.5.1 follow-up):**
+5. ⏳ **Multi-Person & Family Views** (Phase 5)
+   - All people mode with filters (date range, surname, living/deceased)
+   - Descendants/Ancestors mode with migration patterns
+   - Branch/surname distribution visualization
+   - Heat map overlay (density of events)
+   - Color-coding by generation
+
+6. ⏳ **Geographic Reports & Analysis** (Phase 6)
+   - Geographic statistics (most common locations, migration distances)
+   - Migration Distance Report (people by travel distance)
+   - Geographic Hotspots Report
+   - Cross-Border Families Report
+   - Integration with Statistics Dashboard
+
+**Estimated Effort:** 18-23 hours (2-3 days)
+
+---
+
+### 📋 Future Releases - Medium Priority (v1.6+)
+
+**Phase 8: Data Entry Helpers**
 - Smart Date Entry: Parse "May 1945", "1945", "abt 1945", etc.
 - Place Autocomplete: Suggest standard place names as you type
 - Name Authority: Suggest standard name formats
 - Relationship Suggestions: AI-assisted relationship detection from notes
+- **Estimated Effort:** 15-20 hours
 
-**Phase 9: Performance & Scalability** (Future - Medium Priority)
+**Phase 9: Performance & Scalability**
 - Indexed Search: Full-text search across all fields
 - Large Database Optimization: Handle 10,000+ people efficiently
 - Lazy Loading: Load views progressively for large datasets
 - Background Processing: Import/export in background threads
+- **Estimated Effort:** 20-30 hours
 
-**Phase 9: Batch Operations** (Future - Low Priority)
-- Bulk edit: Change place names, standardize dates
-- Bulk delete operations
-- Comprehensive bulk privacy settings
+---
 
-**Phase 8: Advanced UX** (Future - Low Priority)
+### 📋 Future Releases - Low Priority (v1.7+)
+
+**Phase 9: Batch Operations** (Partially Complete)
+- ✅ Bulk mark as living (Completed in v1.2)
+- ⏳ Bulk edit: Change place names, standardize dates
+- ⏳ Bulk delete operations
+- ⏳ Comprehensive bulk privacy settings
+- **Estimated Effort:** 10-15 hours
+
+**Phase 8: Advanced UX**
 - Undo/Redo functionality (complex but valuable)
+- Command history tracking
+- Edit reversal for person changes, deletions, relationship modifications
+- **Estimated Effort:** 25-30 hours
 
-**Phase 7: Collaboration** (Future - Low Priority)
+**Phase 7: Collaboration & Sharing**
 1. GEDCOM Merge with conflict resolution
-2. Change Tracking (audit log)
-3. Advanced Privacy Features
+2. Change Tracking (audit log of all edits)
+3. Advanced Privacy Features (privacy flags, automatic protection)
+4. Collaborative Editing (lock mechanism)
+- **Estimated Effort:** 30-40 hours
 
-**Phase 9: Integration** (Future - Low Priority)
+**Phase 9: Integration**
 - Online Search Integration: Quick links to Ancestry, FamilySearch, etc.
 - Census Data Import: Import from online census records
 - DNA Integration: Link to DNA test results (23andMe, Ancestry DNA)
 - Calendar Integration: Export birthdays/anniversaries to calendar
+- **Estimated Effort:** 25-35 hours
 
-**Phase 5: Gramps Import Advanced Features** (Future - When Needed)
+---
+
+### 📋 Deferred Features (v2.0+)
+
+**Phase 5: Gramps Import Advanced Features** (When Needed)
 - Import source citations from Gramps
 - Import full event system data from Gramps
 - Import research logs from Gramps
 - Note: Pending investigation of Gramps data availability
 
-**Long Term (Ambitious - Future)**
-1. Mobile/Web Versions (Phase 10)
-2. Cloud Sync (Phase 10)
-3. AI-Assisted Features (Phase 8/9)
-4. DNA Integration (Phase 9)
-5. Data Migration Tools (Phase 9)
+**Phase 10: Mobile & Web Platforms** (Ambitious)
+- iOS/Android companion apps (read-only database view)
+- Web version with browser-based interface
+- Progressive Web App (offline-capable)
+- **Estimated Effort:** 100+ hours
+
+**Phase 10: Cloud Sync** (Optional)
+- Optional cloud backup (user's cloud storage)
+- Multi-device sync capabilities
+- Collaboration server (self-hosted for families)
+- **Estimated Effort:** 80+ hours
+
+**Phase 8: Advanced Map Features** (v1.6+)
+- Historical map overlays (borders as they were in different eras)
+- 3D terrain view
+- Street view integration
+- Weather data at events
+- Travel time estimates between locations
+- Export map as image (PNG, PDF)
+- **Estimated Effort:** 20-30 hours
+
+**Advanced AI-Assisted Features** (Future)
+- Automatic relationship detection from notes
+- Smart data entry predictions
+- Duplicate detection using ML
+- Record matching with online databases
+- **Estimated Effort:** 50+ hours
 
 ---
 
@@ -767,4 +852,4 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 
 ---
 
-*Last Updated: January 29, 2026 - v1.4.0 Released*
+*Last Updated: January 30, 2026 - v1.5.0 Map Features Released*
