@@ -31,6 +31,14 @@ type MapView struct {
 	zoomLevel int
 	mapCanvas *fyne.Container
 
+	// View mode and filters (Phase 5)
+	viewMode          string // "person", "all", "descendants", "ancestors"
+	filterSurname     string
+	filterStartYear   int
+	filterEndYear     int
+	filterLiving      string // "all", "living", "deceased"
+	colorByGeneration bool
+
 	// Marker filtering
 	showBirths    bool
 	showDeaths    bool
@@ -38,28 +46,39 @@ type MapView struct {
 	markers       []*MapMarker
 
 	// UI components
-	content       *fyne.Container
-	controlPanel  *fyne.Container
-	zoomInBtn     *widget.Button
-	zoomOutBtn    *widget.Button
-	zoomLabel     *widget.Label
-	statusLabel   *widget.Label
-	loadingLabel  *widget.Label
+	content         *fyne.Container
+	controlPanel    *fyne.Container
+	zoomInBtn       *widget.Button
+	zoomOutBtn      *widget.Button
+	zoomLabel       *widget.Label
+	statusLabel     *widget.Label
+	loadingLabel    *widget.Label
+	viewModeSelect  *widget.Select
+	surnameEntry    *widget.Entry
+	startYearEntry  *widget.Entry
+	endYearEntry    *widget.Entry
+	livingSelect    *widget.Select
+	generationCheck *widget.Check
 }
 
 // NewMapView creates a new map view window.
 func NewMapView(s *store.Store, w fyne.Window, onNavigate func(personID int64)) *MapView {
 	mv := &MapView{
-		store:          s,
-		window:         w,
-		onNavigate:     onNavigate,
-		tileDownloader: NewTileDownloader(),
-		centerLat:      40.0, // Default center (approximate US center)
-		centerLon:      -95.0,
-		zoomLevel:      4, // Country-level view
-		showBirths:     true,
-		showDeaths:     true,
-		showMarriages:  true,
+		store:             s,
+		window:            w,
+		onNavigate:        onNavigate,
+		tileDownloader:    NewTileDownloader(),
+		centerLat:         40.0, // Default center (approximate US center)
+		centerLon:         -95.0,
+		zoomLevel:         4, // Country-level view
+		showBirths:        true,
+		showDeaths:        true,
+		showMarriages:     true,
+		viewMode:          "person", // Default to person-specific view
+		filterLiving:      "all",    // Show all by default
+		filterStartYear:   0,        // No date filter by default
+		filterEndYear:     0,
+		colorByGeneration: false, // Off by default
 	}
 	mv.ExtendBaseWidget(mv)
 	return mv
