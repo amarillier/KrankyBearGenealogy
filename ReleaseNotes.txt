@@ -1,6 +1,6 @@
 KrankyBear Genealogy - Release Notes
 
-1.4.0 - January 29, 2026
+1.4.0 - January 30, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━
 HTML Export & Complete Website Generation (Phase 11)
 

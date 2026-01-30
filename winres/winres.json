@@ -2,7 +2,7 @@
   "RT_GROUP_ICON": {
     "APP": {
       "0000": [
-        "../Resources/Images/KrankyBearGenealogy.png",
+        "../Resources/Images/KrankyBearGenealogy256.png",
         "../Resources/Images/KrankyBearGenealogy64.png"
       ]
     }
