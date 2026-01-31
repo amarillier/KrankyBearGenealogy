@@ -56,11 +56,11 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 
 ### Other Import Formats (Low Priority / Not Needed)
-- Most applications (Family Tree Maker, Ancestry.com, MyHeritage, etc.) export to GEDCOM
-- Our robust GEDCOM import handles these already
-- Only implemented GenoPro and Gramps because they have unique benefits:
-  - GenoPro: Proprietary XML format users may not know how to export
-  - Gramps: SQLite database preserves more structure and notes
+- ⏳ Most applications (Family Tree Maker, Ancestry.com, MyHeritage, etc.) export to GEDCOM
+- ✅ Our robust GEDCOM import handles these already
+- ✅ Only implemented GenoPro and Gramps because they have unique benefits:
+  - ✅ GenoPro: Proprietary XML format users may not know how to export
+  - ✅ Gramps: SQLite database preserves more structure and notes
 
 ---
 
@@ -136,16 +136,17 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 ---
 
 ## Phase 5: Gramps Import Advanced Features (Future)##
-- Source citations
-- Full event system
-- Research logs
+- ✅ We have equivalent features, but not currently Gramps import
+- ⏳ Source citations
+- ⏳ Full event system
+- ⏳ Research logs
 
 ### Advanced Media Features (Future)
-- Face tagging (link faces in photos to people)
-- Photo timeline view
-- Automatic photo organization by date/person
-- Batch photo import with metadata parsing
-- Video thumbnails from first frame
+- ⏳ Face tagging (link faces in photos to people)
+- ⏳ Photo timeline view
+- ⏳ Automatic photo organization by date/person
+- ⏳ Batch photo import with metadata parsing
+- ⏳ Video thumbnails from first frame
 
 ### Document & Video Support (Not Completed Parts)
 - ⏳ Document scanning integration (Future)
@@ -163,11 +164,11 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Bookmarked People report for quick access to starred individuals
   - ✅ Keyboard shortcut (Cmd/Ctrl+W) for toggling bookmarks
   - ✅ Visual indicators (★) throughout the application:
-    - Main people list (left panel)
-    - Family View (all people displayed)
-    - Pedigree View (all ancestors)
-    - Individual View (table listing)
-    - All reports and dialogs
+    - ✅ Main people list (left panel)
+    - ✅ Family View (all people displayed)
+    - ✅ Pedigree View (all ancestors)
+    - ✅ Individual View (table listing)
+    - ✅ All reports and dialogs
 - ✅ **Research To-Do List**: Per-person research task tracking
   - ✅ Create, edit, delete todo items for each person
   - ✅ Priority levels (low/medium/high) with color coding (🟢🟡🔴)
@@ -202,41 +203,52 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ "Recent Research Activity" report
   - ✅ Access via Family View ("🔍 Research Log" button)
   - ✅ Never duplicate your research efforts
-- **Research Notes and Tools**: Separate from person notes, track research progress
-- **Date Calculator**: Calculate time spans between dates (similar to PAF)
-  - Start date and end date (calendar picker or manual entry)
-  - Display years, months, and days elapsed
-  - Useful for: calculating ages at events, time between births/deaths, validating timelines
-  - Access via Tools menu
-  - Estimated effort: 1-2 hours
-- **Mapping**: Map capability to use APIs and draw a map with markers indicating people locations?
+- ✅ **Research Notes and Tools**: Project-wide research tracking
+  - ✅ **Project Notes / Scratchpad** (v1.5.1): Database-backed notes for overall project
+  - ✅ **People with Research Logs Report** (v1.5.1): See all people with research documentation
+  - ✅ Complete research workflow (to-dos, logs, reports, project notes)
+- **✅ Date Calculator**: Calculate time spans between dates (similar to PAF)
+  - ✅ Start date and end date (calendar picker or manual entry)
+  - ✅ Display years, months, and days elapsed
+  - ✅ Useful for: calculating ages at events, time between births/deaths, validating timelines
+  - ✅ Access via Tools menu
+- **✅ Mapping**: Map capability to use APIs and draw a map with markers indicating people locations
 - ✅ **Independent Relationship Calculator** (✓ Completed in v1.1 - calculate relationships between any two people with common ancestor detection) 
 
 ### Data Quality Tools
-- **Standardization Helper**: Suggest standard place names
-- **Date Format Validator**: Ensure consistent date formats
-- **Relationship Validator**: Check for impossible relationships
-- **Name Variations**: Track alternate spellings/names
+- **⏳ Standardization Helper**: Suggest standard place names
+- **⏳ Date Format Validator**: Ensure consistent date formats
+- **⏳ Relationship Validator**: Check for impossible relationships
+- **⏳ Name Variations**: Track alternate spellings/names
 
 ---
 
 ## 🤝 Phase 7: Collaboration & Sharing
 
 ### Sharing Features
-- **Selective Branch Export**: Already implemented ✅
-- **Change Tracking**: Audit log of all edits (who, when, what)
-- **GEDCOM Merge**: Import another GEDCOM and resolve conflicts
-  - Side-by-side comparison
-  - Manual conflict resolution
-  - Smart duplicate detection
-- **Collaborative Editing**: Lock mechanism for multi-user scenarios
-- **Family Website Generator**: Create static HTML site from database
+- **✅ Selective Branch Export**: Already implemented
+- **⏳ Change Tracking**: Audit log of all edits (who, when, what)
+- **⏳ GEDCOM Merge**: Import another GEDCOM and resolve conflicts
+  - ⏳ Side-by-side comparison
+  - ⏳ Manual conflict resolution
+  - ⏳ Smart duplicate detection
+- **⏳ Collaborative Editing**: Lock mechanism for multi-user scenarios
+- ✅ **Family Website Generator** (v1.4.0): Complete multi-page static HTML website from database
+  - ✅ Individual person pages with photos and relationships
+  - ✅ Places index page (geographic organization)
+  - ✅ Timeline page (chronological events)
+  - ✅ Statistics dashboard with charts
+  - ✅ Sources page (organized by type)
+  - ✅ JavaScript search (real-time client-side)
+  - ✅ Privacy controls (hide/limit living people)
+  - ✅ Photo & media embedding (Base64)
+  - ✅ Responsive design with modern CSS
 
 ### Privacy & Security
-- **Privacy Flags**: Mark people as private (exclude from exports/reports)
-- **Living People Protection**: Auto-mark as private if born < 100 years ago
-- **Password Protection**: Optional database encryption
-- **Selective Export**: Export with privacy filters applied
+- **⏳ Privacy Flags**: Mark people as private (exclude from exports/reports)
+- **⏳ Living People Protection**: Auto-mark as private if born < 100 years ago
+- **⏳ Password Protection**: Optional database encryption
+- **⏳ Selective Export**: Export with privacy filters applied
 
 ---
 
@@ -314,29 +326,39 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Dynamic bidirectional synchronization
   - ✅ Context menus
 - ✅ **Timeline View**: Horizontal timeline of person's life events (Completed in v1.4.0)
-- **Map View** (Future): Geographic visualization of life events
+- ✅ **Map View** (v1.5.0 & v1.5.1): Geographic visualization of life events - COMPLETE
+  - ✅ OpenStreetMap integration with interactive markers
+  - ✅ Multi-person views (Person, All People, Descendants, Ancestors)
+  - ✅ Advanced filtering (surname, date range, living status)
+  - ✅ Generation-based color coding
+  - ✅ Geocoding system with database caching
+  - ✅ Geographic statistics and analysis reports
+  - ✅ Migration distance calculations
+  - ✅ 18 zoom levels with auto-centering
+  - ✅ Marker statistics display
+  - ⏳ Future enhancements: Migration paths, timeline slider, heat maps (Phase 7)
 
 ### Data Entry Helpers (Future)
-- **Smart Date Entry**: Parse "May 1945", "1945", "abt 1945", etc.
-- **Place Autocomplete**: Suggest standard place names as you type
-- **Name Authority**: Suggest standard name formats
-- **Relationship Suggestions**: AI-assisted relationship detection from notes
+- **⏳ Smart Date Entry**: Parse "May 1945", "1945", "abt 1945", etc.
+- **⏳ Place Autocomplete**: Suggest standard place names as you type
+- **⏳ Name Authority**: Suggest standard name formats
+- **⏳ Relationship Suggestions**: AI-assisted relationship detection from notes
 
 ---
 
 ## 🔧 Phase 9: Advanced Features
 
 ### Performance & Scalability (Future)
-- **Indexed Search**: Full-text search across all fields
-- **Large Database Optimization**: Handle 10,000+ people efficiently
-- **Lazy Loading**: Load views progressively for large datasets
-- **Background Processing**: Import/export in background threads
+- **⏳ Indexed Search**: Full-text search across all fields
+- **⏳ Large Database Optimization**: Handle 10,000+ people efficiently
+- **⏳ Lazy Loading**: Load views progressively for large datasets
+- **⏳ Background Processing**: Import/export in background threads
 
 ### Integration (Future)
-- **Online Search Integration**: Quick links to Ancestry, FamilySearch, etc.
-- **Census Data Import**: Import from online census records
-- **DNA Integration**: Link to DNA test results (23andMe, Ancestry DNA)
-- **Calendar Integration**: Export birthdays/anniversaries to calendar
+- **⏳ Online Search Integration**: Quick links to Ancestry, FamilySearch, etc.
+- **⏳ Census Data Import**: Import from online census records
+- **⏳ DNA Integration**: Link to DNA test results (23andMe, Ancestry DNA)
+- **⏳ Calendar Integration**: Export birthdays/anniversaries to calendar
 
 ### Data Management
 - ✅ **Database Maintenance** (✓ Completed in v1.2): 
@@ -348,21 +370,21 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Compact database and reclaim space
 - **Batch Operations** (Partially Complete): 
   - ✅ Bulk mark as living (Completed in v1.2)
-  - Bulk edit (change place names, standardize dates)
-  - Bulk delete
-  - Bulk privacy settings (comprehensive)
-- **Data Migration Tools**: Convert between different schemas/versions
+  - ⏳ Bulk edit (change place names, standardize dates)
+  - ⏳ Bulk delete
+  - ⏳ Bulk privacy settings (comprehensive)
+- **⏳ Data Migration Tools**: Convert between different schemas/versions
 
 ---
 
 ## 📱 Phase 10: Future Platforms (Deferred)
 
-### Mobile Apps (Ambitious - Future)
+### ⏳ Mobile Apps (Ambitious - Future)
 - **iOS/Android Apps**: Read-only view of database (sync via iCloud/Dropbox)
 - **Web Version**: Browser-based interface for viewing only
 - **Progressive Web App**: Offline-capable web version
 
-### Cloud Sync (Optional - Future)
+### ⏳ Cloud Sync (Optional - Future)
 - **Optional Cloud Backup**: Auto-backup to user's cloud storage
 - **Multi-Device Sync**: Keep databases in sync across devices
 - **Collaboration Server**: Optional self-hosted server for family collaboration
@@ -382,7 +404,7 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 - ✅ JavaScript real-time search (client-side)
 - ✅ Photo & media embedding with base64 encoding
 
-### Customizable Report Templates (Optional/Low Priority - Future)
+### ⏳ Customizable Report Templates (Optional/Low Priority - Future)
 - Custom report templates with user-defined layouts
 - Template editor UI
 - Save/load template files
@@ -428,13 +450,13 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 ### ✅ Current Release (v1.4.0)
 
-**Phase 11 - HTML Export & Website Generation** ⭐ (✓ Completed)
+**✅ Phase 11 - HTML Export & Website Generation** ⭐ (✓ Completed)
 
 See detailed release notes in ReleaseNotes.txt for complete feature list and usage instructions.
 
 ### ⏳ Previous Releases
 
-**v1.3 - Phase 8 & 9** ⭐ (✓ Completed)
+**✅ v1.3 - Phase 8 & 9** ⭐ (✓ Completed)
 - **Phase 8 - UX Enhancements** (Advanced Search, Enhanced Pedigree, Fan Chart, Context Menus, Descendant Chart)
 - **Phase 9 - Professional Reports & Export Tools** (Date Calculator, Saved Searches, Chart Exports)
 
@@ -724,26 +746,48 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 
 **Actual Effort:** ~8-10 hours (including debugging and polish)
 
-**Extended Features (v1.5.1 follow-up):**
-5. ⏳ **Multi-Person & Family Views** (Phase 5)
-   - All people mode with filters (date range, surname, living/deceased)
-   - Descendants/Ancestors mode with migration patterns
-   - Branch/surname distribution visualization
-   - Heat map overlay (density of events)
-   - Color-coding by generation
+**Extended Features (v1.5.1 - Released January 31, 2026):**
+5. ✅ **Multi-Person & Family Views** (Phase 5) - COMPLETE
+   - ✅ All people mode with comprehensive filtering system
+   - ✅ Descendants/Ancestors mode showing family expansion/origins
+   - ✅ Surname filter for branch-specific visualization
+   - ✅ Date range filter (from/to years) for temporal analysis
+   - ✅ Living/Deceased status filter
+   - ✅ Color-coding by generation (blue→green→red gradient)
+   - ✅ Real-time marker statistics display (Births/Deaths/Marriages)
+   - ✅ Enhanced UI with two-row control panel
+   - ✅ Apply Filters button for explicit control
+   - ✅ Smart filtering of unknown/placeholder place names
+   - ⏳ Heat map overlay (deferred to Phase 7)
 
-6. ⏳ **Geographic Reports & Analysis** (Phase 6)
-   - Geographic statistics (most common locations, migration distances)
-   - Migration Distance Report (people by travel distance)
-   - Geographic Hotspots Report
-   - Cross-Border Families Report
-   - Integration with Statistics Dashboard
+6. ✅ **Geographic Reports & Analysis** (Phase 6) - COMPLETE
+   - ✅ Geographic statistics in Statistics Dashboard
+   - ✅ Migration Distance Report with Haversine calculations
+   - ✅ Geographic Hotspots Report (top countries/states/cities)
+   - ✅ Cross-Border Families Report (multi-country events)
+   - ✅ Unmapped Places Report (geocoding gaps)
+   - ✅ New "Geographic Reports" submenu in Reports menu
+   - ✅ Distance displayed in kilometers and miles
+   - ✅ Birth/death place statistics with percentages
 
-**Estimated Effort:** 18-23 hours (2-3 days)
+**Actual Effort (Phases 5 & 6):** ~10-12 hours
 
 ---
 
 ### 📋 Future Releases - Medium Priority (v1.6+)
+
+**Phase 7: Advanced Map Features** (Future Polish & Enhancements)
+- ⏳ Migration paths: Draw lines connecting life events chronologically
+- ⏳ Timeline slider: Show where person was at different ages
+- ⏳ Additional access points: Right-click context menus in all views
+- ⏳ Animated paths: Trace journey over time with animation
+- ⏳ Age display at each location marker
+- ⏳ Heat map overlay: Density visualization of family events
+- ⏳ Measure tool: Calculate distances between any two locations
+- ⏳ Export map as image (PNG, PDF) with legend
+- ⏳ Historical map overlays: Show borders as they were in different eras
+- ⏳ Street view integration: Link to Google Street View for precise locations
+- **Estimated Effort:** 20-30 hours (multiple releases)
 
 **Phase 8: Data Entry Helpers**
 - Smart Date Entry: Parse "May 1945", "1945", "abt 1945", etc.
@@ -852,4 +896,4 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 
 ---
 
-*Last Updated: January 30, 2026 - v1.5.0 Map Features Released*
+*Last Updated: January 31, 2026 - v1.5.1 Enhanced Map Features & Geographic Analysis Released*

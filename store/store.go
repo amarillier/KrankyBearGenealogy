@@ -260,6 +260,12 @@ func (s *Store) InitSchema() error {
         );`,
 		`CREATE INDEX IF NOT EXISTS idx_place_geocodes_name ON place_geocodes(place_name);`,
 		`CREATE INDEX IF NOT EXISTS idx_place_geocodes_status ON place_geocodes(geocode_status);`,
+		`CREATE TABLE IF NOT EXISTS project_notes (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            notes TEXT DEFAULT '',
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );`,
+		`INSERT OR IGNORE INTO project_notes (id, notes) VALUES (1, '');`,
 	}
 
 	tx, err := s.DB.Begin()
@@ -2915,5 +2921,25 @@ func (s *Store) UpdateSavedSearch(id int64, name string, criteriaJSON string) er
 // DeleteSavedSearch deletes a saved search
 func (s *Store) DeleteSavedSearch(id int64) error {
 	_, err := s.DB.Exec(`DELETE FROM saved_searches WHERE id = ?`, id)
+	return err
+}
+
+// GetProjectNotes retrieves the project-wide notes
+func (s *Store) GetProjectNotes() (string, error) {
+	var notes string
+	err := s.DB.QueryRow(`SELECT notes FROM project_notes WHERE id = 1`).Scan(&notes)
+	if err != nil {
+		return "", err
+	}
+	return notes, nil
+}
+
+// SaveProjectNotes saves the project-wide notes
+func (s *Store) SaveProjectNotes(notes string) error {
+	_, err := s.DB.Exec(`
+		UPDATE project_notes 
+		SET notes = ?, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = 1
+	`, notes)
 	return err
 }

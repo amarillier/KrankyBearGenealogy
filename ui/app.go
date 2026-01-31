@@ -1181,6 +1181,23 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		showGeographicDistributionReport(w, getStore(), navigateToPerson)
 	})
 
+	// Phase 6 Geographic Reports
+	migrationDistanceReport := fyne.NewMenuItem("Migration Distance", func() {
+		showMigrationDistanceReport(w, getStore(), navigateToPerson)
+	})
+
+	geoHotspotsReport := fyne.NewMenuItem("Geographic Hotspots", func() {
+		showGeographicHotspotsReport(w, getStore(), navigateToPerson)
+	})
+
+	crossBorderReport := fyne.NewMenuItem("Cross-Border Families", func() {
+		showCrossBorderFamiliesReport(w, getStore(), navigateToPerson)
+	})
+
+	unmappedPlacesReport := fyne.NewMenuItem("Unmapped Places", func() {
+		showUnmappedPlacesReport(w, getStore())
+	})
+
 	fanChartView := fyne.NewMenuItem("Fan Chart...", func() {
 		showFanChartDialog(w, getStore(), getCurrentPersonID(), navigateToPerson)
 	})
@@ -1223,6 +1240,10 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 
 	recentResearchReport := fyne.NewMenuItem("Recent Research Activity", func() {
 		showRecentResearchReport(w, getStore())
+	})
+
+	peopleWithLogsReport := fyne.NewMenuItem("People with Research Logs", func() {
+		showPeopleWithResearchLogsReport(w, getStore(), navigateToPerson)
 	})
 
 	advancedSearch := fyne.NewMenuItem("Advanced Search...", func() {
@@ -1318,6 +1339,10 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		showDateCalculatorDialog(w)
 	})
 
+	projectNotes := fyne.NewMenuItem("Project Notes...", func() {
+		showProjectNotesDialog(w, getStore())
+	})
+
 	// System tray menu with proper submenus using ChildMenu
 	// Create File submenu
 	fileSubMenu := fyne.NewMenu("File",
@@ -1351,6 +1376,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		allTodosReport,
 		bookmarkedPeopleReport,
 		completedTodosReport,
+		peopleWithLogsReport,
 		recentPeopleReport,
 		recentResearchReport,
 		fyne.NewMenuItemSeparator(),
@@ -1372,7 +1398,13 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		// Chart Views (alphabetical)
 		descendantChartView,
 		fanChartView,
+		fyne.NewMenuItemSeparator(),
+		// Geographic Reports (alphabetical)
+		crossBorderReport,
 		geographicReport,
+		geoHotspotsReport,
+		migrationDistanceReport,
+		unmappedPlacesReport,
 		fyne.NewMenuItemSeparator(),
 		// Actions (alphabetical)
 		massMarkLivingReport,
@@ -1407,7 +1439,9 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		geocodingTool,
 		dateCalculator,
 		globalSearchReplace,
-		nameCaseConversion)
+		nameCaseConversion,
+		fyne.NewMenuItemSeparator(),
+		projectNotes)
 	toolsMenuItem := fyne.NewMenuItem("Tools", nil)
 	toolsMenuItem.ChildMenu = toolsSubMenu
 
@@ -1430,13 +1464,14 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		backup, restore, maintenance, fyne.NewMenuItemSeparator(),
 		importGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(), quit)
 	mediaMenu := fyne.NewMenu("Media", mediaLibraryMenuItem, addMediaMenuItem, fyne.NewMenuItemSeparator(), sourcesLibraryMenuItem, researchLogMenuItem)
-	toolsMenu := fyne.NewMenu("Tools", geocodingTool, dateCalculator, globalSearchReplace, nameCaseConversion)
+	toolsMenu := fyne.NewMenu("Tools", geocodingTool, dateCalculator, globalSearchReplace, nameCaseConversion, 
+		fyne.NewMenuItemSeparator(), projectNotes)
 	reportsMenu := fyne.NewMenu("Reports",
 		// Utilities (alphabetical)
 		advancedSearch, relationshipCalc, statistics,
 		fyne.NewMenuItemSeparator(),
 		// List Reports (alphabetical)
-		allTodosReport, bookmarkedPeopleReport, completedTodosReport, recentPeopleReport, recentResearchReport,
+		allTodosReport, bookmarkedPeopleReport, completedTodosReport, peopleWithLogsReport, recentPeopleReport, recentResearchReport,
 		fyne.NewMenuItemSeparator(),
 		// Data Quality Reports (alphabetical)
 		allSourcesReport, conflictsReport, dataQuality, duplicatesReport, livingStatus, unsourcedPeopleReport, wellDocumentedReport,
@@ -1445,7 +1480,10 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		ancestorReport, descendantReport, familyGroupReport, timelineReport,
 		fyne.NewMenuItemSeparator(),
 		// Chart Views (alphabetical)
-		descendantChartView, fanChartView, geographicReport, mapView,
+		descendantChartView, fanChartView, mapView,
+		fyne.NewMenuItemSeparator(),
+		// Geographic Reports (alphabetical)
+		crossBorderReport, geographicReport, geoHotspotsReport, migrationDistanceReport, unmappedPlacesReport,
 		fyne.NewMenuItemSeparator(),
 		// Actions (alphabetical)
 		massMarkLivingReport, reviewedItemsReport)
@@ -1489,6 +1527,9 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 		}),
 		fyne.NewMenuItem("Recent Research", func() {
 			showRecentResearchReport(w, s)
+		}),
+		fyne.NewMenuItem("People with Research Logs", func() {
+			showPeopleWithResearchLogsReport(w, s, navigateFunc)
 		}),
 	)
 	lists := fyne.NewMenuItem("Lists", nil)
@@ -1550,12 +1591,30 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 		fyne.NewMenuItem("Map View", func() {
 			showMapViewDialog(w, s, currentPersonID, navigateFunc)
 		}),
-		fyne.NewMenuItem("Geographic Distribution", func() {
-			showGeographicDistributionReport(w, s, navigateFunc)
-		}),
 	)
 	charts := fyne.NewMenuItem("Chart Views", nil)
 	charts.ChildMenu = chartsMenu
+
+	// Geographic Reports submenu (Phase 6)
+	geographicMenu := fyne.NewMenu("",
+		fyne.NewMenuItem("Geographic Distribution", func() {
+			showGeographicDistributionReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Geographic Hotspots", func() {
+			showGeographicHotspotsReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Migration Distance", func() {
+			showMigrationDistanceReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Cross-Border Families", func() {
+			showCrossBorderFamiliesReport(w, s, navigateFunc)
+		}),
+		fyne.NewMenuItem("Unmapped Places", func() {
+			showUnmappedPlacesReport(w, s)
+		}),
+	)
+	geographic := fyne.NewMenuItem("Geographic Reports", nil)
+	geographic.ChildMenu = geographicMenu
 	
 	// Export submenu
 	exportMenu := fyne.NewMenu("",
@@ -1603,6 +1662,7 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 		dataQuality,
 		individual,
 		charts,
+		geographic,
 		actions,
 	}
 	
@@ -1750,11 +1810,79 @@ func showToolsPopupMenu(w fyne.Window, s *store.Store) {
 		fyne.NewMenuItem("Name Case Conversion", func() {
 			showNameCaseConversionDialog(w, s)
 		}),
+		fyne.NewMenuItemSeparator(),
+		fyne.NewMenuItem("Project Notes", func() {
+			showProjectNotesDialog(w, s)
+		}),
 	}
 	
 	menu := fyne.NewMenu("", items...)
 	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
 	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
+}
+
+// showProjectNotesDialog shows a dialog for project-wide notes and scratchpad
+var projectNotesDialog fyne.Window
+
+func showProjectNotesDialog(parentWindow fyne.Window, s *store.Store) {
+	// Check if already open
+	if projectNotesDialog != nil {
+		projectNotesDialog.RequestFocus()
+		projectNotesDialog.Show()
+		return
+	}
+
+	// Load current notes
+	notes, err := s.GetProjectNotes()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load project notes: %w", err), parentWindow)
+		return
+	}
+
+	projectNotesDialog = fyne.CurrentApp().NewWindow("Project Notes")
+
+	// Create multi-line entry
+	notesEntry := widget.NewMultiLineEntry()
+	notesEntry.SetText(notes)
+	notesEntry.Wrapping = fyne.TextWrapWord
+	notesEntry.SetPlaceHolder("Enter project-wide notes, research goals, strategies, etc.\n\nThis is a scratchpad for general notes not tied to specific people.")
+
+	// Save button
+	saveBtn := widget.NewButton("Save", func() {
+		err := s.SaveProjectNotes(notesEntry.Text)
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Failed to save notes: %w", err), projectNotesDialog)
+			return
+		}
+		dialog.ShowInformation("Saved", "Project notes saved successfully.", projectNotesDialog)
+	})
+	saveBtn.Importance = widget.HighImportance
+
+	// Close button
+	closeBtn := widget.NewButton("Close", func() {
+		projectNotesDialog.Close()
+	})
+
+	// Info label
+	infoLabel := widget.NewLabel("💡 Use this space for project-wide notes, research goals, and general observations.")
+	infoLabel.Wrapping = fyne.TextWrapWord
+	infoLabel.TextStyle.Italic = true
+
+	// Layout
+	buttons := container.NewHBox(saveBtn, closeBtn)
+	content := container.NewBorder(
+		infoLabel,     // Top
+		buttons,       // Bottom
+		nil, nil,      // Left, Right
+		container.NewScroll(notesEntry), // Center
+	)
+
+	projectNotesDialog.SetContent(content)
+	projectNotesDialog.Resize(fyne.NewSize(700, 500))
+	projectNotesDialog.SetOnClosed(func() {
+		projectNotesDialog = nil
+	})
+	projectNotesDialog.Show()
 }
 
 // showSettingsPopupMenu shows a popup menu with settings options
@@ -2636,6 +2764,74 @@ func showStatisticsDashboard(w fyne.Window, s *store.Store) {
 	content.Add(timelineSection)
 	content.Add(widget.NewLabel(fmt.Sprintf("  Date Range: %s", dateRange)))
 	content.Add(widget.NewLabel(fmt.Sprintf("  Estimated Generations: ~%d", generationDepth)))
+	content.Add(widget.NewLabel(""))
+
+	// Geographic statistics (Phase 6)
+	geoSection := widget.NewLabelWithStyle("🗺️  Geographic Distribution", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(geoSection)
+
+	// Collect birth and death locations
+	birthCountries := make(map[string]int)
+	deathCountries := make(map[string]int)
+	birthCities := make(map[string]int)
+	deathCities := make(map[string]int)
+	peopleWithBirthPlace := 0
+	peopleWithDeathPlace := 0
+	peopleWithBothPlaces := 0
+
+	for _, p := range people {
+		birthPlace := strings.TrimSpace(p.BirthPlace)
+		if birthPlace != "" && !isUnknownPlace(birthPlace) {
+			peopleWithBirthPlace++
+			birthCities[birthPlace]++
+			// Extract country (last part after last comma)
+			parts := strings.Split(birthPlace, ",")
+			if len(parts) > 0 {
+				country := strings.TrimSpace(parts[len(parts)-1])
+				birthCountries[country]++
+			}
+		}
+
+		if !p.IsLiving {
+			deathPlace := strings.TrimSpace(p.DeathPlace)
+			if deathPlace != "" && !isUnknownPlace(deathPlace) {
+				peopleWithDeathPlace++
+				deathCities[deathPlace]++
+				// Extract country
+				parts := strings.Split(deathPlace, ",")
+				if len(parts) > 0 {
+					country := strings.TrimSpace(parts[len(parts)-1])
+					deathCountries[country]++
+				}
+
+				if birthPlace != "" && !isUnknownPlace(birthPlace) {
+					peopleWithBothPlaces++
+				}
+			}
+		}
+	}
+
+	content.Add(widget.NewLabel(fmt.Sprintf("  Birth Places Recorded: %d (%.1f%%)", 
+		peopleWithBirthPlace, float64(peopleWithBirthPlace)/float64(totalPeople)*100)))
+	content.Add(widget.NewLabel(fmt.Sprintf("  Death Places Recorded: %d (%.1f%%)", 
+		peopleWithDeathPlace, float64(deceased)*100)))
+	content.Add(widget.NewLabel(fmt.Sprintf("  Countries Represented (births): %d", len(birthCountries))))
+	content.Add(widget.NewLabel(fmt.Sprintf("  Unique Birth Locations: %d", len(birthCities))))
+	content.Add(widget.NewLabel(fmt.Sprintf("  Unique Death Locations: %d", len(deathCities))))
+
+	// Find most common birth country
+	maxBirthCountry := ""
+	maxBirthCount := 0
+	for country, count := range birthCountries {
+		if count > maxBirthCount {
+			maxBirthCount = count
+			maxBirthCountry = country
+		}
+	}
+	if maxBirthCountry != "" {
+		content.Add(widget.NewLabel(fmt.Sprintf("  Most Common Birth Country: %s (%d people)", 
+			maxBirthCountry, maxBirthCount)))
+	}
 
 	scroll := container.NewScroll(content)
 	scroll.SetMinSize(fyne.NewSize(600, 500))
@@ -11747,6 +11943,404 @@ func showLocationPeopleDialog(parentWindow fyne.Window, place string, eventType 
 
 	dialog.ShowCustom(fmt.Sprintf("%s in %s", eventType, place), "Close", scroll, parentWindow)
 }
+
+// Phase 6: Geographic Reports & Analysis
+
+// Migration Distance Report
+var migrationDistanceDialog fyne.Window
+
+func showMigrationDistanceReport(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
+	// Check if already open
+	if migrationDistanceDialog != nil {
+		migrationDistanceDialog.RequestFocus()
+		migrationDistanceDialog.Show()
+		return
+	}
+
+	people, err := s.GetPeople()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load people: %w", err), w)
+		return
+	}
+
+	// Calculate migration distances for each person
+	type migrationStat struct {
+		person   store.Person
+		distance float64
+		fromPlace string
+		toPlace   string
+	}
+
+	var migrations []migrationStat
+	for _, p := range people {
+		birthPlace := strings.TrimSpace(p.BirthPlace)
+		deathPlace := strings.TrimSpace(p.DeathPlace)
+
+		if birthPlace != "" && !isUnknownPlace(birthPlace) && 
+		   deathPlace != "" && !isUnknownPlace(deathPlace) && 
+		   !p.IsLiving {
+			// Get geocoded locations
+			birthCoords, err1 := s.GetPlaceGeocode(birthPlace)
+			deathCoords, err2 := s.GetPlaceGeocode(deathPlace)
+
+			if err1 == nil && err2 == nil {
+				// Calculate distance using Haversine formula
+				distance := haversineDistance(birthCoords.Latitude, birthCoords.Longitude,
+					deathCoords.Latitude, deathCoords.Longitude)
+
+				migrations = append(migrations, migrationStat{
+					person:   p,
+					distance: distance,
+					fromPlace: birthPlace,
+					toPlace:   deathPlace,
+				})
+			}
+		}
+	}
+
+	// Sort by distance (descending)
+	sort.Slice(migrations, func(i, j int) bool {
+		return migrations[i].distance > migrations[j].distance
+	})
+
+	// Build content
+	content := container.NewVBox()
+
+	title := widget.NewLabelWithStyle("🌍 Migration Distance Report",
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	content.Add(title)
+	content.Add(widget.NewSeparator())
+
+	if len(migrations) == 0 {
+		content.Add(widget.NewLabel("No migration data available (requires geocoded birth and death places)."))
+	} else {
+		// Summary statistics
+		totalDistance := 0.0
+		for _, m := range migrations {
+			totalDistance += m.distance
+		}
+		avgDistance := totalDistance / float64(len(migrations))
+
+		summary := widget.NewLabel(fmt.Sprintf(
+			"Found %d people with both birth and death locations geocoded\nAverage migration distance: %.0f km (%.0f miles)",
+			len(migrations), avgDistance, avgDistance*0.621371))
+		content.Add(summary)
+		content.Add(widget.NewSeparator())
+
+		// List migrations
+		for i, m := range migrations {
+			if i >= 100 { // Limit to top 100
+				content.Add(widget.NewLabel(fmt.Sprintf("... and %d more", len(migrations)-100)))
+				break
+			}
+
+			mCopy := m // Capture for closure
+
+			nameBtn := widget.NewButton(formatPersonName(m.person), func() {
+				navigateFunc(mCopy.person.ID)
+			})
+
+			distanceText := fmt.Sprintf("Distance: %.0f km (%.0f miles)",
+				m.distance, m.distance*0.621371)
+			routeText := fmt.Sprintf("From: %s\nTo: %s", m.fromPlace, m.toPlace)
+
+			migrationBox := container.NewVBox(
+				nameBtn,
+				widget.NewLabel(distanceText),
+				widget.NewLabel(routeText),
+			)
+			content.Add(migrationBox)
+			content.Add(widget.NewSeparator())
+		}
+	}
+
+	scroll := container.NewScroll(content)
+	scroll.SetMinSize(fyne.NewSize(600, 500))
+
+	migrationDistanceDialog = fyne.CurrentApp().NewWindow("Migration Distance Report")
+	migrationDistanceDialog.SetContent(scroll)
+	migrationDistanceDialog.Resize(fyne.NewSize(650, 600))
+	migrationDistanceDialog.SetOnClosed(func() {
+		migrationDistanceDialog = nil
+	})
+	migrationDistanceDialog.Show()
+}
+
+// haversineDistance calculates the distance between two lat/lon points in kilometers
+func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
+	const earthRadius = 6371.0 // km
+
+	// Convert to radians
+	lat1Rad := lat1 * math.Pi / 180
+	lat2Rad := lat2 * math.Pi / 180
+	deltaLat := (lat2 - lat1) * math.Pi / 180
+	deltaLon := (lon2 - lon1) * math.Pi / 180
+
+	a := math.Sin(deltaLat/2)*math.Sin(deltaLat/2) +
+		math.Cos(lat1Rad)*math.Cos(lat2Rad)*
+			math.Sin(deltaLon/2)*math.Sin(deltaLon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return earthRadius * c
+}
+
+// Geographic Hotspots Report
+var geoHotspotsDialog fyne.Window
+
+func showGeographicHotspotsReport(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
+	// Check if already open
+	if geoHotspotsDialog != nil {
+		geoHotspotsDialog.RequestFocus()
+		geoHotspotsDialog.Show()
+		return
+	}
+
+	people, err := s.GetPeople()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load people: %w", err), w)
+		return
+	}
+
+	// Count countries, states, and cities
+	countryCounts := make(map[string]int)
+	stateCounts := make(map[string]int)
+	cityCounts := make(map[string]int)
+
+	for _, p := range people {
+		// Process birth place
+		birthPlace := strings.TrimSpace(p.BirthPlace)
+		if birthPlace != "" && !isUnknownPlace(birthPlace) {
+			cityCounts[birthPlace]++
+
+			parts := strings.Split(birthPlace, ",")
+			if len(parts) >= 2 {
+				state := strings.TrimSpace(parts[len(parts)-2])
+				stateCounts[state]++
+			}
+			if len(parts) >= 1 {
+				country := strings.TrimSpace(parts[len(parts)-1])
+				countryCounts[country]++
+			}
+		}
+
+		// Process death place (if deceased)
+		if !p.IsLiving {
+			deathPlace := strings.TrimSpace(p.DeathPlace)
+			if deathPlace != "" && !isUnknownPlace(deathPlace) {
+				cityCounts[deathPlace]++
+
+				parts := strings.Split(deathPlace, ",")
+				if len(parts) >= 2 {
+					state := strings.TrimSpace(parts[len(parts)-2])
+					stateCounts[state]++
+				}
+				if len(parts) >= 1 {
+					country := strings.TrimSpace(parts[len(parts)-1])
+					countryCounts[country]++
+				}
+			}
+		}
+	}
+
+	// Sort by count
+	type placeStat struct {
+		name  string
+		count int
+	}
+
+	var countries, states, cities []placeStat
+	for name, count := range countryCounts {
+		countries = append(countries, placeStat{name, count})
+	}
+	for name, count := range stateCounts {
+		states = append(states, placeStat{name, count})
+	}
+	for name, count := range cityCounts {
+		cities = append(cities, placeStat{name, count})
+	}
+
+	sort.Slice(countries, func(i, j int) bool {
+		return countries[i].count > countries[j].count
+	})
+	sort.Slice(states, func(i, j int) bool {
+		return states[i].count > states[j].count
+	})
+	sort.Slice(cities, func(i, j int) bool {
+		return cities[i].count > cities[j].count
+	})
+
+	// Build content
+	content := container.NewVBox()
+
+	title := widget.NewLabelWithStyle("📍 Geographic Hotspots: Where is your family from?",
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	content.Add(title)
+	content.Add(widget.NewSeparator())
+
+	// Top Countries
+	countrySection := widget.NewLabelWithStyle("🌍 Top Countries:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(countrySection)
+	for i := 0; i < 10 && i < len(countries); i++ {
+		content.Add(widget.NewLabel(fmt.Sprintf("  %d. %s (%d events)", i+1, countries[i].name, countries[i].count)))
+	}
+	content.Add(widget.NewLabel(""))
+
+	// Top States/Provinces
+	stateSection := widget.NewLabelWithStyle("🏛️  Top States/Provinces:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(stateSection)
+	for i := 0; i < 10 && i < len(states); i++ {
+		content.Add(widget.NewLabel(fmt.Sprintf("  %d. %s (%d events)", i+1, states[i].name, states[i].count)))
+	}
+	content.Add(widget.NewLabel(""))
+
+	// Top Cities
+	citySection := widget.NewLabelWithStyle("🏙️  Top Cities:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(citySection)
+	for i := 0; i < 10 && i < len(cities); i++ {
+		content.Add(widget.NewLabel(fmt.Sprintf("  %d. %s (%d events)", i+1, cities[i].name, cities[i].count)))
+	}
+
+	scroll := container.NewScroll(content)
+	scroll.SetMinSize(fyne.NewSize(600, 500))
+
+	geoHotspotsDialog = fyne.CurrentApp().NewWindow("Geographic Hotspots")
+	geoHotspotsDialog.SetContent(scroll)
+	geoHotspotsDialog.Resize(fyne.NewSize(650, 600))
+	geoHotspotsDialog.SetOnClosed(func() {
+		geoHotspotsDialog = nil
+	})
+	geoHotspotsDialog.Show()
+}
+
+// Cross-Border Families Report
+var crossBorderDialog fyne.Window
+
+func showCrossBorderFamiliesReport(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
+	// Check if already open
+	if crossBorderDialog != nil {
+		crossBorderDialog.RequestFocus()
+		crossBorderDialog.Show()
+		return
+	}
+
+	people, err := s.GetPeople()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load people: %w", err), w)
+		return
+	}
+
+	// Find people with events in multiple countries
+	type crossBorderPerson struct {
+		person    store.Person
+		countries []string
+	}
+
+	var crossBorderFamilies []crossBorderPerson
+
+	for _, p := range people {
+		countriesSet := make(map[string]bool)
+
+		// Extract country from birth place
+		birthPlace := strings.TrimSpace(p.BirthPlace)
+		if birthPlace != "" && !isUnknownPlace(birthPlace) {
+			parts := strings.Split(birthPlace, ",")
+			if len(parts) >= 1 {
+				country := strings.TrimSpace(parts[len(parts)-1])
+				countriesSet[country] = true
+			}
+		}
+
+		// Extract country from death place
+		if !p.IsLiving {
+			deathPlace := strings.TrimSpace(p.DeathPlace)
+			if deathPlace != "" && !isUnknownPlace(deathPlace) {
+				parts := strings.Split(deathPlace, ",")
+				if len(parts) >= 1 {
+					country := strings.TrimSpace(parts[len(parts)-1])
+					countriesSet[country] = true
+				}
+			}
+		}
+
+		// Extract country from marriage places
+		rels, _ := s.GetRelationshipsForPerson(p.ID)
+		for _, rel := range rels {
+			if (rel.Type == "spouse" || rel.Type == "partner") && rel.MarriagePlace != "" && !isUnknownPlace(rel.MarriagePlace) {
+				parts := strings.Split(rel.MarriagePlace, ",")
+				if len(parts) >= 1 {
+					country := strings.TrimSpace(parts[len(parts)-1])
+					countriesSet[country] = true
+				}
+			}
+		}
+
+		// If person has events in multiple countries, add to list
+		if len(countriesSet) > 1 {
+			countries := make([]string, 0, len(countriesSet))
+			for country := range countriesSet {
+				countries = append(countries, country)
+			}
+			sort.Strings(countries)
+
+			crossBorderFamilies = append(crossBorderFamilies, crossBorderPerson{
+				person:    p,
+				countries: countries,
+			})
+		}
+	}
+
+	// Sort by number of countries (descending)
+	sort.Slice(crossBorderFamilies, func(i, j int) bool {
+		return len(crossBorderFamilies[i].countries) > len(crossBorderFamilies[j].countries)
+	})
+
+	// Build content
+	content := container.NewVBox()
+
+	title := widget.NewLabelWithStyle("🌐 Cross-Border Families",
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	content.Add(title)
+	content.Add(widget.NewSeparator())
+
+	if len(crossBorderFamilies) == 0 {
+		content.Add(widget.NewLabel("No people found with life events spanning multiple countries."))
+	} else {
+		summary := widget.NewLabel(fmt.Sprintf("Found %d people with events in multiple countries:",
+			len(crossBorderFamilies)))
+		content.Add(summary)
+		content.Add(widget.NewSeparator())
+
+		for _, cbp := range crossBorderFamilies {
+			cbpCopy := cbp // Capture for closure
+
+			nameBtn := widget.NewButton(formatPersonName(cbp.person), func() {
+				navigateFunc(cbpCopy.person.ID)
+			})
+
+			countriesText := fmt.Sprintf("Countries: %s", strings.Join(cbp.countries, ", "))
+
+			personBox := container.NewVBox(
+				nameBtn,
+				widget.NewLabel(countriesText),
+			)
+			content.Add(personBox)
+			content.Add(widget.NewSeparator())
+		}
+	}
+
+	scroll := container.NewScroll(content)
+	scroll.SetMinSize(fyne.NewSize(600, 500))
+
+	crossBorderDialog = fyne.CurrentApp().NewWindow("Cross-Border Families")
+	crossBorderDialog.SetContent(scroll)
+	crossBorderDialog.Resize(fyne.NewSize(650, 600))
+	crossBorderDialog.SetOnClosed(func() {
+		crossBorderDialog = nil
+	})
+	crossBorderDialog.Show()
+}
+
+// Note: showUnmappedPlacesReport is defined in geocoding_tool.go
 
 // Recent People Report
 var recentPeopleDialog fyne.Window

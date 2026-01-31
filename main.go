@@ -21,7 +21,7 @@ import (
 
 const (
 	// appName    = "KrankyBear Genealogy"
-	appVersion = "1.5.0" // see FyneApp.toml
+	appVersion = "1.5.1" // see FyneApp.toml
 	appAuthor  = "Allan Marillier"
 )
 

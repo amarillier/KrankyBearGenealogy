@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"image/color"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -23,13 +24,14 @@ const (
 
 // MapMarker represents a marker on the map for a life event.
 type MapMarker struct {
-	Type      MarkerType
-	Latitude  float64
-	Longitude float64
-	PersonID  int64
+	Type       MarkerType
+	Latitude   float64
+	Longitude  float64
+	PersonID   int64
 	PersonName string
-	EventDate string
-	Place     string
+	EventDate  string
+	Place      string
+	Generation int // Generation relative to reference person (0 = same, negative = ancestors, positive = descendants)
 	
 	// Additional info for marriages
 	SpouseID   int64
@@ -74,7 +76,19 @@ func GetMarkerStyle(markerType MarkerType) MarkerStyle {
 }
 
 // CreateMarkerWidget creates a clickable marker widget.
-func CreateMarkerWidget(marker *MapMarker, onClick func()) fyne.CanvasObject {
+func CreateMarkerWidget(marker *MapMarker, onClick func(), useGenerationColor bool) fyne.CanvasObject {
+	if useGenerationColor {
+		// Use generation-based color (Phase 5)
+		genColor := GetGenerationColor(marker.Generation)
+		circle := canvas.NewCircle(genColor)
+		circle.Resize(fyne.NewSize(20, 20))
+		
+		// Wrap in a tappable container
+		tappable := NewTappableContainer(circle, onClick, nil)
+		return tappable
+	}
+	
+	// Use default marker style (emoji)
 	style := GetMarkerStyle(marker.Type)
 	
 	// Create marker icon
@@ -96,8 +110,8 @@ func GetMarkersForPerson(s *store.Store, personID int64) ([]*MapMarker, error) {
 	
 	markers := []*MapMarker{}
 	
-	// Birth marker
-	if person.BirthPlace != "" {
+	// Birth marker - skip if place is empty or placeholder text
+	if person.BirthPlace != "" && !isUnknownPlace(person.BirthPlace) {
 		geocode, err := s.GetPlaceGeocode(person.BirthPlace)
 		if err == nil && geocode != nil && geocode.GeocodeStatus == "success" {
 			markers = append(markers, &MapMarker{
@@ -112,8 +126,8 @@ func GetMarkersForPerson(s *store.Store, personID int64) ([]*MapMarker, error) {
 		}
 	}
 	
-	// Death marker
-	if person.DeathPlace != "" {
+	// Death marker - skip if place is empty or placeholder text
+	if person.DeathPlace != "" && !isUnknownPlace(person.DeathPlace) {
 		geocode, err := s.GetPlaceGeocode(person.DeathPlace)
 		if err == nil && geocode != nil && geocode.GeocodeStatus == "success" {
 			markers = append(markers, &MapMarker{
@@ -141,9 +155,9 @@ func GetAllMarkers(s *store.Store) ([]*MapMarker, error) {
 		return nil, err
 	}
 	
-	// Collect birth markers
+	// Collect birth markers - skip unknown/placeholder places
 	for _, person := range people {
-		if person.BirthPlace != "" {
+		if person.BirthPlace != "" && !isUnknownPlace(person.BirthPlace) {
 			geocode, err := s.GetPlaceGeocode(person.BirthPlace)
 			if err == nil && geocode != nil && geocode.GeocodeStatus == "success" {
 				markers = append(markers, &MapMarker{
@@ -158,8 +172,8 @@ func GetAllMarkers(s *store.Store) ([]*MapMarker, error) {
 			}
 		}
 		
-		// Death markers
-		if person.DeathPlace != "" {
+		// Death markers - skip unknown/placeholder places
+		if person.DeathPlace != "" && !isUnknownPlace(person.DeathPlace) {
 			geocode, err := s.GetPlaceGeocode(person.DeathPlace)
 			if err == nil && geocode != nil && geocode.GeocodeStatus == "success" {
 				markers = append(markers, &MapMarker{
@@ -181,8 +195,9 @@ func GetAllMarkers(s *store.Store) ([]*MapMarker, error) {
 		return nil, err
 	}
 	
+	// Marriage markers - skip unknown/placeholder places
 	for _, rel := range relationships {
-		if rel.Type == "spouse" && rel.MarriagePlace != "" {
+		if rel.Type == "spouse" && rel.MarriagePlace != "" && !isUnknownPlace(rel.MarriagePlace) {
 			geocode, err := s.GetPlaceGeocode(rel.MarriagePlace)
 			if err == nil && geocode != nil && geocode.GeocodeStatus == "success" {
 				// Get person names
@@ -287,4 +302,200 @@ func CreateClusterWidget(cluster *MarkerCluster, onClick func()) fyne.CanvasObje
 		clusterBtn,
 		container.NewCenter(countLabel),
 	)
+}
+
+// GetMarkersForDescendants returns markers for all descendants of a person (Phase 5).
+func GetMarkersForDescendants(s *store.Store, personID int64) ([]*MapMarker, error) {
+	// Get all descendants recursively
+	descendantIDs := getDescendantIDs(s, personID, make(map[int64]bool))
+	
+	// Include the person themselves
+	descendantIDs[personID] = true
+	
+	// Collect markers for all descendants
+	markers := []*MapMarker{}
+	for id := range descendantIDs {
+		personMarkers, err := GetMarkersForPerson(s, id)
+		if err == nil {
+			markers = append(markers, personMarkers...)
+		}
+	}
+	
+	return markers, nil
+}
+
+// GetMarkersForAncestors returns markers for all ancestors of a person (Phase 5).
+func GetMarkersForAncestors(s *store.Store, personID int64) ([]*MapMarker, error) {
+	// Get all ancestors recursively
+	ancestorIDs := getAncestorIDs(s, personID, make(map[int64]bool))
+	
+	// Include the person themselves
+	ancestorIDs[personID] = true
+	
+	// Collect markers for all ancestors
+	markers := []*MapMarker{}
+	for id := range ancestorIDs {
+		personMarkers, err := GetMarkersForPerson(s, id)
+		if err == nil {
+			markers = append(markers, personMarkers...)
+		}
+	}
+	
+	return markers, nil
+}
+
+// getDescendantIDs recursively collects all descendant person IDs.
+func getDescendantIDs(s *store.Store, personID int64, visited map[int64]bool) map[int64]bool {
+	if visited[personID] {
+		return visited
+	}
+	visited[personID] = true
+	
+	// Get all children
+	children, err := s.GetRelatedPeople(personID, "child")
+	if err != nil {
+		return visited
+	}
+	
+	// Recursively get descendants of each child
+	for _, child := range children {
+		getDescendantIDs(s, child.ID, visited)
+	}
+	
+	return visited
+}
+
+// getAncestorIDs recursively collects all ancestor person IDs.
+func getAncestorIDs(s *store.Store, personID int64, visited map[int64]bool) map[int64]bool {
+	if visited[personID] {
+		return visited
+	}
+	visited[personID] = true
+	
+	// Get person's parents
+	parents, err := s.GetRelatedPeople(personID, "parent")
+	if err != nil {
+		return visited
+	}
+	
+	// Recursively get ancestors of each parent
+	for _, parent := range parents {
+		getAncestorIDs(s, parent.ID, visited)
+	}
+	
+	return visited
+}
+
+// CalculateGenerations calculates the generation for each marker relative to a reference person (Phase 5).
+func CalculateGenerations(s *store.Store, markers []*MapMarker, refPersonID int64) {
+	// Build generation map for all people
+	generationMap := make(map[int64]int)
+	generationMap[refPersonID] = 0
+	
+	// Calculate generations for descendants (positive numbers)
+	calculateDescendantGenerations(s, refPersonID, 0, generationMap)
+	
+	// Calculate generations for ancestors (negative numbers)
+	calculateAncestorGenerations(s, refPersonID, 0, generationMap)
+	
+	// Assign generations to markers
+	for _, marker := range markers {
+		if gen, ok := generationMap[marker.PersonID]; ok {
+			marker.Generation = gen
+		}
+	}
+}
+
+// calculateDescendantGenerations recursively assigns generation numbers to descendants.
+func calculateDescendantGenerations(s *store.Store, personID int64, currentGen int, generationMap map[int64]int) {
+	children, err := s.GetRelatedPeople(personID, "child")
+	if err != nil {
+		return
+	}
+	
+	for _, child := range children {
+		if _, exists := generationMap[child.ID]; !exists {
+			generationMap[child.ID] = currentGen + 1
+			calculateDescendantGenerations(s, child.ID, currentGen+1, generationMap)
+		}
+	}
+}
+
+// calculateAncestorGenerations recursively assigns generation numbers to ancestors.
+func calculateAncestorGenerations(s *store.Store, personID int64, currentGen int, generationMap map[int64]int) {
+	parents, err := s.GetRelatedPeople(personID, "parent")
+	if err != nil {
+		return
+	}
+	
+	// Process each parent
+	for _, parent := range parents {
+		if _, exists := generationMap[parent.ID]; !exists {
+			generationMap[parent.ID] = currentGen - 1
+			calculateAncestorGenerations(s, parent.ID, currentGen-1, generationMap)
+		}
+	}
+}
+
+// GetGenerationColor returns a color for a generation number (Phase 5).
+// Uses a gradient from blue (ancestors) through green (current) to red (descendants).
+func GetGenerationColor(generation int) color.Color {
+	// Clamp generation to reasonable range (-5 to +5)
+	if generation < -5 {
+		generation = -5
+	}
+	if generation > 5 {
+		generation = 5
+	}
+	
+	// Map generation to color gradient
+	// -5 to 0: blue to green
+	// 0 to +5: green to red
+	if generation < 0 {
+		// Ancestors: blue to green
+		ratio := float64(generation+5) / 5.0
+		return color.RGBA{
+			R: uint8(50 * ratio),
+			G: uint8(100 + 100*ratio),
+			B: uint8(255 - 155*ratio),
+			A: 255,
+		}
+	} else if generation == 0 {
+		// Current generation: bright green
+		return color.RGBA{R: 50, G: 200, B: 50, A: 255}
+	} else {
+		// Descendants: green to red
+		ratio := float64(generation) / 5.0
+		return color.RGBA{
+			R: uint8(50 + 205*ratio),
+			G: uint8(200 - 150*ratio),
+			B: uint8(50 * (1 - ratio)),
+			A: 255,
+		}
+	}
+}
+
+// isUnknownPlace checks if a place name is a placeholder for unknown location.
+func isUnknownPlace(place string) bool {
+	lowerPlace := strings.ToLower(strings.TrimSpace(place))
+	unknownPhrases := []string{
+		"unknown",
+		"not known",
+		"?",
+		"n/a",
+		"na",
+		"none",
+		"--",
+		"___",
+		"tbd",
+		"to be determined",
+	}
+	
+	for _, phrase := range unknownPhrases {
+		if lowerPlace == phrase {
+			return true
+		}
+	}
+	
+	return false
 }

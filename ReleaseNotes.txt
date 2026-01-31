@@ -1,5 +1,154 @@
 KrankyBear Genealogy - Release Notes
 
+1.5.1 - January 31, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Enhanced Map Features: Multi-Person Views & Geographic Analysis (Phases 5 & 6)
+Research Tools: Project Notes & Research Log Report
+
+Major Features:
+• Multi-Person Map Views (All People, Descendants, Ancestors)
+• Advanced Filtering (Surname, Date Range, Living Status)
+• Generation-Based Color Coding
+• Geographic Statistics Dashboard
+• Four New Geographic Analysis Reports
+• Migration Distance Calculations
+• Marker Statistics Display
+• Project Notes / Scratchpad
+• People with Research Logs Report
+
+🗺️ Advanced Map Views (Phase 5):
+  • Multi-person visualization modes:
+    - Person: Show only current person's life events (default)
+    - All People: Display all individuals in the database
+    - Descendants: Show all descendants of selected person
+    - Ancestors: Show all ancestors of selected person
+  • Powerful filtering system:
+    - Surname filter: Focus on specific family lines
+    - Date range filter: View events within specific years
+    - Living status filter: Show living, deceased, or all
+    - Filter combinations work together seamlessly
+  • Generation color-coding:
+    - Toggle "Color by Generation" to visualize family expansion
+    - Blue markers: Ancestors (older generations)
+    - Green markers: Current generation reference person
+    - Red markers: Descendants (younger generations)
+    - Gradient color scheme shows generational relationships
+  • Enhanced user interface:
+    - Two-row control panel for organized access
+    - Real-time marker statistics (Births: X | Deaths: Y | Marriages: Z)
+    - Larger filter input fields for better usability
+    - Event type checkboxes with center buttons
+    - Apply Filters button for explicit control
+  • Smart data handling:
+    - Filters unknown/placeholder place names automatically
+    - Efficient marker loading based on view mode
+    - Year extraction handles multiple date formats
+    - Recursive algorithms for ancestor/descendant traversal
+
+📊 Geographic Statistics & Reports (Phase 6):
+  • Enhanced Statistics Dashboard with new Geographic section:
+    - Birth places recorded (count and percentage)
+    - Death places recorded (count and percentage)
+    - Number of countries represented
+    - Unique birth and death locations count
+    - Most common birth country identified
+  
+  • Migration Distance Report 🌍:
+    - Calculates actual distance traveled (birth to death)
+    - Uses Haversine formula for accurate measurements
+    - Shows distances in both kilometers and miles
+    - Displays average migration distance across all people
+    - Sorts people by distance traveled (longest first)
+    - Shows complete route: From → To locations
+    - Limited to top 100 for performance
+  
+  • Geographic Hotspots Report 📍:
+    - Top 10 countries where family events occurred
+    - Top 10 states/provinces with event counts
+    - Top 10 cities with event counts
+    - Identifies geographic concentration of family
+    - Counts both birth and death events
+    - Helps identify ancestral homelands
+  
+  • Cross-Border Families Report 🌐:
+    - Identifies people with events spanning multiple countries
+    - Includes birth, death, and marriage locations
+    - Sorts by number of countries (most international first)
+    - Shows all countries for each person
+    - Reveals family migration patterns
+    - Highlights international connections
+  
+  • Unmapped Places Report 📍:
+    - Lists all places needing geocoding
+    - Shows total: mapped vs. unmapped places
+    - Direct link to Geocoding Tool
+    - Helps identify research gaps
+    - Ensures complete map coverage
+
+🛠️ Technical Improvements:
+  • Year extraction from multiple date formats:
+    - Handles "25 Jun 2015" format correctly
+    - Extracts 4-digit years from any position
+    - Validates year ranges (1000-3000)
+    - Graceful handling of unparseable dates
+  • Unknown place filtering:
+    - Detects common placeholder texts
+    - Prevents markers for "unknown", "?", "n/a", etc.
+    - Case-insensitive matching
+    - Improves map data quality
+  • Geographic calculations:
+    - Haversine distance formula implementation
+    - Earth radius constant for accuracy
+    - Radian conversions for trigonometry
+    - Kilometer to mile conversions
+  • Menu organization:
+    - New "Geographic Reports" submenu
+    - Alphabetically organized report lists
+    - Clear separation of report categories
+    - Accessible from main Reports menu
+
+📝 Research Tools & Organization:
+  • Project Notes / Scratchpad 📋:
+    - Project-wide notes and scratchpad
+    - Not tied to any specific person
+    - Perfect for overall research goals, strategies, and plans
+    - Auto-saves to database for persistence
+    - Accessible from Tools → "Project Notes"
+    - Keep all genealogy planning in one place
+    - Document research goals, DNA testing plans, trip notes
+  
+  • People with Research Logs Report 📑:
+    - New report listing all people with research documentation
+    - Shows count of research log entries per person
+    - Sorted by most documented (most research first)
+    - One-click navigation to person or research log
+    - "View Research Log" button for quick access
+    - Complements existing "All To-Dos" and "Recent Research" reports
+    - Find who you've researched and who needs attention
+    - Accessible from Reports → Lists → "People with Research Logs"
+
+🛠️ Research Workflow Improvements:
+  • Complete research tracking suite:
+    - ✅ Project Notes (project-wide scratchpad)
+    - ✅ Research Log (per-person documentation)
+    - ✅ To-Do Lists (pending research tasks)
+    - ✅ All To-Dos Report (see all pending tasks)
+    - ✅ Completed To-Dos Report (review finished work)
+    - ✅ Recent Research Activity (latest 50 entries)
+    - ✅ People with Research Logs (who's been researched)
+  • Never lose track of research progress
+  • Document sources, strategies, and findings
+  • Organize family history research efficiently
+
+📝 Notes for Future Enhancements (Phase 7):
+  • Migration paths: Lines connecting life events chronologically
+  • Timeline slider: Show person's location at different ages
+  • Heat map overlay: Density visualization of family events
+  • Additional access points: Right-click context menus
+  • Animated paths: Trace journeys over time
+  • Age display at each location
+
+
 1.5.0 - January 30, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━
 Interactive Map Visualization (Phase 12)

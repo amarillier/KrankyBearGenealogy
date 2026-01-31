@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"genealogy/store"
+	"sort"
 	"strings"
 	"time"
 
@@ -755,6 +756,93 @@ func showRecentResearchReport(parentWindow fyne.Window, s *store.Store) {
 
 	w.SetContent(scroll)
 	w.Resize(fyne.NewSize(800, 600))
+	w.Show()
+}
+
+// showPeopleWithResearchLogsReport shows all people who have research log entries.
+func showPeopleWithResearchLogsReport(parentWindow fyne.Window, s *store.Store, navigateFunc func(int64)) {
+	people, err := s.GetPeople()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load people: %w", err), parentWindow)
+		return
+	}
+
+	// Find people with research logs
+	type personWithLogs struct {
+		person   store.Person
+		logCount int
+	}
+
+	var peopleWithLogs []personWithLogs
+
+	for _, p := range people {
+		logs, err := s.GetResearchLogsForPerson(p.ID)
+		if err == nil && len(logs) > 0 {
+			peopleWithLogs = append(peopleWithLogs, personWithLogs{
+				person:   p,
+				logCount: len(logs),
+			})
+		}
+	}
+
+	// Sort by log count (most logs first)
+	sort.Slice(peopleWithLogs, func(i, j int) bool {
+		return peopleWithLogs[i].logCount > peopleWithLogs[j].logCount
+	})
+
+	w := fyne.CurrentApp().NewWindow("People with Research Logs")
+
+	content := container.NewVBox()
+
+	// Header
+	header := widget.NewLabelWithStyle(
+		fmt.Sprintf("People with Research Logs (%d people)", len(peopleWithLogs)),
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	content.Add(header)
+	content.Add(widget.NewSeparator())
+
+	if len(peopleWithLogs) == 0 {
+		content.Add(widget.NewLabel("No people have research log entries yet."))
+		content.Add(widget.NewLabel("Add research logs from individual person edit dialogs or Family View."))
+	} else {
+		summary := widget.NewLabel(fmt.Sprintf("Showing %d people with research documentation:", len(peopleWithLogs)))
+		content.Add(summary)
+		content.Add(widget.NewSeparator())
+
+		for _, pwl := range peopleWithLogs {
+			pwlCopy := pwl // Capture for closure
+
+			nameBtn := widget.NewButton(
+				formatPersonName(pwl.person),
+				func() {
+					navigateFunc(pwlCopy.person.ID)
+					w.Close()
+				})
+
+			logCountLabel := widget.NewLabel(fmt.Sprintf("    %d research log %s",
+				pwl.logCount,
+				map[bool]string{true: "entry", false: "entries"}[pwl.logCount == 1]))
+			logCountLabel.TextStyle.Italic = true
+
+			viewLogsBtn := widget.NewButton("View Research Log", func() {
+				showResearchLogForPerson(w, s, pwlCopy.person.ID, formatPersonName(pwlCopy.person))
+			})
+
+			personBox := container.NewVBox(
+				nameBtn,
+				logCountLabel,
+				viewLogsBtn,
+			)
+			content.Add(personBox)
+			content.Add(widget.NewSeparator())
+		}
+	}
+
+	scroll := container.NewVScroll(content)
+	scroll.SetMinSize(fyne.NewSize(600, 500))
+
+	w.SetContent(scroll)
+	w.Resize(fyne.NewSize(650, 600))
 	w.Show()
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -53,6 +54,7 @@ type MapView struct {
 	zoomLabel       *widget.Label
 	statusLabel     *widget.Label
 	loadingLabel    *widget.Label
+	markerStatsLabel *widget.Label
 	viewModeSelect  *widget.Select
 	surnameEntry    *widget.Entry
 	startYearEntry  *widget.Entry
@@ -95,8 +97,9 @@ func (mv *MapView) buildUI() {
 	// Map canvas - use NewWithoutLayout for absolute positioning
 	mv.loadingLabel = widget.NewLabel("Loading map tiles...")
 	bg := canvas.NewRectangle(color.RGBA{R: 200, G: 220, B: 240, A: 255})
-	bg.Resize(fyne.NewSize(800, 600))
+	bg.Resize(fyne.NewSize(900, 600))  // Wider to match window
 	mv.mapCanvas = container.NewWithoutLayout(bg, container.NewCenter(mv.loadingLabel))
+	mv.mapCanvas.Resize(fyne.NewSize(900, 600))  // Set explicit size
 
 	// Control panel
 	mv.buildControlPanel()
@@ -116,13 +119,18 @@ func (mv *MapView) buildUI() {
 	
 	statusBar := container.NewBorder(nil, nil, nil, nil, mv.statusLabel)
 
-	// Main layout - map canvas directly in center (fixed size, no scrolling for now)
+	// Wrap map canvas in a scroll container to enforce bounds/clipping
+	// This prevents map content from rendering outside its area
+	mapScroll := container.NewScroll(mv.mapCanvas)
+	mapScroll.SetMinSize(fyne.NewSize(900, 600))
+	
+	// Main layout - control panel clearly separated from map
 	mv.content = container.NewBorder(
-		mv.controlPanel,  // Top
-		statusBar,        // Bottom
+		mv.controlPanel,  // Top (controls)
+		statusBar,        // Bottom (status)
 		nil,              // Left
 		nil,              // Right
-		mv.mapCanvas,     // Center (fixed 800x600)
+		mapScroll,        // Center (map in scroll container for clipping)
 	)
 	
 	// Load initial tiles in background
@@ -195,6 +203,119 @@ func (mv *MapView) buildControlPanel() {
 		centerMarriageBtn,
 	)
 
+	// View mode selector (Phase 5) - wider for better visibility
+	mv.viewModeSelect = widget.NewSelect([]string{"Person", "All People", "Descendants", "Ancestors"}, func(value string) {
+		switch value {
+		case "Person":
+			mv.viewMode = "person"
+		case "All People":
+			mv.viewMode = "all"
+		case "Descendants":
+			mv.viewMode = "descendants"
+		case "Ancestors":
+			mv.viewMode = "ancestors"
+		}
+		// Force reload markers with new view mode
+		mv.markers = nil
+		mv.refreshMap()
+	})
+	mv.viewModeSelect.SetSelected("Person")
+
+	mv.generationCheck = widget.NewCheck("Color by Generation", func(checked bool) {
+		mv.colorByGeneration = checked
+		mv.refreshMap()
+	})
+
+	// Filter controls (Phase 5) - use form layout for proper sizing
+	mv.surnameEntry = widget.NewEntry()
+	mv.surnameEntry.SetPlaceHolder("Surname...")
+	mv.surnameEntry.OnChanged = func(value string) {
+		mv.filterSurname = value
+	}
+	mv.surnameEntry.OnSubmitted = func(value string) {
+		mv.filterSurname = value
+		mv.refreshMap()
+	}
+
+	mv.startYearEntry = widget.NewEntry()
+	mv.startYearEntry.SetPlaceHolder("From year")
+	mv.startYearEntry.OnSubmitted = func(value string) {
+		if value == "" {
+			mv.filterStartYear = 0
+		} else {
+			fmt.Sscanf(value, "%d", &mv.filterStartYear)
+		}
+		mv.refreshMap()
+	}
+
+	mv.endYearEntry = widget.NewEntry()
+	mv.endYearEntry.SetPlaceHolder("To year")
+	mv.endYearEntry.OnSubmitted = func(value string) {
+		if value == "" {
+			mv.filterEndYear = 0
+		} else {
+			fmt.Sscanf(value, "%d", &mv.filterEndYear)
+		}
+		mv.refreshMap()
+	}
+
+	mv.livingSelect = widget.NewSelect([]string{"All", "Living", "Deceased"}, func(value string) {
+		mv.filterLiving = strings.ToLower(value)
+		mv.refreshMap()
+	})
+	mv.livingSelect.SetSelected("All")
+
+	// Create filter button to apply filters explicitly
+	applyFiltersBtn := widget.NewButton("Apply Filters", func() {
+		// Explicitly read current values from entry fields before refreshing
+		mv.filterSurname = mv.surnameEntry.Text
+		if mv.startYearEntry.Text == "" {
+			mv.filterStartYear = 0
+		} else {
+			fmt.Sscanf(mv.startYearEntry.Text, "%d", &mv.filterStartYear)
+		}
+		if mv.endYearEntry.Text == "" {
+			mv.filterEndYear = 0
+		} else {
+			fmt.Sscanf(mv.endYearEntry.Text, "%d", &mv.filterEndYear)
+		}
+		
+		// Force markers to be reloaded with new filter values
+		mv.markers = nil
+		mv.refreshMap()
+	})
+	applyFiltersBtn.Importance = widget.HighImportance
+
+	// Marker statistics label
+	mv.markerStatsLabel = widget.NewLabel("")
+	mv.markerStatsLabel.TextStyle = fyne.TextStyle{Italic: true}
+
+	// View mode controls in a grid for proper spacing
+	viewModeRow := container.NewGridWithColumns(4,
+		widget.NewLabel("View:"),
+		mv.viewModeSelect,
+		mv.generationCheck,
+		mv.markerStatsLabel,
+	)
+
+	// Filter controls in a grid for proper spacing and wider fields
+	filterRow := container.NewGridWithColumns(8,
+		widget.NewLabel("Surname:"),
+		mv.surnameEntry,
+		widget.NewLabel("Years:"),
+		mv.startYearEntry,
+		widget.NewLabel("-"),
+		mv.endYearEntry,
+		widget.NewLabel("Status:"),
+		mv.livingSelect,
+	)
+	
+	// Filter action row
+	filterActionRow := container.NewHBox(
+		applyFiltersBtn,
+		layout.NewSpacer(),
+	)
+
 	// Help button
 	helpBtn := widget.NewButtonWithIcon("Help", theme.HelpIcon(), func() {
 		mv.showHelp()
@@ -209,12 +330,36 @@ func (mv *MapView) buildControlPanel() {
 	})
 	closeBtn.Importance = widget.LowImportance
 
-	// Assemble control panel
-	mv.controlPanel = container.NewBorder(
-		nil,
-		nil,
-		container.NewHBox(zoomControls, layout.NewSpacer(), filterControls),
+	// Assemble control panel with clear separation and better layout
+	// Row 1: Zoom and marker controls with buttons at the end
+	row1 := container.NewBorder(
+		nil, nil,
+		container.NewHBox(zoomControls, widget.NewSeparator(), filterControls),
 		container.NewHBox(helpBtn, closeBtn),
+	)
+	
+	// Row 2: View mode selection
+	row2 := container.NewBorder(
+		nil, nil,
+		viewModeRow,
+		nil,
+	)
+	
+	// Row 3: Filters
+	row3 := container.NewBorder(
+		nil, nil,
+		filterRow,
+		filterActionRow,
+	)
+	
+	// Assemble all rows with background color for visibility
+	mv.controlPanel = container.NewVBox(
+		row1,
+		widget.NewSeparator(),
+		row2,
+		widget.NewSeparator(),
+		row3,
+		widget.NewSeparator(), // Bottom separator to clearly separate from map
 	)
 }
 
@@ -311,7 +456,7 @@ func (mv *MapView) loadMapTiles() {
 	}
 	
 	// Calculate viewport size (approximation based on window size)
-	viewportWidth := 800
+	viewportWidth := 900
 	viewportHeight := 600
 	
 	// Get visible tiles
@@ -386,13 +531,13 @@ func (mv *MapView) renderTileGridWithMarkers(tiles []MapTile, tileImages map[str
 	markerRelX := float32((centerTileCoord.X - minX) * tileSize) + centerPixelOffset.X
 	markerRelY := float32((centerTileCoord.Y - minY) * tileSize) + centerPixelOffset.Y
 	
-	// We want the marker centered in 800x600 viewport at (400, 300)
+	// We want the marker centered in 900x600 viewport at (450, 300)
 	// Position the tile grid so marker ends up there
-	gridStartX := 400 - markerRelX
+	gridStartX := 450 - markerRelX
 	gridStartY := 300 - markerRelY
 	
-	// Canvas is fixed at 800x600
-	canvasWidth := float32(800)
+	// Canvas is fixed at 900x600 to match window
+	canvasWidth := float32(900)
 	canvasHeight := float32(600)
 	
 	// Create grid container
@@ -444,10 +589,10 @@ func (mv *MapView) renderTileGridWithMarkers(tiles []MapTile, tileImages map[str
 		markerX := gridStartX + float32((tileCoord.X - minX) * tileSize) + pixelOffset.X - 10  // -10 to center 20x20 marker
 		markerY := gridStartY + float32((tileCoord.Y - minY) * tileSize) + pixelOffset.Y - 10
 		
-		// Create marker widget
+		// Create marker widget with optional generation coloring (Phase 5)
 		markerWidget := CreateMarkerWidget(m, func() {
 			mv.showMarkerPopup(m)
-		})
+		}, mv.colorByGeneration)
 		
 		// Position marker
 		markerWidget.Resize(fyne.NewSize(20, 20))
@@ -464,20 +609,123 @@ func (mv *MapView) renderTileGridWithMarkers(tiles []MapTile, tileImages map[str
 	mv.mapCanvas.Refresh()
 }
 
-// loadMarkers loads all markers from the database.
+// loadMarkers loads markers based on view mode and filters (Phase 5).
 func (mv *MapView) loadMarkers() {
-	// Check if we have a current person (show only their markers)
-	if mv.currentPerson != nil {
-		markers, err := GetMarkersForPerson(mv.store, mv.currentPerson.ID)
-		if err == nil {
-			mv.markers = markers
+	var markers []*MapMarker
+	var err error
+
+	// Load markers based on view mode
+	switch mv.viewMode {
+	case "person":
+		// Show only current person's markers
+		if mv.currentPerson != nil {
+			markers, err = GetMarkersForPerson(mv.store, mv.currentPerson.ID)
 		}
-	} else {
+	case "all":
 		// Show all markers
-		markers, err := GetAllMarkers(mv.store)
-		if err == nil {
-			mv.markers = markers
+		markers, err = GetAllMarkers(mv.store)
+	case "descendants":
+		// Show descendants of current person
+		if mv.currentPerson != nil {
+			markers, err = GetMarkersForDescendants(mv.store, mv.currentPerson.ID)
 		}
+	case "ancestors":
+		// Show ancestors of current person
+		if mv.currentPerson != nil {
+			markers, err = GetMarkersForAncestors(mv.store, mv.currentPerson.ID)
+		}
+	default:
+		// Fallback to person mode
+		if mv.currentPerson != nil {
+			markers, err = GetMarkersForPerson(mv.store, mv.currentPerson.ID)
+		}
+	}
+
+	if err != nil {
+		return
+	}
+
+	// Apply filters (Phase 5)
+	filtered := make([]*MapMarker, 0)
+	for _, marker := range markers {
+		// Apply surname filter
+		if mv.filterSurname != "" {
+			personNameLower := strings.ToLower(marker.PersonName)
+			surnameLower := strings.ToLower(mv.filterSurname)
+			if !strings.Contains(personNameLower, surnameLower) {
+				continue
+			}
+		}
+
+		// Apply date range filter
+		if mv.filterStartYear > 0 || mv.filterEndYear > 0 {
+			// Extract year from event date (handles formats like "25 Jun 2015", "2015", etc.)
+			eventYear := extractYearFromDate(marker.EventDate)
+			
+			// Only apply filter if we successfully parsed a year (> 100 to avoid parsing day/month as year)
+			if eventYear > 100 {
+				if mv.filterStartYear > 0 && eventYear < mv.filterStartYear {
+					continue
+				}
+				if mv.filterEndYear > 0 && eventYear > mv.filterEndYear {
+					continue
+				}
+			}
+		}
+
+		// Apply living status filter
+		if mv.filterLiving != "all" {
+			person, err := mv.store.GetPersonByID(marker.PersonID)
+			if err != nil {
+				continue
+			}
+			
+			isLiving := person.DeathDate == ""
+			if mv.filterLiving == "living" && !isLiving {
+				continue
+			}
+			if mv.filterLiving == "deceased" && isLiving {
+				continue
+			}
+		}
+
+		filtered = append(filtered, marker)
+	}
+
+	// Calculate generations if color-coding is enabled (Phase 5)
+	if mv.colorByGeneration && mv.currentPerson != nil {
+		CalculateGenerations(mv.store, filtered, mv.currentPerson.ID)
+	}
+
+	mv.markers = filtered
+	
+	// Update marker statistics
+	mv.updateMarkerStats()
+}
+
+// updateMarkerStats counts and displays marker statistics.
+func (mv *MapView) updateMarkerStats() {
+	birthCount := 0
+	deathCount := 0
+	marriageCount := 0
+	
+	for _, marker := range mv.markers {
+		switch marker.Type {
+		case MarkerBirth:
+			birthCount++
+		case MarkerDeath:
+			deathCount++
+		case MarkerMarriage:
+			marriageCount++
+		}
+	}
+	
+	// Update label on UI thread
+	if mv.markerStatsLabel != nil {
+		statsText := fmt.Sprintf("Births: %d | Deaths: %d | Marriages: %d", birthCount, deathCount, marriageCount)
+		fyne.Do(func() {
+			mv.markerStatsLabel.SetText(statsText)
+		})
 	}
 }
 
@@ -503,6 +751,8 @@ func (mv *MapView) filterMarkers() []*MapMarker {
 	
 	return filtered
 }
+
+// Note: extractYearFromDate is defined in advanced_search.go
 
 // latLngToTilePixelOffset calculates the pixel offset within a tile for a given lat/lng.
 // Returns values in range [0, 256) for both X and Y.
@@ -624,9 +874,9 @@ func (mv *MapView) showHelp() {
 func ShowMapWindow(s *store.Store, parentWindow fyne.Window, onNavigate func(personID int64)) {
 	mapView := NewMapView(s, parentWindow, onNavigate)
 
-	// Create new window
+	// Create new window with room for control panel
 	mapWindow := fyne.CurrentApp().NewWindow("Map View - KrankyBear Genealogy")
-	mapWindow.Resize(fyne.NewSize(900, 700))
+	mapWindow.Resize(fyne.NewSize(950, 800))  // Taller for control panel
 	mapWindow.CenterOnScreen()
 
 	// Set close button action
@@ -655,9 +905,9 @@ func showMapViewDialog(w fyne.Window, s *store.Store, personID int64, onNavigate
 		return
 	}
 
-	// Create map window
+	// Create map window with room for control panel
 	mapWindow := fyne.CurrentApp().NewWindow(fmt.Sprintf("Map View - %s", formatPersonName(*person)))
-	mapWindow.Resize(fyne.NewSize(900, 700))
+	mapWindow.Resize(fyne.NewSize(950, 800))  // Taller for control panel
 	mapWindow.CenterOnScreen()
 
 	// Create map view widget
