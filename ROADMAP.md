@@ -216,10 +216,29 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 - ✅ **Independent Relationship Calculator** (✓ Completed in v1.1 - calculate relationships between any two people with common ancestor detection) 
 
 ### Data Quality Tools
-- **⏳ Standardization Helper**: Suggest standard place names
-- **⏳ Date Format Validator**: Ensure consistent date formats
-- **⏳ Relationship Validator**: Check for impossible relationships
-- **⏳ Name Variations**: Track alternate spellings/names
+- ✅ **Standardization Helper** (v1.3.0): Global Search & Replace for place names
+  - ✅ Find and replace across all place fields
+  - ✅ Case-sensitive/insensitive search
+  - ✅ Preview before applying changes
+  - ✅ Batch standardization (e.g., "USA" → "United States")
+- ✅ **Name Standardization** (v1.3.0): Name Case Conversion tool
+  - ✅ Smart proper case conversion
+  - ✅ Handles McDonald, O'Brien, van der Berg patterns
+  - ✅ Roman numerals and suffixes (Jr., Sr., Esq.)
+  - ✅ Preview before applying
+- ✅ **Relationship Validator** (v1.2.0): Conflicts Report
+  - ✅ Detects impossible dates (death before birth)
+  - ✅ Identifies impossible relationships (parent born after child)
+  - ✅ Review/validation system
+  - ✅ Mark conflicts as reviewed to hide from reports
+- ✅ **Duplicate Detection** (v1.2.0): Intelligent matching with merge capability
+  - ✅ Name similarity matching
+  - ✅ Birth date comparison
+  - ✅ Smart scoring algorithm
+  - ✅ Manual merge capability
+  - ✅ Review system to mark false positives
+- **⏳ Date Format Validator**: Ensure consistent date formats (future)
+- **⏳ Name Variations**: Track alternate spellings/names (future)
 
 ---
 
@@ -245,10 +264,22 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Responsive design with modern CSS
 
 ### Privacy & Security
-- **⏳ Privacy Flags**: Mark people as private (exclude from exports/reports)
-- **⏳ Living People Protection**: Auto-mark as private if born < 100 years ago
-- **⏳ Password Protection**: Optional database encryption
-- **⏳ Selective Export**: Export with privacy filters applied
+- ✅ **Privacy Flags** (v1.0+): Person.IsLiving field marks people as living
+  - ✅ Used throughout application for privacy-sensitive operations
+  - ✅ Manual toggle per person in edit dialog
+  - ✅ Living Status Report to identify inconsistencies
+- ✅ **Living People Protection** (v1.2+): Bulk mark people as living
+  - ✅ "Mass Mark Living" tool (Reports → Actions)
+  - ✅ Identify people likely living based on birth dates
+  - ✅ Bulk update living status with age-based detection
+- ✅ **Selective Export** (v1.4.0+): Export with comprehensive privacy controls
+  - ✅ Privacy dialog for HTML/PDF exports
+  - ✅ Two privacy modes: "Hide all living" or "Show limited info for living"
+  - ✅ Birth dates/places withheld for living people
+  - ✅ Marriage details hidden for living couples
+  - ✅ Privacy notes displayed throughout exports
+  - ✅ GDPR and privacy law compliance
+- **⏳ Password Protection**: Optional database encryption (future)
 
 ---
 
@@ -368,11 +399,13 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Remove orphaned records
   - ✅ Remove duplicate relationships
   - ✅ Compact database and reclaim space
-- **Batch Operations** (Partially Complete): 
-  - ✅ Bulk mark as living (Completed in v1.2)
-  - ⏳ Bulk edit (change place names, standardize dates)
-  - ⏳ Bulk delete
-  - ⏳ Bulk privacy settings (comprehensive)
+- **Batch Operations** (Mostly Complete): 
+  - ✅ Bulk mark as living (v1.2.0)
+  - ✅ Bulk edit place names (v1.3.0): Global Search & Replace
+  - ✅ Bulk standardize names (v1.3.0): Name Case Conversion tool
+  - ✅ Batch geocoding (v1.5.0): Geocoding Tool
+  - ⏳ Bulk delete operations (not implemented)
+  - ⏳ More comprehensive bulk privacy settings (beyond Mass Mark Living)
 - **⏳ Data Migration Tools**: Convert between different schemas/versions
 
 ---
@@ -807,12 +840,14 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 
 ### 📋 Future Releases - Low Priority (v1.7+)
 
-**Phase 9: Batch Operations** (Partially Complete)
-- ✅ Bulk mark as living (Completed in v1.2)
-- ⏳ Bulk edit: Change place names, standardize dates
+**Phase 9: Batch Operations** (Mostly Complete)
+- ✅ Bulk mark as living (v1.2.0)
+- ✅ Bulk edit place names (v1.3.0): Global Search & Replace
+- ✅ Bulk standardize names (v1.3.0): Name Case Conversion
+- ✅ Batch geocoding (v1.5.0): Geocoding Tool
 - ⏳ Bulk delete operations
-- ⏳ Comprehensive bulk privacy settings
-- **Estimated Effort:** 10-15 hours
+- ⏳ More comprehensive bulk privacy settings
+- **Actual Effort:** 8-10 hours (most features complete)
 
 **Phase 8: Advanced UX**
 - Undo/Redo functionality (complex but valuable)
