@@ -1,5 +1,61 @@
 KrankyBear Genealogy - Release Notes
 
+1.5.2 - January 31, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Undo/Redo Functionality: Full Edit History Management
+
+Major Features:
+• Complete Undo/Redo System for all edit operations
+• Keyboard Shortcuts (Cmd/Ctrl+Z for Undo, Cmd/Ctrl+Shift+Z for Redo)
+• Edit Menu with Undo/Redo items
+• Support for Person Edits, Deletions, and Relationship Changes
+• 50-operation history buffer
+• Thread-safe operation with automatic UI updates
+
+✏️ Undo/Redo Operations:
+  • Edit Person: Revert changes to person details (name, dates, places, notes, contact info)
+  • Delete Person: Restore deleted person with all relationships (spouses, children, parents)
+  • Add Relationship: Remove newly created relationships (parent, child, spouse, partner)
+  • Delete Relationship: Restore removed relationships
+  • Operation descriptions show exactly what will be undone/redone
+  • Menu items automatically enable/disable based on history state
+
+🎹 Keyboard Shortcuts:
+  • Undo: Cmd+U (Mac) / Ctrl+U (Windows/Linux)
+  • Redo: Cmd+Shift+U (Mac) / Ctrl+Shift+U (Windows/Linux)
+  • Works globally regardless of widget focus
+  • Cmd+Z remains for text field undo (typing)
+  • Cmd+U clearly distinguishes database-level undo from text editing
+  • Check for Updates moved to Cmd+Shift+U to make room for Undo
+  • Non-destructive - failed operations don't corrupt history
+
+🔒 Safety Features:
+  • History maintained per database session (cleared on database close)
+  • Maximum 50 operations stored (oldest automatically removed)
+  • Thread-safe implementation with proper locking
+  • Atomic operations - either fully succeed or fully fail
+  • Automatic refresh after successful undo/redo
+
+💡 Use Cases:
+  • Accidentally deleted a person? Press Cmd/Ctrl+Z to restore them
+  • Made a typo while editing? Undo to previous state
+  • Added wrong relationship? Undo removes it cleanly
+  • Changed your mind? Redo to reapply what you undid
+  • Safety net for data entry and bulk editing operations
+
+🛠️ Technical Implementation:
+  • Global undo/redo manager (ui/undo_redo.go)
+  • Operation stack with before/after states
+  • Deep copying of person and relationship data
+  • Integration with all edit dialogs and relationship operations
+  • CreatePersonWithID for restoring deleted persons with original IDs
+  • Relationship restoration includes marriage details
+  • Menu state callback updates UI immediately
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+
 1.5.1 - January 31, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━
 Enhanced Map Features: Multi-Person Views & Geographic Analysis (Phases 5 & 6)

@@ -106,6 +106,9 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	storeRef := []*store.Store{s}
 	getStore := func() *store.Store { return storeRef[0] }
 
+	// Initialize Undo/Redo system with placeholder callback (will be set later when menu is created)
+	InitUndoRedo(s, nil)
+
 	// Load all people for the index list
 	people, err := getStore().GetPeople()
 	if err != nil {
@@ -694,16 +697,35 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 			return
 		}
 		dialog.ShowConfirm("Delete Person",
-			fmt.Sprintf("Are you sure you want to delete %s? This will remove all relationships.",
+			fmt.Sprintf("Are you sure you want to delete %s?\n\nThis will remove all relationships.\n\nYou can undo this using Edit → Undo (Cmd/Ctrl+U).",
 				formatPersonName(*person)),
 			func(confirmed bool) {
 				if !confirmed {
 					return
 				}
+				
+				// Gather relationship data for undo before deleting
+				spouses, _ := getStore().GetSpouses(currentPersonID)
+				childRels, _ := getStore().GetRelatedPeople(currentPersonID, "child")
+				parentRels, _ := getStore().GetRelatedPeople(currentPersonID, "parent")
+				
+				var childIDs, parentIDs []int64
+				for _, child := range childRels {
+					childIDs = append(childIDs, child.ID)
+				}
+				for _, parent := range parentRels {
+					parentIDs = append(parentIDs, parent.ID)
+				}
+				
+				// Perform the deletion
 				if err := getStore().DeletePerson(currentPersonID); err != nil {
 					dialog.ShowError(err, w)
 					return
 				}
+				
+				// Record for undo
+				RecordDeletePerson(person, spouses, childIDs, parentIDs)
+				
 				// Navigate to first person or clear view
 				refreshAll()
 				if len(people) > 0 {
@@ -956,10 +978,14 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		if focusID > 0 && currentPersonID > 0 && focusID != currentPersonID {
 			currentPerson, err := getStore().GetPersonByID(currentPersonID)
 			if err == nil {
-				relationship := calculateRelationship(getStore(), focusID, currentPersonID)
-				if relationship != "" {
-					relationshipText = fmt.Sprintf(" | %s %s is your %s",
-						currentPerson.GivenName, currentPerson.Surname, relationship)
+				focusPerson, err := getStore().GetPersonByID(focusID)
+				if err == nil {
+					relationship := calculateRelationship(getStore(), focusID, currentPersonID)
+					if relationship != "" {
+						relationshipText = fmt.Sprintf(" | %s %s is the %s of %s %s",
+							currentPerson.GivenName, currentPerson.Surname, relationship,
+							focusPerson.GivenName, focusPerson.Surname)
+					}
 				}
 			}
 		}
@@ -1023,7 +1049,12 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 
 	// Setup keyboard shortcuts
 	setupKeyboardShortcuts(a, w, cfg, tabs, searchEntry, addPersonBtn, deletePersonBtn, focusPersonBtn,
-		settingsBtn, dataQualityBtn, reportsBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn, bookmarkBtn, editPerson, &currentPersonID, getStore, navigateToPerson)
+		settingsBtn, dataQualityBtn, reportsBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn, bookmarkBtn, editPerson, &currentPersonID, getStore, navigateToPerson, refreshAll)
+
+	// Note: Cmd+Z keyboard shortcuts are challenging in Fyne when text widgets have focus
+	// The menu shortcuts show in UI but don't always trigger
+	// Users can always use Edit → Undo from the menu
+	// For now, prioritizing menu accessibility over keyboard shortcut reliability
 
 	w.ShowAndRun()
 }
@@ -1343,6 +1374,37 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		showProjectNotesDialog(w, getStore())
 	})
 
+	// Create Edit menu items (Undo/Redo) - must be before system tray menu
+	undoItem := fyne.NewMenuItem("Undo", func() {
+		if !CanUndo() {
+			dialog.ShowInformation("Undo", "Nothing to undo", w)
+			return
+		}
+		if err := Undo(); err != nil {
+			dialog.ShowError(err, w)
+		} else {
+			// Refresh the view
+			refreshAll()
+		}
+	})
+	// Display keyboard shortcut hint (Cmd/Ctrl+U)
+	undoItem.Shortcut = &desktop.CustomShortcut{KeyName: fyne.KeyU, Modifier: desktop.ControlModifier}
+	
+	redoItem := fyne.NewMenuItem("Redo", func() {
+		if !CanRedo() {
+			dialog.ShowInformation("Redo", "Nothing to redo", w)
+			return
+		}
+		if err := Redo(); err != nil {
+			dialog.ShowError(err, w)
+		} else {
+			// Refresh the view
+			refreshAll()
+		}
+	})
+	// Display keyboard shortcut hint (Cmd/Ctrl+Shift+U)
+	redoItem.Shortcut = &desktop.CustomShortcut{KeyName: fyne.KeyU, Modifier: desktop.ControlModifier | fyne.KeyModifierShift}
+
 	// System tray menu with proper submenus using ChildMenu
 	// Create File submenu
 	fileSubMenu := fyne.NewMenu("File",
@@ -1445,10 +1507,16 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	toolsMenuItem := fyne.NewMenuItem("Tools", nil)
 	toolsMenuItem.ChildMenu = toolsSubMenu
 
+	// Edit submenu for system tray (reuses undoItem/redoItem created earlier)
+	editSubMenu := fyne.NewMenu("Edit", undoItem, redoItem)
+	editMenuItem := fyne.NewMenuItem("Edit", nil)
+	editMenuItem.ChildMenu = editSubMenu
+
 	menu := fyne.NewMenu("KrankyBear Genealogy",
 		show, hide,
 		fyne.NewMenuItemSeparator(),
 		fileMenuItem,
+		editMenuItem,
 		mediaMenuItem,
 		toolsMenuItem,
 		reportsMenuItem,
@@ -1464,6 +1532,9 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		backup, restore, maintenance, fyne.NewMenuItemSeparator(),
 		importGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(), quit)
 	mediaMenu := fyne.NewMenu("Media", mediaLibraryMenuItem, addMediaMenuItem, fyne.NewMenuItemSeparator(), sourcesLibraryMenuItem, researchLogMenuItem)
+	
+	// Edit menu (uses undoItem/redoItem created earlier)
+	editMenu := fyne.NewMenu("Edit", undoItem, redoItem)
 	toolsMenu := fyne.NewMenu("Tools", geocodingTool, dateCalculator, globalSearchReplace, nameCaseConversion, 
 		fyne.NewMenuItemSeparator(), projectNotes)
 	reportsMenu := fyne.NewMenu("Reports",
@@ -1490,7 +1561,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	settingsMenu := fyne.NewMenu("Settings", settingsDialog, keyboardShortcuts, fyne.NewMenuItemSeparator(),
 		settingsLight, settingsDark, settingsSystem)
 	helpMenu := fyne.NewMenu("Help", about, updtchk, help, fyne.NewMenuItemSeparator(), loadDemo)
-	cmenu := fyne.NewMainMenu(fileMenu, mediaMenu, toolsMenu, reportsMenu, settingsMenu, helpMenu)
+	cmenu := fyne.NewMainMenu(fileMenu, editMenu, mediaMenu, toolsMenu, reportsMenu, settingsMenu, helpMenu)
 	w.SetMainMenu(cmenu)
 }
 
@@ -1951,7 +2022,7 @@ func showHelpPopupMenu(w fyne.Window, cfg *config.Config, reloadWithDatabase fun
 // setupKeyboardShortcuts registers keyboard shortcuts for common actions
 func setupKeyboardShortcuts(a fyne.App, w fyne.Window, cfg *config.Config, tabs *container.AppTabs, searchEntry *widget.Entry,
 	addPersonBtn, deletePersonBtn, focusPersonBtn, settingsBtn, dataQualityBtn, reportsBtn, statsBtn, openDatabaseBtn, backupBtn, mediaLibraryBtn, bookmarkBtn *widget.Button,
-	editPerson func(int64), currentPersonID *int64, getStore func() *store.Store, navigateToPerson func(int64)) {
+	editPerson func(int64), currentPersonID *int64, getStore func() *store.Store, navigateToPerson func(int64), refreshAll func()) {
 
 	// Helper to register both Cmd (Mac) and Ctrl (Win/Linux) shortcuts
 	addShortcut := func(key fyne.KeyName, handler func()) {
@@ -2073,6 +2144,44 @@ func setupKeyboardShortcuts(a fyne.App, w fyne.Window, cfg *config.Config, tabs 
 			})
 		}
 	}
+
+	// Undo (Cmd/Ctrl+U) - using U instead of Z to avoid conflict with text field undo
+	// Cmd+Z is reserved for text field undo (native behavior)
+	// Cmd+U clearly indicates database-level Undo
+	addShortcut(fyne.KeyU, func() {
+		if !CanUndo() {
+			return // Silently ignore
+		}
+		if err := Undo(); err != nil {
+			dialog.ShowError(err, w)
+		} else {
+			refreshAll()
+		}
+	})
+	
+	// Redo (Cmd/Ctrl+Shift+U) - consistent with Undo using U
+	redoShortcutCmd := &desktop.CustomShortcut{KeyName: fyne.KeyU, Modifier: fyne.KeyModifierSuper | fyne.KeyModifierShift}
+	w.Canvas().AddShortcut(redoShortcutCmd, func(shortcut fyne.Shortcut) {
+		if !CanRedo() {
+			return
+		}
+		if err := Redo(); err != nil {
+			dialog.ShowError(err, w)
+		} else {
+			refreshAll()
+		}
+	})
+	redoShortcutCtrl := &desktop.CustomShortcut{KeyName: fyne.KeyU, Modifier: fyne.KeyModifierControl | fyne.KeyModifierShift}
+	w.Canvas().AddShortcut(redoShortcutCtrl, func(shortcut fyne.Shortcut) {
+		if !CanRedo() {
+			return
+		}
+		if err := Redo(); err != nil {
+			dialog.ShowError(err, w)
+		} else {
+			refreshAll()
+		}
+	})
 
 	// Settings (primary and alternative)
 	addShortcut(config.StringToKeyName(cfg.GetShortcut("Settings")), func() {
@@ -2377,9 +2486,16 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 
 		var err error
 		if isEdit {
+			// Record the before state for undo
+			personBefore := *p // p is the original person passed in
 			err = s.UpdatePerson(&person)
+			if err == nil {
+				// Successfully updated - record for undo
+				RecordEditPerson(&personBefore, &person)
+			}
 		} else {
 			err = s.CreatePerson(&person)
+			// Note: We don't record person creation in undo (would need delete operation)
 		}
 
 		if err != nil {
@@ -2403,6 +2519,11 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 	buttons := container.NewHBox(saveBtn, cancelBtn)
 	content := container.NewBorder(nil, buttons, nil, nil, scrollable)
 	personWindow.SetContent(content)
+	
+	// Note: Cmd+Z not added to edit window to avoid confusion
+	// (it would undo previous saved operations, not current unsaved edits)
+	// Users should use Edit → Undo from main window after saving
+	
 	personWindow.Show()
 }
 

@@ -171,7 +171,7 @@ func DefaultKeyboardShortcuts() map[string]string {
 		"SettingsAlt":          "Comma",  // Alternative (Mac standard)
 		"KeyboardShortcuts":    "K",      // Open keyboard shortcuts dialog
 		"About":                "I",      // About/Info dialog
-		"CheckUpdate":          "U",      // Check for updates
+		"CheckUpdate":          "Shift+U", // Check for updates (moved from U to make room for Undo)
 		"Help":                 "Slash",  // Help (Cmd+/)
 		"Quit":                 "Q",
 		"Statistics":           "T",

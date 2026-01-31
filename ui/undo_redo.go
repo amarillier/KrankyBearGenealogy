@@ -160,8 +160,10 @@ func (m *UndoRedoManager) addOperation(op *UndoOperation) {
 		m.undoStack = m.undoStack[1:]
 	}
 	
+	// Call update callback in goroutine to avoid deadlock
+	// (callback may call CanUndo/CanRedo which also need the lock)
 	if m.onUpdate != nil {
-		m.onUpdate()
+		go m.onUpdate()
 	}
 }
 
@@ -233,8 +235,9 @@ func Undo() error {
 	// Add to redo stack
 	undoRedoManager.redoStack = append(undoRedoManager.redoStack, op)
 	
+	// Call update callback in goroutine to avoid deadlock
 	if undoRedoManager.onUpdate != nil {
-		undoRedoManager.onUpdate()
+		go undoRedoManager.onUpdate()
 	}
 	
 	return nil
@@ -268,8 +271,9 @@ func Redo() error {
 	// Add back to undo stack
 	undoRedoManager.undoStack = append(undoRedoManager.undoStack, op)
 	
+	// Call update callback in goroutine to avoid deadlock
 	if undoRedoManager.onUpdate != nil {
-		undoRedoManager.onUpdate()
+		go undoRedoManager.onUpdate()
 	}
 	
 	return nil
@@ -403,8 +407,9 @@ func ClearHistory() {
 	undoRedoManager.undoStack = make([]*UndoOperation, 0)
 	undoRedoManager.redoStack = make([]*UndoOperation, 0)
 	
+	// Call update callback in goroutine to avoid deadlock
 	if undoRedoManager.onUpdate != nil {
-		undoRedoManager.onUpdate()
+		go undoRedoManager.onUpdate()
 	}
 }
 

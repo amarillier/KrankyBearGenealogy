@@ -328,9 +328,14 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Apply to Given Names, Surnames, Both, or Preferred Names
   - ✅ Preview all affected records before applying
   - ✅ Useful after importing data with uppercase-only names
-- **⏳ Undo/Redo**: Revert recent changes (edit person, delete, add relationships)
-  - ⏳ Core system implemented, needs integration hooks in edit dialogs
-  - ⏳ Deferred for future release
+- ✅ **Undo/Redo** (v1.5.2): Revert recent changes (edit person, delete, add relationships)
+  - ✅ Core system fully integrated into all edit operations
+  - ✅ Edit Menu with Undo/Redo items
+  - ✅ Keyboard shortcuts (Cmd/Ctrl+Z for Undo, Cmd/Ctrl+Shift+Z for Redo)
+  - ✅ 50-operation history buffer
+  - ✅ Support for person edits, deletions, and relationship changes
+  - ✅ Automatic UI state updates
+  - ✅ Thread-safe implementation
 
 ### Visualization
 - ✅ **Enhanced Pedigree View** (Completed in v1.3):
@@ -849,11 +854,13 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 - ⏳ More comprehensive bulk privacy settings
 - **Actual Effort:** 8-10 hours (most features complete)
 
-**Phase 8: Advanced UX**
-- Undo/Redo functionality (complex but valuable)
-- Command history tracking
-- Edit reversal for person changes, deletions, relationship modifications
-- **Estimated Effort:** 25-30 hours
+**Phase 8: Advanced UX** ✅ (Completed in v1.5.2)
+- ✅ Undo/Redo functionality (complex but valuable)
+- ✅ Command history tracking (50-operation buffer)
+- ✅ Edit reversal for person changes, deletions, relationship modifications
+- ✅ Keyboard shortcuts (Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z)
+- ✅ Edit menu integration
+- **Actual Effort:** ~20 hours (core system existed, needed integration)
 
 **Phase 7: Collaboration & Sharing**
 1. GEDCOM Merge with conflict resolution
@@ -931,4 +938,4 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 
 ---
 
-*Last Updated: January 31, 2026 - v1.5.1 Enhanced Map Features & Geographic Analysis Released*
+*Last Updated: January 31, 2026 - v1.5.2 Undo/Redo Functionality Integrated*

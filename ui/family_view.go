@@ -660,6 +660,13 @@ func (fv *FamilyView) addRelationshipDialog(relType string) {
 			dialog.ShowError(err, fv.window)
 			return
 		}
+		
+		// Record for undo
+		person1, _ := fv.store.GetPersonByID(fv.currentPerson.ID)
+		person2, _ := fv.store.GetPersonByID(selectedID)
+		desc := fmt.Sprintf("Add %s: %s → %s", relType, formatPersonName(*person1), formatPersonName(*person2))
+		RecordAddRelationship(relType, fv.currentPerson.ID, selectedID, desc)
+		
 		fv.refresh()
 	}, func(newPerson *store.Person) {
 		// Callback when new person is created - automatically link them
@@ -672,6 +679,12 @@ func (fv *FamilyView) addRelationshipDialog(relType string) {
 			dialog.ShowError(err, fv.window)
 			return
 		}
+		
+		// Record for undo
+		person1, _ := fv.store.GetPersonByID(fv.currentPerson.ID)
+		desc := fmt.Sprintf("Add %s: %s → %s", relType, formatPersonName(*person1), formatPersonName(*newPerson))
+		RecordAddRelationship(relType, fv.currentPerson.ID, newPerson.ID, desc)
+		
 		dialog.ShowInformation("Success",
 			fmt.Sprintf("%s created and linked successfully!", strings.Title(relType)), fv.window)
 		fv.refresh()
@@ -1010,6 +1023,11 @@ func (fv *FamilyView) addChildWithSpouse(spouses []store.SpouseInfo) {
 			dialog.ShowError(err, fv.window)
 			return
 		}
+		
+		// Record for undo
+		child, _ := fv.store.GetPersonByID(selectedID)
+		desc := fmt.Sprintf("Add child: %s → %s", formatPersonName(*fv.currentPerson), formatPersonName(*child))
+		RecordAddRelationship("child", fv.currentPerson.ID, selectedID, desc)
 
 		// Link child to selected spouse(s)
 		for _, si := range spouses {
@@ -1018,7 +1036,11 @@ func (fv *FamilyView) addChildWithSpouse(spouses []store.SpouseInfo) {
 				ObjectID:  selectedID,
 				Type:      "child",
 			}
-			_ = fv.store.CreateRelationship(spouseRel)
+			if err := fv.store.CreateRelationship(spouseRel); err == nil {
+				// Record for undo
+				desc2 := fmt.Sprintf("Add child: %s → %s", formatPersonName(si.Person), formatPersonName(*child))
+				RecordAddRelationship("child", si.Person.ID, selectedID, desc2)
+			}
 		}
 
 		fv.refresh()
@@ -1033,6 +1055,10 @@ func (fv *FamilyView) addChildWithSpouse(spouses []store.SpouseInfo) {
 			dialog.ShowError(err, fv.window)
 			return
 		}
+		
+		// Record for undo
+		desc := fmt.Sprintf("Add child: %s → %s", formatPersonName(*fv.currentPerson), formatPersonName(*newPerson))
+		RecordAddRelationship("child", fv.currentPerson.ID, newPerson.ID, desc)
 
 		// Link child to selected spouse(s)
 		parentNames := []string{formatPersonName(*fv.currentPerson)}
@@ -1042,7 +1068,11 @@ func (fv *FamilyView) addChildWithSpouse(spouses []store.SpouseInfo) {
 				ObjectID:  newPerson.ID,
 				Type:      "child",
 			}
-			_ = fv.store.CreateRelationship(spouseRel)
+			if err := fv.store.CreateRelationship(spouseRel); err == nil {
+				// Record for undo
+				desc2 := fmt.Sprintf("Add child: %s → %s", formatPersonName(si.Person), formatPersonName(*newPerson))
+				RecordAddRelationship("child", si.Person.ID, newPerson.ID, desc2)
+			}
 			parentNames = append(parentNames, formatPersonName(si.Person))
 		}
 
@@ -1113,6 +1143,12 @@ func (fv *FamilyView) addSpouseDialog() {
 				dialog.ShowError(err, fv.window)
 				return
 			}
+			
+			// Record for undo
+			partner, _ := fv.store.GetPersonByID(selectedID)
+			desc := fmt.Sprintf("Add %s: %s ↔ %s", relationshipType.Selected, formatPersonName(*fv.currentPerson), formatPersonName(*partner))
+			RecordAddRelationship(relationshipType.Selected, fv.currentPerson.ID, selectedID, desc)
+			
 			fv.refresh()
 		}, func(newPerson *store.Person) {
 			// Callback when new person is created - automatically link as partner/spouse
@@ -1126,13 +1162,18 @@ func (fv *FamilyView) addSpouseDialog() {
 				SeparationDate: strings.TrimSpace(separationDate.Text),
 				EndReason:      endReason.Selected,
 			}
-			if err := fv.store.CreateRelationship(rel); err != nil {
-				dialog.ShowError(err, fv.window)
-				return
-			}
-			dialog.ShowInformation("Success", "Partner created and linked successfully!", fv.window)
-			fv.refresh()
-		})
+		if err := fv.store.CreateRelationship(rel); err != nil {
+			dialog.ShowError(err, fv.window)
+			return
+		}
+		
+		// Record for undo
+		desc := fmt.Sprintf("Add %s: %s ↔ %s", relationshipType.Selected, formatPersonName(*fv.currentPerson), formatPersonName(*newPerson))
+		RecordAddRelationship(relationshipType.Selected, fv.currentPerson.ID, newPerson.ID, desc)
+		
+		dialog.ShowInformation("Success", "Partner created and linked successfully!", fv.window)
+		fv.refresh()
+	})
 }
 
 // showEditMarriageDialog displays a dialog to edit marriage/relationship details
@@ -1287,11 +1328,24 @@ func (fv *FamilyView) deletePersonDialog(person *store.Person) {
 		warningMsg += fmt.Sprintf("This will also remove %d relationship(s) involving this person.\n\n", relCount)
 	}
 
-	warningMsg += "This action cannot be undone."
+	warningMsg += "You can undo this action using Edit → Undo (Cmd/Ctrl+U)."
 
 	dialog.ShowConfirm("Delete Person", warningMsg, func(confirmed bool) {
 		if !confirmed {
 			return
+		}
+
+		// Gather relationship data for undo before deleting
+		spouses, _ := fv.store.GetSpouses(person.ID)
+		childRels, _ := fv.store.GetRelatedPeople(person.ID, "child")
+		parentRels, _ := fv.store.GetRelatedPeople(person.ID, "parent")
+		
+		var childIDs, parentIDs []int64
+		for _, child := range childRels {
+			childIDs = append(childIDs, child.ID)
+		}
+		for _, parent := range parentRels {
+			parentIDs = append(parentIDs, parent.ID)
 		}
 
 		// Delete the person (database will cascade delete relationships)
@@ -1299,6 +1353,9 @@ func (fv *FamilyView) deletePersonDialog(person *store.Person) {
 			dialog.ShowError(err, fv.window)
 			return
 		}
+
+		// Record for undo
+		RecordDeletePerson(person, spouses, childIDs, parentIDs)
 
 		// Refresh the view - navigate to first available person
 		people, err := fv.store.GetPeople()
