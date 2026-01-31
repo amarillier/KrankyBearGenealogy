@@ -297,9 +297,9 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Apply to Given Names, Surnames, Both, or Preferred Names
   - ✅ Preview all affected records before applying
   - ✅ Useful after importing data with uppercase-only names
-- **Undo/Redo**: Revert recent changes (edit person, delete, add relationships)
-  - Core system implemented, needs integration hooks in edit dialogs
-  - Deferred for future release
+- **⏳ Undo/Redo**: Revert recent changes (edit person, delete, add relationships)
+  - ⏳ Core system implemented, needs integration hooks in edit dialogs
+  - ⏳ Deferred for future release
 
 ### Visualization
 - ✅ **Enhanced Pedigree View** (Completed in v1.3):
