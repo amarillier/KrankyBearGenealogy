@@ -482,11 +482,17 @@ func (mv *MapView) loadMapTiles() {
 			if mv.loadingLabel != nil {
 				mv.loadingLabel.SetText("No internet connection")
 			}
-			dialog.ShowInformation("Map Unavailable",
+			// Create dialog with callback to close map window when dismissed
+			d := dialog.NewInformation("Map Unavailable",
 				"Map tiles could not be loaded.\n\n"+
 				"This feature requires an active internet connection to download map data from OpenStreetMap.\n\n"+
 				"Please check your network connection and try again.",
 				mv.window)
+			d.SetOnClosed(func() {
+				// Close the map window when user dismisses the dialog
+				mv.window.Close()
+			})
+			d.Show()
 		})
 		return
 	}

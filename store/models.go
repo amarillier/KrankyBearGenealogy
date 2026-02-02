@@ -171,3 +171,14 @@ type SavedSearch struct {
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
+
+// AlternateName represents an alternate name/spelling for a person
+type AlternateName struct {
+	ID        int64     `json:"id"`
+	PersonID  int64     `json:"person_id"`
+	NameType  string    `json:"name_type"`  // "nickname", "maiden", "married", "spelling", "other"
+	GivenName string    `json:"given_name"` // Alternate given name
+	Surname   string    `json:"surname"`    // Alternate surname
+	Notes     string    `json:"notes"`      // Why this name is alternate (e.g., "Used in census")
+	CreatedAt time.Time `json:"created_at"`
+}

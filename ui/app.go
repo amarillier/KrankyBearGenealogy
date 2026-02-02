@@ -943,7 +943,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 
 	// Tools button - shows popup menu with tools
 	toolsBtn := widget.NewButton("🔧 Tools", func() {
-		showToolsPopupMenu(w, getStore())
+		showToolsPopupMenu(w, getStore(), currentPersonID, navigateToPerson)
 	})
 
 	// Reports button - shows popup menu with all reports
@@ -1291,6 +1291,12 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		})
 	})
 
+	bulkPrivacyReport := fyne.NewMenuItem("Bulk Privacy Settings", func() {
+		showBulkPrivacyDialog(w, getStore(), func() {
+			refreshAll()
+		})
+	})
+
 	// Media menu items
 	mediaLibraryMenuItem := fyne.NewMenuItem("Media Library", func() {
 		showMediaLibrary(w, getStore())
@@ -1469,6 +1475,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		unmappedPlacesReport,
 		fyne.NewMenuItemSeparator(),
 		// Actions (alphabetical)
+		bulkPrivacyReport,
 		massMarkLivingReport,
 		reviewedItemsReport)
 	reportsMenuItem := fyne.NewMenuItem("Reports", nil)
@@ -1498,10 +1505,13 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	// Main system tray menu with submenus
 	// Tools menu items (defined earlier in the file)
 	toolsSubMenu := fyne.NewMenu("Tools",
-		geocodingTool,
+		advancedSearch,
 		dateCalculator,
+		geocodingTool,
 		globalSearchReplace,
+		mapView,
 		nameCaseConversion,
+		relationshipCalc,
 		fyne.NewMenuItemSeparator(),
 		projectNotes)
 	toolsMenuItem := fyne.NewMenuItem("Tools", nil)
@@ -1535,11 +1545,11 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	
 	// Edit menu (uses undoItem/redoItem created earlier)
 	editMenu := fyne.NewMenu("Edit", undoItem, redoItem)
-	toolsMenu := fyne.NewMenu("Tools", geocodingTool, dateCalculator, globalSearchReplace, nameCaseConversion, 
-		fyne.NewMenuItemSeparator(), projectNotes)
+	toolsMenu := fyne.NewMenu("Tools", advancedSearch, dateCalculator, geocodingTool, globalSearchReplace, 
+		mapView, nameCaseConversion, relationshipCalc, fyne.NewMenuItemSeparator(), projectNotes)
 	reportsMenu := fyne.NewMenu("Reports",
-		// Utilities (alphabetical)
-		advancedSearch, relationshipCalc, statistics,
+		// Utilities
+		statistics,
 		fyne.NewMenuItemSeparator(),
 		// List Reports (alphabetical)
 		allTodosReport, bookmarkedPeopleReport, completedTodosReport, peopleWithLogsReport, recentPeopleReport, recentResearchReport,
@@ -1551,7 +1561,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		ancestorReport, descendantReport, familyGroupReport, timelineReport,
 		fyne.NewMenuItemSeparator(),
 		// Chart Views (alphabetical)
-		descendantChartView, fanChartView, mapView,
+		descendantChartView, fanChartView,
 		fyne.NewMenuItemSeparator(),
 		// Geographic Reports (alphabetical)
 		crossBorderReport, geographicReport, geoHotspotsReport, migrationDistanceReport, unmappedPlacesReport,
@@ -1567,20 +1577,10 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 
 // showReportsPopupMenu shows a popup menu with all reports organized in submenus
 func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, navigateFunc func(int64)) {
-	// Utilities submenu
-	utilitiesMenu := fyne.NewMenu("",
-		fyne.NewMenuItem("Advanced Search", func() {
-			showAdvancedSearchDialog(w, s, navigateFunc)
-		}),
-		fyne.NewMenuItem("Relationship Calculator", func() {
-			showRelationshipCalculator(w, s, navigateFunc)
-		}),
-		fyne.NewMenuItem("Statistics Dashboard", func() {
-			showStatisticsDashboard(w, s)
-		}),
-	)
-	utilities := fyne.NewMenuItem("Utilities", nil)
-	utilities.ChildMenu = utilitiesMenu
+	// Statistics Dashboard (top-level item, no longer in submenu since other utilities moved to Tools)
+	statisticsItem := fyne.NewMenuItem("Statistics Dashboard", func() {
+		showStatisticsDashboard(w, s)
+	})
 	
 	// Lists submenu
 	listsMenu := fyne.NewMenu("",
@@ -1659,9 +1659,6 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 		fyne.NewMenuItem("Fan Chart View", func() {
 			showFanChartDialog(w, s, currentPersonID, navigateFunc)
 		}),
-		fyne.NewMenuItem("Map View", func() {
-			showMapViewDialog(w, s, currentPersonID, navigateFunc)
-		}),
 	)
 	charts := fyne.NewMenuItem("Chart Views", nil)
 	charts.ChildMenu = chartsMenu
@@ -1719,6 +1716,9 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 		fyne.NewMenuItem("Mass Mark Living", func() {
 			showMassMarkLivingReport(w, s, func() {})
 		}),
+		fyne.NewMenuItem("Bulk Privacy Settings", func() {
+			showBulkPrivacyDialog(w, s, func() {})
+		}),
 		fyne.NewMenuItem("Reviewed Items", func() {
 			showReviewedItemsReport(w, s, navigateFunc)
 		}),
@@ -1728,12 +1728,14 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 	
 	// Main menu with submenus
 	items := []*fyne.MenuItem{
-		utilities,
+		statisticsItem,
+		fyne.NewMenuItemSeparator(),
 		lists,
 		dataQuality,
 		individual,
 		charts,
 		geographic,
+		fyne.NewMenuItemSeparator(),
 		actions,
 	}
 	
@@ -1867,8 +1869,11 @@ func showFilePopupMenu(w fyne.Window, cfg *config.Config, dbPath string, getStor
 }
 
 // showToolsPopupMenu shows a popup menu with tools
-func showToolsPopupMenu(w fyne.Window, s *store.Store) {
+func showToolsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, navigateFunc func(int64)) {
 	items := []*fyne.MenuItem{
+		fyne.NewMenuItem("Advanced Search", func() {
+			showAdvancedSearchDialog(w, s, navigateFunc)
+		}),
 		fyne.NewMenuItem("Batch Geocoding", func() {
 			showGeocodingToolDialog(w, s)
 		}),
@@ -1878,8 +1883,14 @@ func showToolsPopupMenu(w fyne.Window, s *store.Store) {
 		fyne.NewMenuItem("Global Search & Replace", func() {
 			showGlobalSearchReplaceDialog(w, s)
 		}),
+		fyne.NewMenuItem("Map View", func() {
+			showMapViewDialog(w, s, currentPersonID, navigateFunc)
+		}),
 		fyne.NewMenuItem("Name Case Conversion", func() {
 			showNameCaseConversionDialog(w, s)
+		}),
+		fyne.NewMenuItem("Relationship Calculator", func() {
+			showRelationshipCalculator(w, s, navigateFunc)
 		}),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Project Notes", func() {
@@ -2290,16 +2301,15 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 		genderSelect.SetSelected(person.Gender)
 	}
 
-	birthDateEntry := widget.NewEntry()
-	birthDateEntry.SetPlaceHolder("DD MMM YYYY or YYYY-MM-DD")
+	// Enhanced date entries with validation and calendar picker
+	birthDateEntry := NewDateEntry(w)
 	birthDateEntry.SetText(person.BirthDate)
 
 	birthPlaceEntry := widget.NewEntry()
 	birthPlaceEntry.SetPlaceHolder("City, State/Province, Country")
 	birthPlaceEntry.SetText(person.BirthPlace)
 
-	deathDateEntry := widget.NewEntry()
-	deathDateEntry.SetPlaceHolder("DD MMM YYYY or YYYY-MM-DD")
+	deathDateEntry := NewDateEntry(w)
 	deathDateEntry.SetText(person.DeathDate)
 
 	deathPlaceEntry := widget.NewEntry()
@@ -2315,7 +2325,15 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 	}
 
 	// Auto-update living checkbox based on death date
-	deathDateEntry.OnChanged = func(text string) {
+	// Store the original validation callback
+	originalDeathDateCallback := deathDateEntry.Entry.OnChanged
+	deathDateEntry.Entry.OnChanged = func(text string) {
+		// Call original validation callback first
+		if originalDeathDateCallback != nil {
+			originalDeathDateCallback(text)
+		}
+		
+		// Then update living checkbox
 		if strings.TrimSpace(text) != "" {
 			// Death date entered - uncheck living
 			isLivingCheck.SetChecked(false)
@@ -2392,16 +2410,29 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 		)
 	}
 
+	// Alternate Names button (only for existing persons)
+	var altNamesSection *fyne.Container
+	if isEdit {
+		altNamesBtn := widget.NewButton("📋 Manage Alternate Names", func() {
+			personName := formatPersonName(person)
+			showAlternateNamesManager(w, s, person.ID, personName)
+		})
+		altNamesSection = container.NewVBox(
+			widget.NewLabel("Alternate Names:"),
+			altNamesBtn,
+		)
+	}
+
 	formItems := []fyne.CanvasObject{
 		widget.NewLabel("Given Name(s):"), givenEntry,
 		widget.NewLabel("Surname:"), surnameEntry,
 		widget.NewLabel("Preferred Name:"), preferredNameEntry,
 		widget.NewLabel("Gender:"), genderSelect,
 		widget.NewSeparator(),
-		widget.NewLabel("Birth Date:"), birthDateEntry,
+		widget.NewLabel("Birth Date:"), birthDateEntry.GetWidget(),
 		widget.NewLabel("Birth Place:"), birthPlaceEntry,
 		widget.NewSeparator(),
-		widget.NewLabel("Death Date:"), deathDateEntry,
+		widget.NewLabel("Death Date:"), deathDateEntry.GetWidget(),
 		widget.NewLabel("Death Place:"), deathPlaceEntry,
 		isLivingCheck,
 		widget.NewSeparator(),
@@ -2426,6 +2457,11 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 	// Add todo section if editing
 	if todoSection != nil {
 		formItems = append(formItems, todoSection.Objects...)
+	}
+
+	// Add alternate names section if editing
+	if altNamesSection != nil {
+		formItems = append(formItems, altNamesSection.Objects...)
 	}
 
 	form := container.NewVBox(formItems...)
@@ -2469,9 +2505,9 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 		person.Surname = strings.TrimSpace(surnameEntry.Text)
 		person.PreferredName = strings.TrimSpace(preferredNameEntry.Text)
 		person.Gender = genderSelect.Selected
-		person.BirthDate = strings.TrimSpace(birthDateEntry.Text)
+		person.BirthDate = strings.TrimSpace(birthDateEntry.GetText())
 		person.BirthPlace = strings.TrimSpace(birthPlaceEntry.Text)
-		person.DeathDate = strings.TrimSpace(deathDateEntry.Text)
+		person.DeathDate = strings.TrimSpace(deathDateEntry.GetText())
 		person.DeathPlace = strings.TrimSpace(deathPlaceEntry.Text)
 		person.IsLiving = isLivingCheck.Checked
 		person.Address = strings.TrimSpace(addressEntry.Text)
@@ -2483,6 +2519,10 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 		person.Phone = strings.TrimSpace(phoneEntry.Text)
 		person.UID = strings.TrimSpace(uidEntry.Text)
 		person.Notes = strings.TrimSpace(notesEntry.Text)
+
+		// Auto-capitalize place names if they're all uppercase or all lowercase
+		AutoCapitalizePlaces(&person.BirthPlace, &person.DeathPlace)
+		AutoCapitalizeContactPlaces(&person.City, &person.State, &person.Country)
 
 		var err error
 		if isEdit {

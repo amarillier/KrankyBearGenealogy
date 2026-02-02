@@ -140,11 +140,12 @@ func (pv *PedigreeView) createControlPanel() fyne.CanvasObject {
 		pv.refresh()
 	}
 	
-	// Expand all button
-	expandAllBtn := widget.NewButton("Expand All", func() {
+	// Expand all button - make it more prominent
+	expandAllBtn := widget.NewButton("🔄 Expand All", func() {
 		pv.collapsedBranches = make(map[int64]bool)
 		pv.refresh()
 	})
+	expandAllBtn.Importance = widget.MediumImportance
 	
 	// Export button
 	exportBtn := widget.NewButton("Export Chart", func() {
@@ -238,7 +239,7 @@ func (pv *PedigreeView) buildGenerationColumn(generation int) fyne.CanvasObject 
 	}
 	
 	for i, ancestor := range ancestors {
-		if ancestor != nil && !pv.collapsedBranches[ancestor.ID] {
+		if ancestor != nil {
 			boxes = append(boxes, pv.makePersonBox(ancestor, false, generation))
 		} else {
 			boxes = append(boxes, pv.makeEmptyBox())
@@ -380,10 +381,21 @@ func (pv *PedigreeView) makePersonBox(p *store.Person, isCurrent bool, generatio
 	if generation < pv.maxGenerations {
 		parents := pv.getParents(p.ID)
 		if len(parents) > 0 {
-			collapseBtn = widget.NewButton("↕", func() {
+			// Show different icon based on collapsed state
+			var btnText string
+			if pv.collapsedBranches[p.ID] {
+				btnText = "▶" // Right arrow = collapsed, click to expand
+			} else {
+				btnText = "▼" // Down arrow = expanded, click to collapse
+			}
+			
+			btn := widget.NewButton(btnText, func() {
 				pv.collapsedBranches[p.ID] = !pv.collapsedBranches[p.ID]
 				pv.refresh()
 			})
+			btn.Importance = widget.LowImportance
+			
+			collapseBtn = btn
 		}
 	}
 	

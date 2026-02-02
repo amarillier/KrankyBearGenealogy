@@ -306,11 +306,31 @@ func (fv *FamilyView) makePersonCard(p store.Person, clickable bool) fyne.Canvas
 	nameLabel := widget.NewLabel(nameText)
 	nameLabel.TextStyle.Bold = true
 
+	// Add alternate names if any
+	cardObjects := []fyne.CanvasObject{nameLabel}
+	if altNames, err := fv.store.GetAlternateNames(p.ID); err == nil && len(altNames) > 0 {
+		var altNamesText []string
+		for _, alt := range altNames {
+			altName := fmt.Sprintf("%s %s", alt.GivenName, alt.Surname)
+			if alt.GivenName == "" {
+				altName = alt.Surname
+			} else if alt.Surname == "" {
+				altName = alt.GivenName
+			}
+			altNamesText = append(altNamesText, altName)
+		}
+		altLabel := widget.NewLabel("Also known as: " + strings.Join(altNamesText, ", "))
+		altLabel.TextStyle.Italic = true
+		altLabel.Wrapping = fyne.TextWrapWord
+		cardObjects = append(cardObjects, altLabel)
+	}
+
 	infoLabel := widget.NewLabel(dateInfo)
 	infoLabel.TextStyle.Italic = true
 	infoLabel.Wrapping = fyne.TextWrapWord
+	cardObjects = append(cardObjects, infoLabel)
 
-	card := container.NewVBox(nameLabel, infoLabel)
+	card := container.NewVBox(cardObjects...)
 
 	if clickable {
 		// Create a card with context menu support

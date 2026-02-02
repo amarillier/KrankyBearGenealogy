@@ -237,8 +237,17 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Smart scoring algorithm
   - ✅ Manual merge capability
   - ✅ Review system to mark false positives
-- **⏳ Date Format Validator**: Ensure consistent date formats (future)
-- **⏳ Name Variations**: Track alternate spellings/names (future)
+- **✅ Date Format Validator**: Smart date parsing and validation (v1.5.3)
+  - ✅ Real-time validation with visual feedback
+  - ✅ Calendar picker integration
+  - ✅ Support for genealogy date formats (abt, bef, aft)
+  - ✅ Multiple format support (YYYY-MM-DD, DD Mon YYYY, etc.)
+- **✅ Name Variations**: Track alternate spellings/names (v1.5.3)
+  - ✅ Database table for alternate names
+  - ✅ Management UI in person editor
+  - ✅ Search integration
+  - ✅ Display in person views
+  - ✅ Support for nicknames, maiden names, spellings, etc.
 
 ---
 
@@ -374,11 +383,15 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Marker statistics display
   - ⏳ Future enhancements: Migration paths, timeline slider, heat maps (Phase 7)
 
-### Data Entry Helpers (Future)
-- **⏳ Smart Date Entry**: Parse "May 1945", "1945", "abt 1945", etc.
-- **⏳ Place Autocomplete**: Suggest standard place names as you type
-- **⏳ Name Authority**: Suggest standard name formats
-- **⏳ Relationship Suggestions**: AI-assisted relationship detection from notes
+### Data Entry Helpers
+- **✅ Smart Date Entry**: Parse "May 1945", "1945", "abt 1945", etc. (v1.5.3)
+  - ✅ Real-time date validation
+  - ✅ Calendar picker integration
+  - ✅ Support for genealogy date qualifiers (abt, bef, aft, circa)
+  - ✅ Multiple format parsing (YYYY-MM-DD, DD Mon YYYY, Mon YYYY, YYYY, M/D/YYYY)
+- **⏳ Place Autocomplete**: Suggest standard place names as you type (future)
+- **⏳ Name Authority**: Suggest standard name formats (future)
+- **⏳ Relationship Suggestions**: AI-assisted relationship detection from notes (future)
 
 ---
 
@@ -404,14 +417,13 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Remove orphaned records
   - ✅ Remove duplicate relationships
   - ✅ Compact database and reclaim space
-- **Batch Operations** (Mostly Complete): 
+- **Batch Operations** (✓ Complete): 
   - ✅ Bulk mark as living (v1.2.0)
   - ✅ Bulk edit place names (v1.3.0): Global Search & Replace
   - ✅ Bulk standardize names (v1.3.0): Name Case Conversion tool
   - ✅ Batch geocoding (v1.5.0): Geocoding Tool
-  - ⏳ Bulk delete operations (not implemented)
-  - ⏳ More comprehensive bulk privacy settings (beyond Mass Mark Living)
-- **⏳ Data Migration Tools**: Convert between different schemas/versions
+  - ✅ Bulk delete operations (v1.5.3): Not impelemented separately: Available via cascade delete when deleting individuals
+  - ✅ Bulk privacy settings (v1.5.3): Mark as living/deceased, clear contact info, clear death dates
 
 ---
 
@@ -828,11 +840,11 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 - **Estimated Effort:** 20-30 hours (multiple releases)
 
 **Phase 8: Data Entry Helpers**
-- Smart Date Entry: Parse "May 1945", "1945", "abt 1945", etc.
-- Place Autocomplete: Suggest standard place names as you type
-- Name Authority: Suggest standard name formats
-- Relationship Suggestions: AI-assisted relationship detection from notes
-- **Estimated Effort:** 15-20 hours
+- ✅ Smart Date Entry: Parse "May 1945", "1945", "abt 1945", etc. (✓ Completed in v1.5.3)
+- ⏳ Place Autocomplete: Suggest standard place names as you type
+- ⏳ Name Authority: Suggest standard name formats
+- ⏳ Relationship Suggestions: AI-assisted relationship detection from notes
+- **Estimated Effort:** 15-20 hours (Smart Date Entry complete, remaining features deferred)
 
 **Phase 9: Performance & Scalability**
 - Indexed Search: Full-text search across all fields
@@ -850,8 +862,8 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 - ✅ Bulk edit place names (v1.3.0): Global Search & Replace
 - ✅ Bulk standardize names (v1.3.0): Name Case Conversion
 - ✅ Batch geocoding (v1.5.0): Geocoding Tool
-- ⏳ Bulk delete operations
-- ⏳ More comprehensive bulk privacy settings
+- ✅ Bulk delete operations - not implemented, see notes related to cascade delete individual
+- ✅ More comprehensive bulk privacy settings
 - **Actual Effort:** 8-10 hours (most features complete)
 
 **Phase 8: Advanced UX** ✅ (Completed in v1.5.2)
@@ -938,4 +950,4 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 
 ---
 
-*Last Updated: January 31, 2026 - v1.5.2 Undo/Redo Functionality Integrated*
+*Last Updated: January 31, 2026 - v1.5.3 Enhanced Date Entry, Name Variations & Bulk Privacy Settings*

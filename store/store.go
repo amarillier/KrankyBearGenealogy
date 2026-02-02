@@ -266,6 +266,17 @@ func (s *Store) InitSchema() error {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );`,
 		`INSERT OR IGNORE INTO project_notes (id, notes) VALUES (1, '');`,
+		`CREATE TABLE IF NOT EXISTS alternate_names (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            name_type TEXT DEFAULT 'spelling',
+            given_name TEXT,
+            surname TEXT,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(person_id) REFERENCES persons(id) ON DELETE CASCADE
+        );`,
+		`CREATE INDEX IF NOT EXISTS idx_alternate_names_person ON alternate_names(person_id);`,
 	}
 
 	tx, err := s.DB.Begin()
@@ -2941,5 +2952,62 @@ func (s *Store) SaveProjectNotes(notes string) error {
 		SET notes = ?, updated_at = CURRENT_TIMESTAMP 
 		WHERE id = 1
 	`, notes)
+	return err
+}
+
+// CreateAlternateName creates a new alternate name for a person
+func (s *Store) CreateAlternateName(alt *AlternateName) error {
+	result, err := s.DB.Exec(`
+		INSERT INTO alternate_names (person_id, name_type, given_name, surname, notes)
+		VALUES (?, ?, ?, ?, ?)
+	`, alt.PersonID, alt.NameType, alt.GivenName, alt.Surname, alt.Notes)
+	if err != nil {
+		return err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	alt.ID = id
+	return nil
+}
+
+// GetAlternateNames returns all alternate names for a person
+func (s *Store) GetAlternateNames(personID int64) ([]AlternateName, error) {
+	rows, err := s.DB.Query(`
+		SELECT id, person_id, name_type, given_name, surname, notes, created_at
+		FROM alternate_names
+		WHERE person_id = ?
+		ORDER BY created_at ASC
+	`, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var names []AlternateName
+	for rows.Next() {
+		var alt AlternateName
+		if err := rows.Scan(&alt.ID, &alt.PersonID, &alt.NameType, &alt.GivenName, &alt.Surname, &alt.Notes, &alt.CreatedAt); err != nil {
+			return nil, err
+		}
+		names = append(names, alt)
+	}
+	return names, rows.Err()
+}
+
+// UpdateAlternateName updates an alternate name
+func (s *Store) UpdateAlternateName(alt *AlternateName) error {
+	_, err := s.DB.Exec(`
+		UPDATE alternate_names
+		SET name_type = ?, given_name = ?, surname = ?, notes = ?
+		WHERE id = ?
+	`, alt.NameType, alt.GivenName, alt.Surname, alt.Notes, alt.ID)
+	return err
+}
+
+// DeleteAlternateName deletes an alternate name
+func (s *Store) DeleteAlternateName(id int64) error {
+	_, err := s.DB.Exec(`DELETE FROM alternate_names WHERE id = ?`, id)
 	return err
 }

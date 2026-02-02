@@ -491,15 +491,45 @@ func performAdvancedSearch(s *store.Store, criteria SearchCriteria) []store.Pers
 	var results []store.Person
 	
 	for _, p := range allPeople {
-		// Name filters
+		// Name filters (check primary name and alternate names)
 		if criteria.GivenName != "" {
-			if !strings.Contains(strings.ToLower(p.GivenName), strings.ToLower(criteria.GivenName)) {
+			matchFound := strings.Contains(strings.ToLower(p.GivenName), strings.ToLower(criteria.GivenName))
+			
+			// If primary name doesn't match, check alternate names
+			if !matchFound {
+				altNames, err := s.GetAlternateNames(p.ID)
+				if err == nil {
+					for _, alt := range altNames {
+						if strings.Contains(strings.ToLower(alt.GivenName), strings.ToLower(criteria.GivenName)) {
+							matchFound = true
+							break
+						}
+					}
+				}
+			}
+			
+			if !matchFound {
 				continue
 			}
 		}
 		
 		if criteria.Surname != "" {
-			if !strings.Contains(strings.ToLower(p.Surname), strings.ToLower(criteria.Surname)) {
+			matchFound := strings.Contains(strings.ToLower(p.Surname), strings.ToLower(criteria.Surname))
+			
+			// If primary surname doesn't match, check alternate names
+			if !matchFound {
+				altNames, err := s.GetAlternateNames(p.ID)
+				if err == nil {
+					for _, alt := range altNames {
+						if strings.Contains(strings.ToLower(alt.Surname), strings.ToLower(criteria.Surname)) {
+							matchFound = true
+							break
+						}
+					}
+				}
+			}
+			
+			if !matchFound {
 				continue
 			}
 		}

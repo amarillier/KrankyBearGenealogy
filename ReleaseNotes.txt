@@ -1,5 +1,209 @@
 KrankyBear Genealogy - Release Notes
 
+- KrankyBear Genealogy load time 2 seconds until fully ready to use with most recent database open
+- Gramps load time - around 8 seconds to load, then open recent, about 12-15 seconds before ready
+- PAF load time about 2 seconds until fully ready to use with most recent database open
+
+1.5.3 - January 31, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Enhanced Date Entry & Name Variations: Smart Data Entry Helpers
+
+Major Features:
+• Smart Date Validation with Real-Time Feedback
+• Calendar Picker Integration for Date Fields
+• Alternate Names / Name Variations Tracking
+• Advanced Date Format Parser for Genealogy
+• Search Integration for Alternate Names
+• Enhanced Name Display in Person Views
+• Auto-Capitalization for Place Names
+• Bulk Privacy Settings for Data Management
+
+📅 Enhanced Date Entry:
+  • Smart date validation with visual feedback:
+    - ✓ Green checkmark for valid dates
+    - ⚠ Warning icon for invalid dates
+    - Real-time parsing as you type
+  • Calendar picker button (📅) on all date fields:
+    - Visual date selection for exact dates
+    - Integrates with existing CalendarPicker widget
+    - Shows current date if already entered
+  • Comprehensive format support:
+    - Standard: YYYY-MM-DD (e.g., 1945-05-08)
+    - Genealogy: DD Mon YYYY (e.g., 8 May 1945)
+    - Partial: Mon YYYY (e.g., May 1945) or YYYY (e.g., 1945)
+    - US format: M/D/YYYY or MM/DD/YYYY
+  • Genealogy date qualifiers:
+    - "abt 1945" or "about 1945" for estimated dates
+    - "bef 1945" or "before 1945" for dates before
+    - "aft 1945" or "after 1945" for dates after
+    - "ca 1945" or "circa 1945" for approximate dates
+  • Smart parsing:
+    - Detects and validates various date formats
+    - Extracts year, month, day when available
+    - Preserves original formatting when valid
+    - Handles partial dates (year only, month+year)
+  • User-friendly tooltips:
+    - Shows recognized format description
+    - Indicates estimated/before/after qualifiers
+    - Provides format hints on invalid dates
+  • Birth/Death Date Fields Enhanced:
+    - Calendar picker integrated into person edit dialog
+    - Real-time validation feedback
+    - Automatic "living" checkbox update on death date entry
+
+📋 Alternate Names / Name Variations:
+  • Complete alternate name management:
+    - Track nicknames, maiden names, spelling variations
+    - Support for married names and other variations
+    - Notes field to document why name is different
+  • Name types supported:
+    - Nickname: "Bill" for "William"
+    - Maiden: Pre-marriage surname
+    - Married: Post-marriage surname
+    - Spelling: Variations like "Smith/Smyth"
+    - Other: Custom variations
+  • Management interface:
+    - "Manage Alternate Names" button in person edit dialog
+    - Add, edit, delete alternate names
+    - Full CRUD operations with validation
+    - Separate given name and surname fields
+  • Search integration:
+    - Advanced search includes alternate names
+    - Both given names and surnames searched
+    - Find people even with spelling variations
+    - Example: Search "Smyth" finds people with surname "Smith" who have alternate name "Smyth"
+  • Display integration:
+    - Alternate names shown in person cards (Family View)
+    - "Also known as: Name1, Name2" format
+    - Italic styling for clear distinction from primary name
+    - All alternate names listed together
+  • Database schema:
+    - New `alternate_names` table with foreign key to persons
+    - Indexed for fast lookup by person_id
+    - Cascade delete when person is deleted
+    - Stores name type, given name, surname, notes
+
+🏙️ Auto-Capitalization for Place Names:
+  • Smart place name capitalization when saving:
+    - Automatically capitalizes all-uppercase or all-lowercase place entries
+    - Respects mixed-case entries (assumes user knows what they want)
+    - Works for Birth Place, Death Place, City, State, Country fields
+  • Intelligent capitalization rules:
+    - Standard places: "austin, texas" → "Austin, Texas"
+    - All caps: "NEW YORK" → "New York"
+    - Multiple words: "san francisco" → "San Francisco"
+    - Hyphenated: "winston-salem" → "Winston-Salem"
+    - Apostrophes: "o'fallon" → "O'Fallon"
+    - Common prefixes preserved: "San Antonio", "Los Angeles", "Las Vegas"
+    - Abbreviations handled: "usa" → "USA", "uk" → "UK"
+    - Special cases: "St. Louis", "Mt. Vernon", "Ft. Worth"
+  • Automatic spacing normalization:
+    - Removes extra spaces
+    - Fixes comma spacing: "Austin,Texas" → "Austin, Texas"
+    - Cleans up "City , State" → "City, State"
+  • Use Cases:
+    - Fix GEDCOM imports with "NEW YORK, NEW YORK"
+    - Clean up lowercase entries from quick typing
+    - Standardize place name formatting automatically
+    - Reduce manual cleanup after data entry
+
+🔒 Bulk Privacy Settings:
+  • Comprehensive batch operations for privacy management:
+    - Mark multiple people as living/deceased at once
+    - Clear contact information for privacy protection
+    - Clear death dates in bulk
+    - Extends beyond "Mass Mark Living" feature
+  • Advanced filtering:
+    - Filter by name
+    - Show only living people
+    - Show only deceased people
+    - Sort alphabetically or by birth date
+  • Multiple privacy actions:
+    - ✓ Mark as Living: Set living flag, clear death date
+    - † Mark as Deceased: Remove living flag
+    - 🔒 Clear Contact Info: Remove address, phone, email for privacy
+    - Clear Death Dates: Bulk remove death date/place
+  • Smart selection:
+    - Select All Visible: Quick selection of filtered results
+    - Deselect All: Clear all selections
+    - Visual indicators: Living status, age, contact info presence
+  • Safety features:
+    - Confirmation dialogs before bulk actions
+    - Shows count of affected people
+    - Reports errors if any occur
+    - Refreshes view after changes
+  • Use Cases:
+    - Prepare database for sharing (remove living contact info)
+    - Correct living/deceased status in bulk
+    - Privacy compliance for GDPR/data protection
+    - Clean up imported data with incorrect living flags
+  • Location:
+    - Reports > Actions > Bulk Privacy Settings (main menu)
+    - System tray > Reports > Bulk Privacy Settings
+
+🛠️ Technical Implementation:
+  • New date utilities (ui/date_utils.go):
+    - ParseGenealogyDate: Comprehensive date parsing
+    - FormatGenealogyDate: Format with qualifiers
+    - ValidateDateString: Quick validation check
+    - GetDateValidationMessage: User-friendly messages
+    - NormalizeDateForStorage: Consistent storage format
+  • DateEntry widget (ui/date_entry.go):
+    - Composite widget: Entry + Validation Icon + Calendar Button
+    - Real-time validation on text change
+    - Calendar picker dialog with format hints
+    - Reusable component for all date fields
+  • Alternate names module (ui/alternate_names.go):
+    - showAlternateNamesManager: Main management window
+    - makeAlternateNameCard: Display card with edit/delete
+    - Add/Edit dialogs with validation
+    - Full CRUD operations through Store methods
+  • Store methods (store/store.go):
+    - CreateAlternateName, GetAlternateNames
+    - UpdateAlternateName, DeleteAlternateName
+    - Efficient queries with indexes
+  • Enhanced search (ui/advanced_search.go):
+    - Alternate names checked when primary name doesn't match
+    - Separate lookups for given name and surname
+    - Maintains search performance
+  • Enhanced display (ui/family_view.go):
+    - makePersonCard checks for alternate names
+    - Displays "Also known as" line
+    - Comma-separated list of variations
+  • Data entry helpers (ui/data_entry_helpers.go):
+    - SmartCapitalizePlace: Intelligent place name capitalization
+    - AutoCapitalizePlaces: Auto-capitalize birth/death places
+    - AutoCapitalizeContactPlaces: Auto-capitalize city/state/country
+    - SmartTrimPlace: Normalize spacing and formatting
+    - Special handling for abbreviations, prefixes, hyphens, apostrophes
+  • Bulk privacy operations (ui/bulk_operations.go):
+    - showBulkPrivacyDialog: Main dialog with filtering and actions
+    - applyBulkPrivacyAction: Handles mark living/deceased, clear contact info
+    - Supports multiple simultaneous actions
+    - Filters for living/deceased status with visual indicators
+
+💡 Use Cases:
+  • Date Entry Improvements:
+    - Enter dates faster with calendar picker
+    - Catch typos with real-time validation
+    - Use genealogy-standard date qualifiers
+    - Support various date formats from sources
+  • Name Variations Benefits:
+    - Track maiden names separately
+    - Document nickname usage in records
+    - Find people despite spelling variations
+    - Record name changes over time
+    - Track how names appear in different sources (census records, etc.)
+  • Place Name Auto-Capitalization:
+    - Saves time on data cleanup
+    - Standardizes place formatting automatically
+    - Perfect for cleaning up GEDCOM imports
+    - Handles international place name conventions
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+
 1.5.2 - January 31, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━
 Undo/Redo Functionality: Full Edit History Management

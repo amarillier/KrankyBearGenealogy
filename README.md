@@ -4,7 +4,7 @@
 
 A modern, cross-platform genealogy application originally inspired by Personal Ancestral File (PAF) which was discontinued in 2013, built with Go and Fyne.
 
-![Version](https://img.shields.io/badge/version-1.3.0-blue)
+![Version](https://img.shields.io/badge/version-1.5.3-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 
 ## Overview
@@ -58,14 +58,6 @@ Currently in active development with regular feature additions, it already match
 - **Multiple Marriages**: Track multiple spouses with marriage dates, places, and end reasons
 - **Relationship Types**: Marriage, cohabitation, partner, or other informal relationships
 - **Auto-Navigation**: Click any person to view their record in all views
-- **Relationship Calculator**: 
-  - Calculate relationships between any two people in the database
-  - Detects direct relationships (parent/child, grandparent/grandchild, great-grandparent/great-grandchild)
-  - Identifies cousins (1st, 2nd, 3rd + "removed" variations)
-  - Recognizes collateral relationships (aunt/uncle, niece/nephew, great-aunt/uncle)
-  - Displays in-law relationships with descriptive context
-  - Shows common ancestors and line of descent
-  - For 4+ generation ancestor tracking, use Pedigree View
 
 ### 📸 Media Management ✨ **NEW**
 - **Photo & Document Storage**: Attach images, PDFs, videos, Office documents
@@ -101,14 +93,6 @@ Currently in active development with regular feature additions, it already match
 - **Keyboard Shortcut**: Cmd/Ctrl+L
 - **User-Friendly**: Asynchronous operations, detailed reports, resizable window
 
-### 🔍 Advanced Search ✨ **NEW IN v1.3**
-- **Multi-Field Search**: Search by name, dates, places, and gender
-- **Boolean Filters**: Living/deceased, has media, has sources, has todos, bookmarked
-- **Export Results**: Export search results to CSV, JSON, or XML
-- **Smart File Handling**: Automatically adds appropriate file extensions
-- **Keyboard Shortcut**: Cmd/Ctrl+Shift+F
-- **User-Friendly UI**: Buttons at top, scrollable search criteria
-
 ### 🖱️ Quick Actions / Context Menus ✨ **NEW IN v1.3**
 - **Right-Click Menus**: Available on all person boxes in every view
 - **Navigation Shortcuts**: "Set as Focus Person", "View in Fan Chart", "View in Descendant Chart"
@@ -119,25 +103,94 @@ Currently in active development with regular feature additions, it already match
 - **Universal Access**: Works in Family View, Pedigree View, Fan Chart, Descendant Chart
 
 ### 🛠️ Tools ✨ **NEW IN v1.3**
+- **Advanced Search**: Multi-field search with export (Keyboard: Cmd/Ctrl+Shift+F)
+  - Search by name, dates, places, and gender
+  - Boolean filters (living/deceased, has media, sources, todos, bookmarked)
+  - Export results to CSV, JSON, or XML
+- **Relationship Calculator**: Calculate relationships between any two people
+  - Detects direct relationships, cousins, in-laws
+  - Shows common ancestors and line of descent
 - **Global Search and Replace**: Batch text replacement across all records
   - Search in Birth/Death Place, Address, City, State, Country, Notes, or All Place Fields
   - Case-sensitive option
   - Preview all matches before applying
   - Perfect for standardizing place names (e.g., "USA" → "United States")
-  - Useful for correcting spelling errors across many records
 - **Global Name Case Conversion**: Fix inconsistent name capitalization
   - Convert to Proper Case, UPPERCASE, or lowercase
-  - Smart handling of special cases:
-    - Name prefixes: McDonald, O'Brien, van der Berg
-    - Roman numerals: I, II, III, IV, V (stay uppercase)
-    - Suffixes: Jr., Sr., Esq., PhD, MD (proper format)
-  - Apply to Given Names, Surnames, Both, or Preferred Names
+  - Smart handling of special cases (McDonald, O'Brien, van der Berg)
+  - Roman numerals and suffixes handled properly
   - Preview all affected records before applying
-  - Perfect for fixing imported GEDCOM files with "JOHN SMITH"
+
+### 🗺️ Map View & Geographic Analysis ✨ **NEW IN v1.5.1**
+- **Interactive Map Visualization**: OpenStreetMap-based mapping of life events
+  - **18 Zoom Levels**: From world view to street level
+  - **Auto-Centering**: Automatically centers on person's birthplace
+  - **Multi-Person Views**: View all people, descendants, or ancestors
+  - **Event Filtering**: Toggle birth, death, and marriage markers
+  - **Date Range Filter**: Focus on specific time periods
+  - **Surname Filter**: View specific family lines geographically
+  - **Generation Color-Coding**: Visualize family expansion over time
+  - **Marker Statistics**: Real-time counts of visible events
+  - **Center Buttons**: Quickly re-center on any event type
+  - **Smart Place Handling**: Filters unknown/placeholder locations
+  - **Geocoding Cache**: Fast map rendering with database caching
+  - **Internet Check**: Gracefully handles offline scenarios
+- **Geographic Reports**: Four specialized geographic analysis reports
+  - **Migration Distance**: Rank families by how far they moved between generations
+  - **Geographic Hotspots**: Identify concentration areas for births/deaths/marriages
+  - **Cross-Border Families**: Find people with events in multiple countries
+  - **Unmapped Places**: List places that need geocoding
+
+### ↩️ Undo/Redo System ✨ **NEW IN v1.5.2**
+- **Full Edit History**: Undo and redo all database operations
+  - **Person Edits**: Revert changes to any person field
+  - **Person Deletions**: Restore deleted people with all relationships intact
+  - **Relationship Changes**: Undo/redo relationship additions and deletions
+  - **50-Operation Buffer**: Maintains history of recent operations
+- **Keyboard Shortcuts**: Cmd/Ctrl+U (Undo), Cmd/Ctrl+Shift+U (Redo)
+- **Menu Integration**: Edit → Undo/Redo (also in system tray)
+- **Thread-Safe**: Atomic operations with automatic UI updates
+- **Safety Net**: Non-destructive, perfect for data entry confidence
+
+### 📅 Enhanced Date Entry ✨ **NEW IN v1.5.3**
+- **Smart Date Validation**: Real-time feedback with visual indicators
+  - ✓ Green checkmark for valid dates
+  - ⚠ Warning icon for invalid dates
+  - Tooltips showing recognized format
+- **Calendar Picker**: 📅 button on all date fields for easy date selection
+- **Comprehensive Format Support**:
+  - Standard: YYYY-MM-DD (e.g., 1945-05-08)
+  - Genealogy: DD Mon YYYY (e.g., 8 May 1945)
+  - Partial: Mon YYYY (e.g., May 1945) or YYYY (e.g., 1945)
+  - US format: M/D/YYYY or MM/DD/YYYY
+- **Genealogy Date Qualifiers**:
+  - "abt 1945" or "about 1945" for estimated dates
+  - "bef 1945" or "before 1945" for dates before
+  - "aft 1945" or "after 1945" for dates after
+  - "ca 1945" or "circa 1945" for approximate dates
+
+### 📋 Alternate Names / Name Variations ✨ **NEW IN v1.5.3**
+- **Track Name Variations**: Manage nicknames, maiden names, spelling variants
+  - **Name Types**: Nickname, maiden, married, spelling, other
+  - **Management UI**: Add, edit, delete alternate names
+  - **Search Integration**: Find people by any name variation
+  - **Display Integration**: "Also known as" shown in person cards
+  - **Notes Field**: Document why names differ (e.g., "Used in 1900 census")
+- **Use Cases**:
+  - Track maiden names separately from married names
+  - Document nickname usage (William → Bill)
+  - Record spelling variations (Smith → Smyth)
+  - Find people despite spelling differences in records
+
+### 📝 Project Notes & Research Tools ✨ **NEW IN v1.5.1**
+- **Project Notes / Scratchpad**: Database-wide notes not tied to specific people
+- **People with Research Logs Report**: List all people with research activity
+- **Research Log Manager**: Track all research activities with date/repository/results
 
 ### 📊 Reports
 - **Data Quality Report**: Interactive report showing incomplete records
 - **Living Status Report**: Identifies inconsistencies based on birth date and living status
+- **Bulk Privacy Settings** ✨ **NEW IN v1.5.3**: Batch operations for privacy management (mark living/deceased, clear contact info)
 - Clickable reports - navigate directly to any person
 
 ### ⚙️ User Experience
@@ -197,8 +250,10 @@ go build -mod=mod -ldflags="-s -w" -trimpath -o genealogy .
 
 ### Menus
 - **File**: New Database, Open Database, Import/Export, Backup/Restore, Database Maintenance
-- **Reports**: Statistics Dashboard, Data Quality, Living Status, Conflicts, Duplicates, Timeline, and more
+- **Edit**: Undo, Redo (with keyboard shortcuts)
 - **Media**: Media Library, Add Media, Sources Library, Research Log
+- **Tools**: Advanced Search, Map View, Relationship Calculator, Date Calculator, Geocoding, Search & Replace, Name Case Conversion, Project Notes
+- **Reports**: Statistics Dashboard, Data Quality, Living Status, Conflicts, Duplicates, Timeline, Geographic Reports, and more
 - **Settings**: Configure focus user, preferences, keyboard shortcuts, themes
 - **Help**: About, Help, Check for Update, Load Demo Database
 
@@ -217,11 +272,21 @@ go build -mod=mod -ldflags="-s -w" -trimpath -o genealogy .
 3. **Media Library**: Browse all media, filter, edit metadata, manage links
 4. **Storage Options**: Store in database (default) or link to external file
 
-## Date Formats Supported
+## Date Formats Supported ✨ **Enhanced in v1.5.3**
 
-- **Full Dates**: "3 DEC 1931", "1931-12-03"
-- **Partial Dates**: "1931", "DEC 1931"
-- **Approximate**: "abt 1945", "bet 1940 and 1950"
+KrankyBear now features **smart date validation** with real-time feedback and a calendar picker!
+
+**Supported Formats:**
+- **Full Dates**: "3 DEC 1931", "1931-12-03", "8 May 1945"
+- **Partial Dates**: "1931", "DEC 1931", "May 1945"
+- **Approximate**: "abt 1945", "ca 1945", "circa 1945"
+- **Before/After**: "bef 1945", "aft 1945"
+- **US Format**: "5/8/1945", "05/08/1945"
+
+All date fields now show:
+- ✓ Green checkmark for valid dates
+- ⚠ Warning for invalid dates
+- 📅 Calendar picker button for easy date selection
 
 ## Documentation
 
@@ -261,38 +326,50 @@ See the `docs/` folder for additional documentation:
 ## Database Structure
 
 The SQLite database includes:
-- `persons` - Individual records
-- `relationships` - Parent-child, spouse relationships
-- `marriages` - Marriage/relationship details
-- `media` - Photos, documents, videos
+- `persons` - Individual records with full genealogy data
+- `alternate_names` - Name variations (nicknames, maiden names, spellings)
+- `relationships` - Parent-child, spouse relationships with marriage details
+- `media` - Photos, documents, videos with BLOB or external storage
 - `person_media` - Many-to-many links between people and media
-- `events` - Life events (future expansion)
+- `sources` - Source citations with confidence levels
+- `citations` - Links between sources and people
+- `research_logs` - Research activity tracking
+- `research_todos` - Per-person research tasks
+- `validated_items` - Reviewed conflicts and duplicates
+- `place_geocodes` - Geocoding cache for map view
+- `project_notes` - Database-wide notes/scratchpad
+- `events` - Life events
 - `identifiers` - External IDs and UIDs
-- `sources` - Citations (future expansion)
 
 ## Roadmap
 
-**Completed (v1.0-1.2)**
+**Completed (v1.0-1.5.3)**
 - ✅ Three-view interface (Family, Pedigree, Individual)
-- ✅ GEDCOM, GenoPro, Gramps import
+- ✅ GEDCOM, GenoPro, Gramps import/export
 - ✅ Media management (photos, documents, videos)
 - ✅ Multiple marriage support
 - ✅ Relationship calculator (independent and focus-based)
 - ✅ Comprehensive reports (data quality, conflicts, timeline, statistics, duplicates, geographic)
-- ✅ Research tools (research log, source citations, to-do lists)
+- ✅ Research tools (research log, source citations, to-do lists, project notes)
 - ✅ Recent people tracking & bookmarks
-- ✅ Keyboard shortcuts (23 customizable shortcuts)
+- ✅ Keyboard shortcuts (30+ customizable shortcuts)
 - ✅ Preferred name/nickname field
+- ✅ Alternate names / name variations (v1.5.3)
 - ✅ Backup/restore
+- ✅ Database maintenance tools (vacuum, integrity check, orphan removal)
+- ✅ Advanced search with multi-field filters and export
+- ✅ Enhanced visualizations (fan charts, descendant charts, map view)
+- ✅ Undo/Redo system (v1.5.2)
+- ✅ Smart date entry with validation and calendar picker (v1.5.3)
+- ✅ Geographic analysis (map view, migration reports, geocoding)
 
-**Coming Soon (v1.3+)**
-- 🔧 Database maintenance tools (vacuum, integrity check, orphan removal)
+**Coming Soon**
 - 🤝 GEDCOM merge and conflict resolution
-- 🔍 Advanced search with multi-field filters
-- 🎨 Enhanced visualizations (fan charts, maps)
-- 📄 Report export (PDF, CSV, HTML)
+- 📄 Additional report exports (PDF, enhanced HTML)
+- 🔍 More advanced search capabilities
+- 📱 Mobile companion apps (iOS, Android)
 
-See [ROADMAP.md](docs/ROADMAP.md) for complete future plans.
+See [ROADMAP.md](ROADMAP.md) for complete future plans.
 
 ## Contributing
 
