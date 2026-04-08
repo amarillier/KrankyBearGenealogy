@@ -7,8 +7,8 @@ require (
 	github.com/amarillier/go-update-checker v0.0.3
 	github.com/disintegration/imaging v1.6.2
 	github.com/jung-kurt/gofpdf v1.16.2
-	golang.org/x/image v0.24.0
-	golang.org/x/text v0.33.0
+	golang.org/x/image v0.38.0
+	golang.org/x/text v0.35.0
 	modernc.org/sqlite v1.43.0
 )
 
