@@ -182,3 +182,13 @@ type AlternateName struct {
 	Notes     string    `json:"notes"`      // Why this name is alternate (e.g., "Used in census")
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// AlternatePlace represents a historical place name mapping to modern name
+type AlternatePlace struct {
+	ID            int64     `json:"id"`
+	HistoricalName string   `json:"historical_name"` // Original/historical place name (e.g., "Salisbury, Rhodesia")
+	CurrentName    string   `json:"current_name"`    // Modern/current place name (e.g., "Harare, Zimbabwe")
+	YearChanged    int      `json:"year_changed"`    // Year the name changed (optional, e.g., 1982)
+	Notes          string   `json:"notes"`           // Context about the change
+	CreatedAt      time.Time `json:"created_at"`
+}

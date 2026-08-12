@@ -4,7 +4,7 @@
 
 A modern, cross-platform genealogy application originally inspired by Personal Ancestral File (PAF) which was discontinued in 2013, built with Go and Fyne.
 
-![Version](https://img.shields.io/badge/version-1.5.3-blue)
+![Version](https://img.shields.io/badge/version-1.8.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 
 ## Overview
@@ -229,6 +229,27 @@ Want to explore features before entering your own data? Load the built-in demo d
 - Demonstrates all features: multiple marriages, media, citations, research logs, bookmarks, and more
 - Perfect for testing and learning the application
 
+## Cross-platform support
+
+- **Linux**: GNOME, KDE, XFCE, Cinnamon, MATE, etc. on X11 or Wayland.
+- **macOS**: 10.13 (High Sierra) or later.
+- **Windows**: Windows 10 or later. Some VMs and locked-down hosts have no
+  usable hardware OpenGL, which most Fyne apps otherwise crash or hang on
+  with no explanation — ProcessMiner automatically probes for it at launch and,
+  only if that fails, falls back to a bundled Mesa3D software renderer and
+  relaunches itself, with no user action needed. Real hardware OpenGL is
+  always preferred when available (it's faster); nothing changes on a
+  normal machine with a working GPU. The installer bundles this fallback
+  automatically. The **portable (zip) Windows build does not** — if you're
+  running the portable version on a machine without hardware OpenGL, grab
+  `mesa-fallback.zip` from the same release, extract it into a
+  `mesa-fallback` folder next to `KrankyBearProcessMiner.exe`, and the same
+  automatic fallback applies. Most users on a normal machine will never
+  need this file at all.
+
+## Known limitations
+None currently listed
+
 ### Building from Source
 
 ```bash
@@ -238,6 +259,7 @@ cd KrankyBearGenealogy
 
 # Build
 go build -mod=mod -ldflags="-s -w" -trimpath -o genealogy .
+```
 
 ## Usage
 
@@ -291,7 +313,7 @@ All date fields now show:
 ## Documentation
 
 See the `docs/` folder for additional documentation:
-- [ROADMAP.md](docs/ROADMAP.md) - Feature roadmap and future plans
+- [ROADMAP.md](ROADMAP.md) - Feature roadmap and future plans
 - [FEATURES.md](docs/FEATURES.md) - Detailed feature list
 - [CHANGELOG.md](docs/CHANGELOG.md) - Version history
 - [GENOPRO_IMPORT.md](docs/GENOPRO_IMPORT.md) - GenoPro import details
@@ -343,7 +365,7 @@ The SQLite database includes:
 
 ## Roadmap
 
-**Completed (v1.0-1.5.3)**
+**Completed (v1.0-v1.8)**
 - ✅ Three-view interface (Family, Pedigree, Individual)
 - ✅ GEDCOM, GenoPro, Gramps import/export
 - ✅ Media management (photos, documents, videos)
@@ -362,11 +384,16 @@ The SQLite database includes:
 - ✅ Undo/Redo system (v1.5.2)
 - ✅ Smart date entry with validation and calendar picker (v1.5.3)
 - ✅ Geographic analysis (map view, migration reports, geocoding)
+- ✅ Name/place autocomplete and authority helpers (v1.6-v1.7)
+- ✅ Historical place mappings and background geocoding (v1.7)
+- ✅ Full-text search with FTS5 and advanced query syntax (v1.8)
+- ✅ Map export (PNG/PDF) and map interaction improvements (v1.8)
 
 **Coming Soon**
 - 🤝 GEDCOM merge and conflict resolution
-- 📄 Additional report exports (PDF, enhanced HTML)
-- 🔍 More advanced search capabilities
+- 🧾 Change tracking / audit log
+- ⚡ Large-database optimizations (lazy loading and background processing)
+- 🔐 Optional database encryption / password protection
 - 📱 Mobile companion apps (iOS, Android)
 
 See [ROADMAP.md](ROADMAP.md) for complete future plans.
@@ -411,6 +438,6 @@ If you have an old Gramps database in BSDDB format (pre-SQLite):
 4. Import the GEDCOM file into KrankyBear Genealogy
 
 Note: Gramps themselves may have deprecated BSDDB format and be unable to
-reliably convert it, or you may see database corruption erorr messages.
+reliably convert it, or you may see database corruption error messages.
 GEDCOM export from an old Gramps version is the standard migration path
 recommended by the Gramps project.

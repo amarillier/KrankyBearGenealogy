@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -13,15 +14,14 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 
 	"genealogy/config"
+	"genealogy/internal/startup"
 	"genealogy/store"
 	"genealogy/ui"
-
-	updatechecker "github.com/amarillier/go-update-checker"
 )
 
 const (
 	// appName    = "KrankyBear Genealogy"
-	appVersion = "1.5.3" // see FyneApp.toml
+	appVersion = "1.6.0" // see FyneApp.toml
 	appAuthor  = "Allan Marillier"
 )
 
@@ -34,6 +34,15 @@ var helpWindow fyne.Window
 var updateWindow fyne.Window
 
 func main() {
+	mesaFallbackFlag := flag.Bool(startup.MesaFallbackFlagName, false, "internal: relaunch flag for the Mesa3D OpenGL fallback (Windows only)")
+	flag.Parse()
+
+	// Probes hardware OpenGL and relaunches under a bundled Mesa3D software
+	// renderer if the probe fails (Windows only; no-op elsewhere). Must run
+	// before app.NewWithID -- GLFW allows one Init/Terminate cycle per
+	// process, shared with Fyne's own driver.
+	startup.EnsureWindowsOpenGLReady(*mesaFallbackFlag)
+
 	// Create Fyne application
 	a := app.NewWithID("com.github.amarillier.KrankyBearGenealogy")
 
@@ -88,11 +97,8 @@ func main() {
 	cfg.AddRecentDatabase(dbPath)
 	_ = cfg.Save()
 
-	// Check for updates at startup
-	updtmsg, updateAvail := updateChecker("amarillier", "KrankyBearGenealogy", appName, "https://github.com/amarillier/KrankyBearGenealogy/releases/latest")
-	if updateAvail {
-		showUpdateDialog(a, updtmsg, true)
-	}
+	// Check for updates at startup (quiet, throttled once/day; dialog only if an update exists)
+	checkForUpdatesAuto(a)
 
 	// Setup system tray icon (if supported)
 	if desk, ok := a.(desktop.App); ok {
@@ -108,10 +114,7 @@ func main() {
 	ui.SetDialogFunctions(
 		func() { showAbout(a) },
 		func() { showHelp(a) },
-		func() {
-			updtmsg, updateAvail := updateChecker("amarillier", "KrankyBearGenealogy", appName, "https://github.com/amarillier/KrankyBearGenealogy/releases/latest")
-			showUpdateDialog(a, updtmsg, updateAvail)
-		},
+		func() { checkForUpdatesManual(a) },
 	)
 
 	ui.RunApp(a, s, cfg, dbPath)
@@ -120,13 +123,6 @@ func main() {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-func updateChecker(repoOwner string, repo string, repoName string, repodl string) (string, bool) {
-	uc := updatechecker.New(repoOwner, repo, repoName, repodl, 0, false)
-	uc.CheckForUpdate(appVersion)
-	updtmsg := uc.Message
-	return updtmsg, uc.UpdateAvailable
 }
 
 // "Now this is not the end. It is not even the beginning of the end. But it is, perhaps, the end of the beginning." Winston Churchill, November 10, 1942

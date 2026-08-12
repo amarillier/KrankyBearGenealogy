@@ -108,6 +108,53 @@ func (s *Store) GeocodePlace(placeName string) (*PlaceGeocode, error) {
 		return cached, nil
 	}
 	
+	// If we have a cached failure, check if there's now an alternate place mapping
+	// (user may have added it after the initial failure)
+	if cached != nil && cached.GeocodeStatus == "failed" {
+		if altPlace, err := s.GetAlternatePlaceFor(placeName); err == nil && altPlace != nil {
+			// Try geocoding the modern name
+			time.Sleep(1 * time.Second) // Rate limit
+			results, err := geocodeNominatim(altPlace.CurrentName)
+			if err == nil && len(results) > 0 {
+				// Success with alternate name! Use it
+				result := results[0]
+				lat, lon, err := parseLatLon(result.Lat, result.Lon)
+				if err != nil {
+					return nil, err
+				}
+				
+				// Determine city name
+				city := result.Address.City
+				if city == "" {
+					city = result.Address.Town
+				}
+				if city == "" {
+					city = result.Address.Village
+				}
+				
+				pg := &PlaceGeocode{
+					PlaceName:     placeName, // Store original historical name
+					Latitude:      lat,
+					Longitude:     lon,
+					Country:       result.Address.Country,
+					StateProvince: result.Address.State,
+					City:          city,
+					GeocodeStatus: "success",
+					Notes:         fmt.Sprintf("Geocoded via modern name: %s → %s", placeName, altPlace.CurrentName),
+				}
+				
+				// Save to cache (updates the failed entry)
+				if err := s.SavePlaceGeocode(pg); err != nil {
+					return nil, err
+				}
+				
+				return pg, nil
+			}
+		}
+		// Still failed, return cached failure
+		return cached, fmt.Errorf("no results found for: %s", placeName)
+	}
+	
 	// Rate limit: Nominatim requires 1 request per second
 	time.Sleep(1 * time.Second)
 	
@@ -125,7 +172,49 @@ func (s *Store) GeocodePlace(placeName string) (*PlaceGeocode, error) {
 	}
 	
 	if len(results) == 0 {
-		// No results found
+		// No results found - try alternate place name if available
+		if altPlace, err := s.GetAlternatePlaceFor(placeName); err == nil && altPlace != nil {
+			// Try geocoding the current/modern name
+			time.Sleep(1 * time.Second) // Rate limit
+			results, err = geocodeNominatim(altPlace.CurrentName)
+			if err == nil && len(results) > 0 {
+				// Success with alternate name! Use it
+				result := results[0]
+				lat, lon, err := parseLatLon(result.Lat, result.Lon)
+				if err != nil {
+					return nil, err
+				}
+				
+				// Determine city name
+				city := result.Address.City
+				if city == "" {
+					city = result.Address.Town
+				}
+				if city == "" {
+					city = result.Address.Village
+				}
+				
+				pg := &PlaceGeocode{
+					PlaceName:     placeName, // Store original historical name
+					Latitude:      lat,
+					Longitude:     lon,
+					Country:       result.Address.Country,
+					StateProvince: result.Address.State,
+					City:          city,
+					GeocodeStatus: "success",
+					Notes:         fmt.Sprintf("Geocoded via modern name: %s → %s", placeName, altPlace.CurrentName),
+				}
+				
+				// Save to cache
+				if err := s.SavePlaceGeocode(pg); err != nil {
+					return nil, err
+				}
+				
+				return pg, nil
+			}
+		}
+		
+		// Still no results found
 		pg := &PlaceGeocode{
 			PlaceName:     placeName,
 			GeocodeStatus: "failed",

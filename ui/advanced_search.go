@@ -49,15 +49,18 @@ func showAdvancedSearchDialog(w fyne.Window, s *store.Store, navigateToPerson fu
 	// Create a new window for advanced search
 	searchWindow := fyne.CurrentApp().NewWindow("Advanced Search")
 	
-	// Search criteria inputs
-	givenNameEntry := widget.NewEntry()
-	givenNameEntry.SetPlaceHolder("Given name...")
+	// Register for window lifecycle management
+	RegisterSecondaryWindow(searchWindow)
 	
-	surnameEntry := widget.NewEntry()
-	surnameEntry.SetPlaceHolder("Surname...")
+	// Search criteria inputs with autocomplete
+	givenNameAutocomplete := NewGivenNameAutocomplete(func() *store.Store { return s }, "")
+	givenNameAutocomplete.Entry.SetPlaceHolder("Given name...")
 	
-	preferredNameEntry := widget.NewEntry()
-	preferredNameEntry.SetPlaceHolder("Preferred/nickname...")
+	surnameAutocomplete := NewSurnameAutocomplete(func() *store.Store { return s }, "")
+	surnameAutocomplete.Entry.SetPlaceHolder("Surname...")
+	
+	preferredNameAutocomplete := NewGivenNameAutocomplete(func() *store.Store { return s }, "")
+	preferredNameAutocomplete.Entry.SetPlaceHolder("Preferred/nickname...")
 	
 	// Date range inputs
 	birthYearFromEntry := widget.NewEntry()
@@ -164,9 +167,9 @@ func showAdvancedSearchDialog(w fyne.Window, s *store.Store, navigateToPerson fu
 		
 		// Build search criteria
 		criteria := SearchCriteria{
-			GivenName:     strings.TrimSpace(givenNameEntry.Text),
-			Surname:       strings.TrimSpace(surnameEntry.Text),
-			PreferredName: strings.TrimSpace(preferredNameEntry.Text),
+			GivenName:     strings.TrimSpace(givenNameAutocomplete.GetText()),
+			Surname:       strings.TrimSpace(surnameAutocomplete.GetText()),
+			PreferredName: strings.TrimSpace(preferredNameAutocomplete.GetText()),
 			BirthPlace:    strings.TrimSpace(birthPlaceEntry.Text),
 			DeathPlace:    strings.TrimSpace(deathPlaceEntry.Text),
 			LivingOnly:    livingOnlyCheck.Checked,
@@ -220,9 +223,9 @@ func showAdvancedSearchDialog(w fyne.Window, s *store.Store, navigateToPerson fu
 	
 	// Clear button
 	clearBtn := widget.NewButton("Clear", func() {
-		givenNameEntry.SetText("")
-		surnameEntry.SetText("")
-		preferredNameEntry.SetText("")
+		givenNameAutocomplete.SetText("")
+		surnameAutocomplete.SetText("")
+		preferredNameAutocomplete.SetText("")
 		birthYearFromEntry.SetText("")
 		birthYearToEntry.SetText("")
 		deathYearFromEntry.SetText("")
@@ -265,7 +268,7 @@ func showAdvancedSearchDialog(w fyne.Window, s *store.Store, navigateToPerson fu
 		
 		for _, ss := range savedSearches {
 			if ss.Name == selected {
-				loadSearchCriteria(ss.CriteriaJSON, givenNameEntry, surnameEntry, preferredNameEntry,
+				loadSearchCriteria(ss.CriteriaJSON, givenNameAutocomplete, surnameAutocomplete, preferredNameAutocomplete,
 					birthYearFromEntry, birthYearToEntry, deathYearFromEntry, deathYearToEntry,
 					birthPlaceEntry, deathPlaceEntry, genderSelect,
 					livingOnlyCheck, deceasedOnlyCheck, hasMediaCheck, hasSourcesCheck,
@@ -295,7 +298,7 @@ func showAdvancedSearchDialog(w fyne.Window, s *store.Store, navigateToPerson fu
 	// Save search button
 	saveSearchBtn := widget.NewButton("Save Search...", func() {
 		// Get current criteria
-		criteria := getCurrentSearchCriteria(givenNameEntry, surnameEntry, preferredNameEntry,
+		criteria := getCurrentSearchCriteria(givenNameAutocomplete, surnameAutocomplete, preferredNameAutocomplete,
 			birthYearFromEntry, birthYearToEntry, deathYearFromEntry, deathYearToEntry,
 			birthPlaceEntry, deathPlaceEntry, genderSelect,
 			livingOnlyCheck, deceasedOnlyCheck, hasMediaCheck, hasSourcesCheck,
@@ -403,9 +406,9 @@ func showAdvancedSearchDialog(w fyne.Window, s *store.Store, navigateToPerson fu
 	
 	nameSection := container.NewVBox(
 		widget.NewLabel("Name Criteria:"),
-		widget.NewLabel("Given Name:"), givenNameEntry,
-		widget.NewLabel("Surname:"), surnameEntry,
-		widget.NewLabel("Preferred/Nickname:"), preferredNameEntry,
+		widget.NewLabel("Given Name:"), givenNameAutocomplete.Container,
+		widget.NewLabel("Surname:"), surnameAutocomplete.Container,
+		widget.NewLabel("Preferred/Nickname:"), preferredNameAutocomplete.Container,
 	)
 	
 	birthDateSection := container.NewVBox(
@@ -822,7 +825,7 @@ func escapeXML(s string) string {
 
 // loadSearchCriteria loads search criteria from JSON into form fields
 func loadSearchCriteria(criteriaJSON string,
-	givenNameEntry, surnameEntry, preferredNameEntry *widget.Entry,
+	givenNameAutocomplete, surnameAutocomplete, preferredNameAutocomplete *NameAutocompleteContainer,
 	birthYearFromEntry, birthYearToEntry, deathYearFromEntry, deathYearToEntry *widget.Entry,
 	birthPlaceEntry, deathPlaceEntry *widget.Entry,
 	genderSelect *widget.Select,
@@ -833,9 +836,9 @@ func loadSearchCriteria(criteriaJSON string,
 		return
 	}
 	
-	givenNameEntry.SetText(criteria.GivenName)
-	surnameEntry.SetText(criteria.Surname)
-	preferredNameEntry.SetText(criteria.PreferredName)
+	givenNameAutocomplete.SetText(criteria.GivenName)
+	surnameAutocomplete.SetText(criteria.Surname)
+	preferredNameAutocomplete.SetText(criteria.PreferredName)
 	
 	if criteria.BirthYearFrom > 0 {
 		birthYearFromEntry.SetText(strconv.Itoa(criteria.BirthYearFrom))
@@ -880,16 +883,16 @@ func loadSearchCriteria(criteriaJSON string,
 
 // getCurrentSearchCriteria extracts current search criteria from form fields
 func getCurrentSearchCriteria(
-	givenNameEntry, surnameEntry, preferredNameEntry *widget.Entry,
+	givenNameAutocomplete, surnameAutocomplete, preferredNameAutocomplete *NameAutocompleteContainer,
 	birthYearFromEntry, birthYearToEntry, deathYearFromEntry, deathYearToEntry *widget.Entry,
 	birthPlaceEntry, deathPlaceEntry *widget.Entry,
 	genderSelect *widget.Select,
 	livingOnlyCheck, deceasedOnlyCheck, hasMediaCheck, hasSourcesCheck, hasTodosCheck, isBookmarkedCheck *widget.Check) SearchCriteria {
 	
 	criteria := SearchCriteria{
-		GivenName:     strings.TrimSpace(givenNameEntry.Text),
-		Surname:       strings.TrimSpace(surnameEntry.Text),
-		PreferredName: strings.TrimSpace(preferredNameEntry.Text),
+		GivenName:     strings.TrimSpace(givenNameAutocomplete.GetText()),
+		Surname:       strings.TrimSpace(surnameAutocomplete.GetText()),
+		PreferredName: strings.TrimSpace(preferredNameAutocomplete.GetText()),
 		BirthPlace:    strings.TrimSpace(birthPlaceEntry.Text),
 		DeathPlace:    strings.TrimSpace(deathPlaceEntry.Text),
 		LivingOnly:    livingOnlyCheck.Checked,

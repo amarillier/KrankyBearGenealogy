@@ -2,10 +2,10 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "KrankyBearGenealogy"
-#define MyAppVersion "1.5.3"
+#define MyAppVersion "1.6.0"
 #define MyAppPublisher "Allan Marillier, 2026-"
 #define MyAppURL "https://github.com/amarillier/KrankyBearGenealogy"
-#define MyAppExeName "genealogy-windows.exe"
+#define MyAppExeName "KrankyBearGenealogy.exe"
 #define MyAppDescription "Genealogy Management System"
 #define MyAppAssocName MyAppName + ""
 #define MyAppAssocExt ".exe"
@@ -14,7 +14,7 @@
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
-AppId={{A7B2E4F8-9C3D-4E1A-B5F7-2D8C6A9E3B1F}
+AppId={{A0EE6992-0FE3-435A-BA5D-BC1132CD136D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 ;AppVerName={#MyAppName} {#MyAppVersion}
@@ -37,7 +37,7 @@ LicenseFile=..\LICENSE
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\installers
 OutputBaseFilename=KrankyBearGenealogySetup_{#MyAppVersion}
-SetupIconFile=..\Resources\Images\KrankyBearGenealogy.ico
+SetupIconFile=..\assets\images\KrankyBearGenealogy.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -51,13 +51,22 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "startup"; Description: "Automatically start on login (or enable later via settings)"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\bin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Note: Images are now embedded in the binary, no separate Resources\Images needed
 Source: "..\LICENSE"; DestDir: "{app}\Resources"; Flags: ignoreversion
-Source: "..\Resources\ReleaseNotes.txt"; DestDir: "{app}\Resources"; Flags: ignoreversion
+Source: "..\assets\ReleaseNotes.txt"; DestDir: "{app}\Resources"; Flags: ignoreversion
 ; User documentation files
 Source: "..\README.md"; DestDir: "{app}\Resources"; Flags: ignoreversion
 Source: "..\ReleaseNotes.txt"; DestDir: "{app}"; Flags: isreadme
+; Mesa3D software OpenGL fallback — staged in its own subfolder, NOT {app}
+; directly, so normal launches keep using real hardware OpenGL. The app only
+; moves these into {app} directly if a hardware OpenGL probe fails first; see
+; internal/startup/mesa_fallback_windows.go. skipifsourcedoesntexist tolerates
+; the DLLs not being present yet — they're gitignored (*.dll) and dropped in
+; by hand per project (see assets/mesa-win/MESA_VERSION for the pinned build).
+Source: "..\assets\mesa-win\opengl32.dll"; DestDir: "{app}\mesa-fallback"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\assets\mesa-win\libgallium_wgl.dll"; DestDir: "{app}\mesa-fallback"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\assets\mesa-win\.force-mesa-fallback.sample"; DestDir: "{app}\mesa-fallback"; Flags: ignoreversion
 
 [Registry]
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocExt}\OpenWithProgids"; ValueType: string; ValueName: "{#MyAppAssocKey}"; ValueData: ""; Flags: uninsdeletevalue
@@ -76,3 +85,17 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C ""taskkill /im {#MyAppExeName} /f /t"
+
+[UninstallDelete]
+; Inno's uninstaller only removes files it tracked from [Files] at install
+; time — it won't wildcard-delete a folder's contents, so anything added
+; there after install (e.g. .force-mesa-fallback.sample renamed to
+; .force-mesa-fallback) is otherwise left behind. Nuke the whole
+; mesa-fallback folder regardless of its current contents.
+Type: filesandordirs; Name: "{app}\mesa-fallback"
+; The app moves these two out of mesa-fallback into {app} directly at
+; runtime (see internal/startup/mesa_fallback_windows.go) on hosts with no
+; usable hardware OpenGL — not part of the original [Files] manifest, so
+; Inno doesn't know to remove them unless told explicitly here.
+Type: files; Name: "{app}\opengl32.dll"
+Type: files; Name: "{app}\libgallium_wgl.dll"

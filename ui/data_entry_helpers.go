@@ -1,14 +1,20 @@
 package ui
 
 import (
+	"genealogy/store"
 	"strings"
 	"unicode"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 )
 
 // SmartCapitalizePlace attempts to properly capitalize place names
 // Examples: "austin, texas" → "Austin, Texas"
-//           "NEW YORK" → "New York"
-//           "united states" → "United States"
+//
+//	"NEW YORK" → "New York"
+//	"united states" → "United States"
 func SmartCapitalizePlace(place string) string {
 	if place == "" {
 		return place
@@ -19,7 +25,7 @@ func SmartCapitalizePlace(place string) string {
 	for i, part := range parts {
 		parts[i] = SmartCapitalizePart(strings.TrimSpace(part))
 	}
-	
+
 	return strings.Join(parts, ", ")
 }
 
@@ -64,7 +70,7 @@ func SmartCapitalizePart(s string) string {
 	for i, word := range words {
 		words[i] = capitalizePlaceWord(word)
 	}
-	
+
 	return strings.Join(words, " ")
 }
 
@@ -136,7 +142,7 @@ func SmartTrimPlace(place string) string {
 	// Normalize spaces around commas
 	place = strings.ReplaceAll(place, " ,", ",")
 	place = strings.ReplaceAll(place, ",", ", ")
-	
+
 	// Remove double spaces
 	for strings.Contains(place, "  ") {
 		place = strings.ReplaceAll(place, "  ", " ")
@@ -150,7 +156,7 @@ func IsAllUppercase(s string) bool {
 	if s == "" {
 		return false
 	}
-	
+
 	hasLetter := false
 	for _, r := range s {
 		if unicode.IsLetter(r) {
@@ -160,7 +166,7 @@ func IsAllUppercase(s string) bool {
 			}
 		}
 	}
-	
+
 	return hasLetter
 }
 
@@ -169,7 +175,7 @@ func IsAllLowercase(s string) bool {
 	if s == "" {
 		return false
 	}
-	
+
 	hasLetter := false
 	for _, r := range s {
 		if unicode.IsLetter(r) {
@@ -179,7 +185,7 @@ func IsAllLowercase(s string) bool {
 			}
 		}
 	}
-	
+
 	return hasLetter
 }
 
@@ -192,13 +198,13 @@ func AutoCapitalizePlace(place *string) {
 	// Split by comma and check each part independently
 	parts := strings.Split(*place, ",")
 	anyChanged := false
-	
+
 	for i, part := range parts {
 		trimmed := strings.TrimSpace(part)
 		if trimmed == "" {
 			continue
 		}
-		
+
 		// Auto-capitalize if this part is all uppercase or all lowercase
 		if IsAllUppercase(trimmed) || IsAllLowercase(trimmed) {
 			parts[i] = SmartCapitalizePart(trimmed)
@@ -208,7 +214,7 @@ func AutoCapitalizePlace(place *string) {
 			parts[i] = trimmed
 		}
 	}
-	
+
 	// Rejoin with proper comma-space formatting
 	if anyChanged {
 		*place = strings.Join(parts, ", ")
@@ -230,4 +236,168 @@ func AutoCapitalizeContactPlaces(city, state, country *string) {
 	AutoCapitalizePlace(city)
 	AutoCapitalizePlace(state)
 	AutoCapitalizePlace(country)
+}
+
+// PlaceAutocompleteEntry is an entry field with autocomplete for place names
+type PlaceAutocompleteEntry struct {
+	widget.Entry
+	getStore         func() *store.Store
+	suggestions      *widget.List
+	suggestionsPopup *widget.PopUp
+	currentMatches   []string
+	parentWindow     fyne.Window
+}
+
+// NewPlaceAutocompleteEntry creates a new autocomplete entry for place names
+func NewPlaceAutocompleteEntry(w fyne.Window, getStore func() *store.Store) *PlaceAutocompleteEntry {
+	p := &PlaceAutocompleteEntry{
+		getStore:     getStore,
+		parentWindow: w,
+	}
+
+	p.ExtendBaseWidget(p)
+	p.SetPlaceHolder("City, State/Province, Country")
+	p.MultiLine = false
+
+	// Create suggestions list
+	p.suggestions = widget.NewList(
+		func() int {
+			return len(p.currentMatches)
+		},
+		func() fyne.CanvasObject {
+			return widget.NewLabel("")
+		},
+		func(id widget.ListItemID, obj fyne.CanvasObject) {
+			label := obj.(*widget.Label)
+			label.SetText(p.currentMatches[id])
+		},
+	)
+
+	// Handle selection from list
+	p.suggestions.OnSelected = func(id widget.ListItemID) {
+		if id >= 0 && id < len(p.currentMatches) {
+			p.SetText(p.currentMatches[id])
+			p.hidePopup()
+		}
+	}
+
+	// Set up on changed callback
+	p.Entry.OnChanged = func(text string) {
+		p.updateSuggestions(text)
+	}
+
+	return p
+}
+
+// updateSuggestions queries the database for matching places
+func (p *PlaceAutocompleteEntry) updateSuggestions(text string) {
+	text = strings.TrimSpace(text)
+
+	// Hide popup if text is too short
+	if len(text) < 2 {
+		p.hidePopup()
+		return
+	}
+
+	s := p.getStore()
+	if s == nil {
+		return
+	}
+
+	// Query database for unique places
+	places := p.queryPlaces(text)
+
+	if len(places) == 0 {
+		p.hidePopup()
+		return
+	}
+
+	p.currentMatches = places
+	p.suggestions.Refresh()
+	p.showPopup()
+}
+
+// queryPlaces gets matching place names from the database (all places for comprehensive suggestions)
+func (p *PlaceAutocompleteEntry) queryPlaces(query string) []string {
+	s := p.getStore()
+	if s == nil {
+		return nil
+	}
+
+	lowerQuery := strings.ToLower(query)
+	placeMap := make(map[string]bool)
+	var places []string
+
+	// Single combined query for all places (more efficient and comprehensive)
+	rows, err := s.DB.Query(`
+		SELECT DISTINCT place FROM (
+			SELECT birth_place AS place FROM persons WHERE birth_place != '' AND birth_place IS NOT NULL
+			UNION
+			SELECT death_place AS place FROM persons WHERE death_place != '' AND death_place IS NOT NULL
+			UNION
+			SELECT marriage_place AS place FROM relationships WHERE marriage_place != '' AND marriage_place IS NOT NULL
+		)
+		WHERE LOWER(place) LIKE ?
+		ORDER BY place
+		LIMIT 15
+	`, "%"+lowerQuery+"%")
+
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var place string
+			if err := rows.Scan(&place); err == nil {
+				place = strings.TrimSpace(place)
+				if place != "" && !placeMap[place] {
+					placeMap[place] = true
+					places = append(places, place)
+				}
+			}
+		}
+	}
+
+	return places
+}
+
+// showPopup displays the suggestions popup
+func (p *PlaceAutocompleteEntry) showPopup() {
+	if p.suggestionsPopup != nil {
+		return // Already showing
+	}
+
+	// Create popup with suggestions list
+	suggestionsContainer := container.NewVScroll(p.suggestions)
+	suggestionsContainer.SetMinSize(fyne.NewSize(400, 150))
+
+	// Try to get canvas - first from parent window, then fallback
+	var canvas fyne.Canvas
+	if p.parentWindow != nil {
+		canvas = p.parentWindow.Canvas()
+	}
+
+	// If we can't get canvas, skip popup (shouldn't happen but safety check)
+	if canvas == nil {
+		return
+	}
+
+	// Create popup - use NewPopUp (not modal) so it doesn't block
+	p.suggestionsPopup = widget.NewPopUp(suggestionsContainer, canvas)
+
+	// Get absolute position of the entry field if possible
+	// This is approximate - Fyne doesn't have perfect absolute positioning
+	entryPos := fyne.NewPos(50, 100)
+	if pos := fyne.CurrentApp().Driver().AbsolutePositionForObject(p); pos != (fyne.Position{}) {
+		entryPos = pos
+		entryPos.Y += 40 // Position below the entry
+	}
+
+	p.suggestionsPopup.ShowAtPosition(entryPos)
+}
+
+// hidePopup hides the suggestions popup
+func (p *PlaceAutocompleteEntry) hidePopup() {
+	if p.suggestionsPopup != nil {
+		p.suggestionsPopup.Hide()
+		p.suggestionsPopup = nil
+	}
 }

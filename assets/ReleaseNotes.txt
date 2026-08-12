@@ -1,0 +1,1947 @@
+KrankyBear Genealogy - Release Notes
+
+- KrankyBear Genealogy load time 2 seconds until fully ready to use with most recent database open
+- Gramps load time - around 8 seconds to load, then open recent, about 12-15 seconds before ready
+- PAF load time about 2 seconds until fully ready to use with most recent database open
+
+1.6.0 - August 12, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Quick Wins: Backup Reminders, Place Autocomplete & Performance Optimization
+
+Major Features:
+• Backup Reminder System - Protect Your Data
+• Place Autocomplete - Smart Data Entry
+• Database Performance Optimization - Future-Proof Speed
+
+💾 Backup Reminder System:
+  • Smart backup tracking:
+    - Records last backup date in database settings
+    - Checks on app startup (no performance impact)
+    - Configurable reminder threshold (default: 7 days)
+    - Only reminds when using app-managed backups
+  • User-friendly reminder dialog:
+    - "Backup Now" button - creates backup immediately
+    - "Remind Me Later" - postpone reminder
+    - "Don't remind me again" checkbox - disable reminders
+    - Shows days since last backup and last backup date
+  • Settings integration:
+    - Enable/disable backup reminders toggle
+    - View last backup date and days elapsed
+    - Located in Settings > Database Backups section
+    - Optimized UI layout (backups prioritized at top)
+  • Automatic tracking:
+    - Updates last backup date when using File > Backup Database
+    - No tracking for manual file copies (as expected)
+    - First-run initialization (no nag on fresh database)
+  • Use Cases:
+    - Prevent data loss through gentle reminders
+    - Establish regular backup habits
+    - Peace of mind for important family data
+    - Critical safety feature for all users
+
+🗺️ Place Autocomplete - Smart Data Entry:
+  • Real-time place suggestions:
+    - Inline dropdown shows matching places as you type
+    - Triggers after 2+ characters entered
+    - Searches all existing places in your database
+    - Shows up to 10 most relevant matches
+  • Comprehensive place search:
+    - Birth places from all people
+    - Death places from all people
+    - Marriage/union places from all relationships
+    - Unified UNION query for complete results
+  • Clean, dialog-friendly UI:
+    - Inline dropdown (not a popup window)
+    - Works perfectly with edit dialogs
+    - Click to select and auto-fill
+    - Hides after selection
+  • Applied to all place fields:
+    - Person Edit: Birth Place, Death Place
+    - Add/Edit Marriage: Marriage/Union Place
+    - Consistent experience across all forms
+  • Benefits:
+    - Avoid duplicate place names (consistency)
+    - Fast data entry (fewer keystrokes)
+    - Discover existing place variations
+    - Improve data quality automatically
+  • Technical implementation:
+    - New PlaceAutocompleteContainer widget
+    - Optimized database queries with indexes
+    - Thread-safe UI updates
+    - Zero performance impact on startup
+
+⚡ Database Performance Optimization:
+  • Comprehensive database indexing (automatic migration):
+    - Name indexes: given_name, surname, preferred_name
+    - Date indexes: birth_date, death_date, birth_year, death_year
+    - Place indexes: birth_place, death_place, marriage_place
+    - Filter indexes: is_living, gender, uid
+    - Relationship indexes: type (for spouse/partner queries)
+  • Query optimization:
+    - Startup optimization: 3 queries → 1 (backup reminder check)
+    - PRAGMA optimize for smart query planner
+    - Efficient autocomplete queries with UNION
+    - Prepared for 10,000+ person databases
+  • Performance results:
+    - Small databases (1,000-2,000): Instant response
+    - Medium databases (5,000-10,000): Under 300ms queries
+    - Large databases (10,000+): Ready for growth
+    - Maintains "fast vs Gramps" competitive advantage
+  • Automatic application:
+    - Indexes created on first run after update (~1 second)
+    - All subsequent operations benefit immediately
+    - No user action required
+    - Schema migration handles existing databases
+  • Future-proofing:
+    - Supports database growth without performance degradation
+    - Optimizes all common operations (search, reports, filtering)
+    - Foundation for advanced features in future releases
+
+🔧 Technical Improvements:
+  • New database table: `settings` (backup tracking, preferences)
+  • New UI component: PlaceAutocompleteContainer (reusable widget)
+  • Optimized Settings dialog layout (better UX flow)
+  • Performance indexes on 11 commonly-queried fields
+  • Combined query optimization for startup speed
+  • PRAGMA optimize integration for query planner
+
+Development Time: 7-9 hours (originally estimated 30-45 hours)
+
+
+
+1.5.3 - January 31, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Enhanced Date Entry & Name Variations: Smart Data Entry Helpers
+
+Major Features:
+• Smart Date Validation with Real-Time Feedback
+• Calendar Picker Integration for Date Fields
+• Alternate Names / Name Variations Tracking
+• Advanced Date Format Parser for Genealogy
+• Search Integration for Alternate Names
+• Enhanced Name Display in Person Views
+• Auto-Capitalization for Place Names
+• Bulk Privacy Settings for Data Management
+
+📅 Enhanced Date Entry:
+  • Smart date validation with visual feedback:
+    - ✓ Green checkmark for valid dates
+    - ⚠ Warning icon for invalid dates
+    - Real-time parsing as you type
+  • Calendar picker button (📅) on all date fields:
+    - Visual date selection for exact dates
+    - Integrates with existing CalendarPicker widget
+    - Shows current date if already entered
+  • Comprehensive format support:
+    - Standard: YYYY-MM-DD (e.g., 1945-05-08)
+    - Genealogy: DD Mon YYYY (e.g., 8 May 1945)
+    - Partial: Mon YYYY (e.g., May 1945) or YYYY (e.g., 1945)
+    - US format: M/D/YYYY or MM/DD/YYYY
+  • Genealogy date qualifiers:
+    - "abt 1945" or "about 1945" for estimated dates
+    - "bef 1945" or "before 1945" for dates before
+    - "aft 1945" or "after 1945" for dates after
+    - "ca 1945" or "circa 1945" for approximate dates
+  • Smart parsing:
+    - Detects and validates various date formats
+    - Extracts year, month, day when available
+    - Preserves original formatting when valid
+    - Handles partial dates (year only, month+year)
+  • User-friendly tooltips:
+    - Shows recognized format description
+    - Indicates estimated/before/after qualifiers
+    - Provides format hints on invalid dates
+  • Birth/Death Date Fields Enhanced:
+    - Calendar picker integrated into person edit dialog
+    - Real-time validation feedback
+    - Automatic "living" checkbox update on death date entry
+
+📋 Alternate Names / Name Variations:
+  • Complete alternate name management:
+    - Track nicknames, maiden names, spelling variations
+    - Support for married names and other variations
+    - Notes field to document why name is different
+  • Name types supported:
+    - Nickname: "Bill" for "William"
+    - Maiden: Pre-marriage surname
+    - Married: Post-marriage surname
+    - Spelling: Variations like "Smith/Smyth"
+    - Other: Custom variations
+  • Management interface:
+    - "Manage Alternate Names" button in person edit dialog
+    - Add, edit, delete alternate names
+    - Full CRUD operations with validation
+    - Separate given name and surname fields
+  • Search integration:
+    - Advanced search includes alternate names
+    - Both given names and surnames searched
+    - Find people even with spelling variations
+    - Example: Search "Smyth" finds people with surname "Smith" who have alternate name "Smyth"
+  • Display integration:
+    - Alternate names shown in person cards (Family View)
+    - "Also known as: Name1, Name2" format
+    - Italic styling for clear distinction from primary name
+    - All alternate names listed together
+  • Database schema:
+    - New `alternate_names` table with foreign key to persons
+    - Indexed for fast lookup by person_id
+    - Cascade delete when person is deleted
+    - Stores name type, given name, surname, notes
+
+🏙️ Auto-Capitalization for Place Names:
+  • Smart place name capitalization when saving:
+    - Automatically capitalizes all-uppercase or all-lowercase place entries
+    - Respects mixed-case entries (assumes user knows what they want)
+    - Works for Birth Place, Death Place, City, State, Country fields
+  • Intelligent capitalization rules:
+    - Standard places: "austin, texas" → "Austin, Texas"
+    - All caps: "NEW YORK" → "New York"
+    - Multiple words: "san francisco" → "San Francisco"
+    - Hyphenated: "winston-salem" → "Winston-Salem"
+    - Apostrophes: "o'fallon" → "O'Fallon"
+    - Common prefixes preserved: "San Antonio", "Los Angeles", "Las Vegas"
+    - Abbreviations handled: "usa" → "USA", "uk" → "UK"
+    - Special cases: "St. Louis", "Mt. Vernon", "Ft. Worth"
+  • Automatic spacing normalization:
+    - Removes extra spaces
+    - Fixes comma spacing: "Austin,Texas" → "Austin, Texas"
+    - Cleans up "City , State" → "City, State"
+  • Use Cases:
+    - Fix GEDCOM imports with "NEW YORK, NEW YORK"
+    - Clean up lowercase entries from quick typing
+    - Standardize place name formatting automatically
+    - Reduce manual cleanup after data entry
+
+🔒 Bulk Privacy Settings:
+  • Comprehensive batch operations for privacy management:
+    - Mark multiple people as living/deceased at once
+    - Clear contact information for privacy protection
+    - Clear death dates in bulk
+    - Extends beyond "Mass Mark Living" feature
+  • Advanced filtering:
+    - Filter by name
+    - Show only living people
+    - Show only deceased people
+    - Sort alphabetically or by birth date
+  • Multiple privacy actions:
+    - ✓ Mark as Living: Set living flag, clear death date
+    - † Mark as Deceased: Remove living flag
+    - 🔒 Clear Contact Info: Remove address, phone, email for privacy
+    - Clear Death Dates: Bulk remove death date/place
+  • Smart selection:
+    - Select All Visible: Quick selection of filtered results
+    - Deselect All: Clear all selections
+    - Visual indicators: Living status, age, contact info presence
+  • Safety features:
+    - Confirmation dialogs before bulk actions
+    - Shows count of affected people
+    - Reports errors if any occur
+    - Refreshes view after changes
+  • Use Cases:
+    - Prepare database for sharing (remove living contact info)
+    - Correct living/deceased status in bulk
+    - Privacy compliance for GDPR/data protection
+    - Clean up imported data with incorrect living flags
+  • Location:
+    - Reports > Actions > Bulk Privacy Settings (main menu)
+    - System tray > Reports > Bulk Privacy Settings
+
+🛠️ Technical Implementation:
+  • New date utilities (ui/date_utils.go):
+    - ParseGenealogyDate: Comprehensive date parsing
+    - FormatGenealogyDate: Format with qualifiers
+    - ValidateDateString: Quick validation check
+    - GetDateValidationMessage: User-friendly messages
+    - NormalizeDateForStorage: Consistent storage format
+  • DateEntry widget (ui/date_entry.go):
+    - Composite widget: Entry + Validation Icon + Calendar Button
+    - Real-time validation on text change
+    - Calendar picker dialog with format hints
+    - Reusable component for all date fields
+  • Alternate names module (ui/alternate_names.go):
+    - showAlternateNamesManager: Main management window
+    - makeAlternateNameCard: Display card with edit/delete
+    - Add/Edit dialogs with validation
+    - Full CRUD operations through Store methods
+  • Store methods (store/store.go):
+    - CreateAlternateName, GetAlternateNames
+    - UpdateAlternateName, DeleteAlternateName
+    - Efficient queries with indexes
+  • Enhanced search (ui/advanced_search.go):
+    - Alternate names checked when primary name doesn't match
+    - Separate lookups for given name and surname
+    - Maintains search performance
+  • Enhanced display (ui/family_view.go):
+    - makePersonCard checks for alternate names
+    - Displays "Also known as" line
+    - Comma-separated list of variations
+  • Data entry helpers (ui/data_entry_helpers.go):
+    - SmartCapitalizePlace: Intelligent place name capitalization
+    - AutoCapitalizePlaces: Auto-capitalize birth/death places
+    - AutoCapitalizeContactPlaces: Auto-capitalize city/state/country
+    - SmartTrimPlace: Normalize spacing and formatting
+    - Special handling for abbreviations, prefixes, hyphens, apostrophes
+  • Bulk privacy operations (ui/bulk_operations.go):
+    - showBulkPrivacyDialog: Main dialog with filtering and actions
+    - applyBulkPrivacyAction: Handles mark living/deceased, clear contact info
+    - Supports multiple simultaneous actions
+    - Filters for living/deceased status with visual indicators
+
+💡 Use Cases:
+  • Date Entry Improvements:
+    - Enter dates faster with calendar picker
+    - Catch typos with real-time validation
+    - Use genealogy-standard date qualifiers
+    - Support various date formats from sources
+  • Name Variations Benefits:
+    - Track maiden names separately
+    - Document nickname usage in records
+    - Find people despite spelling variations
+    - Record name changes over time
+    - Track how names appear in different sources (census records, etc.)
+  • Place Name Auto-Capitalization:
+    - Saves time on data cleanup
+    - Standardizes place formatting automatically
+    - Perfect for cleaning up GEDCOM imports
+    - Handles international place name conventions
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+
+1.5.2 - January 31, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Undo/Redo Functionality: Full Edit History Management
+
+Major Features:
+• Complete Undo/Redo System for all edit operations
+• Keyboard Shortcuts (Cmd/Ctrl+Z for Undo, Cmd/Ctrl+Shift+Z for Redo)
+• Edit Menu with Undo/Redo items
+• Support for Person Edits, Deletions, and Relationship Changes
+• 50-operation history buffer
+• Thread-safe operation with automatic UI updates
+
+✏️ Undo/Redo Operations:
+  • Edit Person: Revert changes to person details (name, dates, places, notes, contact info)
+  • Delete Person: Restore deleted person with all relationships (spouses, children, parents)
+  • Add Relationship: Remove newly created relationships (parent, child, spouse, partner)
+  • Delete Relationship: Restore removed relationships
+  • Operation descriptions show exactly what will be undone/redone
+  • Menu items automatically enable/disable based on history state
+
+🎹 Keyboard Shortcuts:
+  • Undo: Cmd+U (Mac) / Ctrl+U (Windows/Linux)
+  • Redo: Cmd+Shift+U (Mac) / Ctrl+Shift+U (Windows/Linux)
+  • Works globally regardless of widget focus
+  • Cmd+Z remains for text field undo (typing)
+  • Cmd+U clearly distinguishes database-level undo from text editing
+  • Check for Updates moved to Cmd+Shift+U to make room for Undo
+  • Non-destructive - failed operations don't corrupt history
+
+🔒 Safety Features:
+  • History maintained per database session (cleared on database close)
+  • Maximum 50 operations stored (oldest automatically removed)
+  • Thread-safe implementation with proper locking
+  • Atomic operations - either fully succeed or fully fail
+  • Automatic refresh after successful undo/redo
+
+💡 Use Cases:
+  • Accidentally deleted a person? Press Cmd/Ctrl+Z to restore them
+  • Made a typo while editing? Undo to previous state
+  • Added wrong relationship? Undo removes it cleanly
+  • Changed your mind? Redo to reapply what you undid
+  • Safety net for data entry and bulk editing operations
+
+🛠️ Technical Implementation:
+  • Global undo/redo manager (ui/undo_redo.go)
+  • Operation stack with before/after states
+  • Deep copying of person and relationship data
+  • Integration with all edit dialogs and relationship operations
+  • CreatePersonWithID for restoring deleted persons with original IDs
+  • Relationship restoration includes marriage details
+  • Menu state callback updates UI immediately
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+
+1.5.1 - January 31, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Enhanced Map Features: Multi-Person Views & Geographic Analysis (Phases 5 & 6)
+Research Tools: Project Notes & Research Log Report
+
+Major Features:
+• Multi-Person Map Views (All People, Descendants, Ancestors)
+• Advanced Filtering (Surname, Date Range, Living Status)
+• Generation-Based Color Coding
+• Geographic Statistics Dashboard
+• Four New Geographic Analysis Reports
+• Migration Distance Calculations
+• Marker Statistics Display
+• Project Notes / Scratchpad
+• People with Research Logs Report
+
+🗺️ Advanced Map Views (Phase 5):
+  • Multi-person visualization modes:
+    - Person: Show only current person's life events (default)
+    - All People: Display all individuals in the database
+    - Descendants: Show all descendants of selected person
+    - Ancestors: Show all ancestors of selected person
+  • Powerful filtering system:
+    - Surname filter: Focus on specific family lines
+    - Date range filter: View events within specific years
+    - Living status filter: Show living, deceased, or all
+    - Filter combinations work together seamlessly
+  • Generation color-coding:
+    - Toggle "Color by Generation" to visualize family expansion
+    - Blue markers: Ancestors (older generations)
+    - Green markers: Current generation reference person
+    - Red markers: Descendants (younger generations)
+    - Gradient color scheme shows generational relationships
+  • Enhanced user interface:
+    - Two-row control panel for organized access
+    - Real-time marker statistics (Births: X | Deaths: Y | Marriages: Z)
+    - Larger filter input fields for better usability
+    - Event type checkboxes with center buttons
+    - Apply Filters button for explicit control
+  • Smart data handling:
+    - Filters unknown/placeholder place names automatically
+    - Efficient marker loading based on view mode
+    - Year extraction handles multiple date formats
+    - Recursive algorithms for ancestor/descendant traversal
+
+📊 Geographic Statistics & Reports (Phase 6):
+  • Enhanced Statistics Dashboard with new Geographic section:
+    - Birth places recorded (count and percentage)
+    - Death places recorded (count and percentage)
+    - Number of countries represented
+    - Unique birth and death locations count
+    - Most common birth country identified
+  
+  • Migration Distance Report 🌍:
+    - Calculates actual distance traveled (birth to death)
+    - Uses Haversine formula for accurate measurements
+    - Shows distances in both kilometers and miles
+    - Displays average migration distance across all people
+    - Sorts people by distance traveled (longest first)
+    - Shows complete route: From → To locations
+    - Limited to top 100 for performance
+  
+  • Geographic Hotspots Report 📍:
+    - Top 10 countries where family events occurred
+    - Top 10 states/provinces with event counts
+    - Top 10 cities with event counts
+    - Identifies geographic concentration of family
+    - Counts both birth and death events
+    - Helps identify ancestral homelands
+  
+  • Cross-Border Families Report 🌐:
+    - Identifies people with events spanning multiple countries
+    - Includes birth, death, and marriage locations
+    - Sorts by number of countries (most international first)
+    - Shows all countries for each person
+    - Reveals family migration patterns
+    - Highlights international connections
+  
+  • Unmapped Places Report 📍:
+    - Lists all places needing geocoding
+    - Shows total: mapped vs. unmapped places
+    - Direct link to Geocoding Tool
+    - Helps identify research gaps
+    - Ensures complete map coverage
+
+🛠️ Technical Improvements:
+  • Year extraction from multiple date formats:
+    - Handles "25 Jun 2015" format correctly
+    - Extracts 4-digit years from any position
+    - Validates year ranges (1000-3000)
+    - Graceful handling of unparseable dates
+  • Unknown place filtering:
+    - Detects common placeholder texts
+    - Prevents markers for "unknown", "?", "n/a", etc.
+    - Case-insensitive matching
+    - Improves map data quality
+  • Geographic calculations:
+    - Haversine distance formula implementation
+    - Earth radius constant for accuracy
+    - Radian conversions for trigonometry
+    - Kilometer to mile conversions
+  • Menu organization:
+    - New "Geographic Reports" submenu
+    - Alphabetically organized report lists
+    - Clear separation of report categories
+    - Accessible from main Reports menu
+
+📝 Research Tools & Organization:
+  • Project Notes / Scratchpad 📋:
+    - Project-wide notes and scratchpad
+    - Not tied to any specific person
+    - Perfect for overall research goals, strategies, and plans
+    - Auto-saves to database for persistence
+    - Accessible from Tools → "Project Notes"
+    - Keep all genealogy planning in one place
+    - Document research goals, DNA testing plans, trip notes
+  
+  • People with Research Logs Report 📑:
+    - New report listing all people with research documentation
+    - Shows count of research log entries per person
+    - Sorted by most documented (most research first)
+    - One-click navigation to person or research log
+    - "View Research Log" button for quick access
+    - Complements existing "All To-Dos" and "Recent Research" reports
+    - Find who you've researched and who needs attention
+    - Accessible from Reports → Lists → "People with Research Logs"
+
+🛠️ Research Workflow Improvements:
+  • Complete research tracking suite:
+    - ✅ Project Notes (project-wide scratchpad)
+    - ✅ Research Log (per-person documentation)
+    - ✅ To-Do Lists (pending research tasks)
+    - ✅ All To-Dos Report (see all pending tasks)
+    - ✅ Completed To-Dos Report (review finished work)
+    - ✅ Recent Research Activity (latest 50 entries)
+    - ✅ People with Research Logs (who's been researched)
+  • Never lose track of research progress
+  • Document sources, strategies, and findings
+  • Organize family history research efficiently
+
+📝 Notes for Future Enhancements (Phase 7):
+  • Migration paths: Lines connecting life events chronologically
+  • Timeline slider: Show person's location at different ages
+  • Heat map overlay: Density visualization of family events
+  • Additional access points: Right-click context menus
+  • Animated paths: Trace journeys over time
+  • Age display at each location
+
+
+1.5.0 - January 30, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Interactive Map Visualization (Phase 12)
+
+Major Features:
+• OpenStreetMap Integration for Life Event Mapping
+• Interactive Markers for Birth, Death, and Marriage Locations
+• Zoom Controls (18 Levels) with Centered Navigation
+• Event-Specific Re-centering
+• Geocoding Tool for Place Name Resolution
+• Internet Connectivity Checking
+
+🗺️ Map View (Phase 12):
+  • Visual geographic representation of life events:
+    - OpenStreetMap tile integration (respects usage policy)
+    - Automatic geocoding of place names to coordinates
+    - SQLite-based geocoding cache to minimize API calls
+    - Support for zoom levels 1-18 (world to street level)
+  • Interactive markers for life events:
+    - 🟢 Green markers for births
+    - ⚫ Black markers for deaths
+    - 💒 Pink markers for marriages
+    - Click markers to view detailed event information
+    - Toggle marker types on/off with checkboxes
+  • Navigation and controls:
+    - Zoom in/out buttons with level indicator
+    - Re-center buttons for each event type
+    - Map automatically centers on birth location
+    - Status bar shows current coordinates and zoom
+  • Geocoding features:
+    - Batch geocoding tool (Tools → Geocoding Tool)
+    - Progress tracking for bulk operations
+    - Database caching prevents redundant API calls
+    - Nominatim API integration with rate limiting
+  • User-friendly features:
+    - Internet connectivity checking
+    - Clear error messages when offline
+    - Accessible from Person Details → "Show on Map" button
+    - Optimized tile loading with concurrent downloads
+    - Thread-safe UI updates for smooth performance
+  • Technical implementation:
+    - Web Mercator projection for accurate positioning
+    - Concurrent tile downloading (respects 3-request limit)
+    - In-memory tile caching for performance
+    - Proper attribution to OpenStreetMap contributors
+
+
+
+1.4.0 - January 30, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+HTML Export & Complete Website Generation (Phase 11)
+
+Major Features:
+• HTML Export for Individual Reports (Family Group Sheet, Descendants, Ancestors)
+• Complete Multi-Page Website Generation with Navigation
+• Privacy Controls (Hide/Limit Living People)
+• Photo & Media Embedding (Base64 Encoded)
+• Places Index Page (Geographic Organization)
+• Timeline Page (Chronological Events with Living Section)
+• Statistics Dashboard (Interactive Charts with Hyperlinks)
+• Source Citations Page (Research Documentation by Type)
+• JavaScript Search (Real-time Client-Side Search)
+• Enhanced Navigation (Breadcrumbs, Feature Cards, Folder Creation)
+
+📄 Family Group Sheet HTML Export (Phase 11):
+  • Export beautiful, professional HTML reports:
+    - Single-page HTML file with embedded CSS styling
+    - Clean, modern design that's easy to read
+    - Print-friendly layout for paper copies
+    - Responsive design works on any device
+  • Complete family information included:
+    - Husband and wife sections with full details
+    - Marriage information (date, place)
+    - All children chronologically ordered
+    - Grandchildren listed with birth dates
+    - Multiple marriages shown chronologically
+  • Professional styling features:
+    - Color-coded sections with visual hierarchy
+    - Clean typography and spacing
+    - Box shadows and rounded corners
+    - Print-optimized CSS for paper output
+  • Easy sharing:
+    - Single HTML file contains everything
+    - Open in any web browser
+    - Email to family members
+    - Upload to websites or cloud storage
+  • Export from:
+    - Family Group Sheet dialog → "Export to HTML" button
+    - Default filename: FamilyGroup_Surname_GivenName.html
+  • Perfect for:
+    - Sharing research with family members who don't have the app
+    - Creating web pages for family history websites
+    - Printing professional-looking reports
+    - Archiving family records in universal format
+    - Email distribution to relatives
+
+📊 Descendant Report HTML Export (Phase 11):
+  • Export comprehensive descendant reports in HTML:
+    - Beautiful generational layout with color-coding
+    - Visual hierarchy with indentation per generation
+    - Each generation shown in different colors
+    - Birth and death dates for all descendants
+  • Statistics and summary:
+    - Total descendant count
+    - Generation-by-generation breakdown
+    - Clear generational grouping
+  • Professional features:
+    - Responsive design for all devices
+    - Print-optimized CSS
+    - Clean, modern typography
+    - Color-coded borders by generation (up to 7+ generations)
+  • Export from:
+    - Descendant Report dialog → "Export to HTML" button
+    - Default filename: Descendants_Surname_GivenName.html
+  • Ideal for:
+    - Tracking family lines forward in time
+    - Showing all living and deceased descendants
+    - Sharing family tree branches with relatives
+    - Understanding family growth across generations
+
+📈 Ancestor Report HTML Export (Phase 11):
+  • Export professional Ahnentafel-numbered ancestor reports:
+    - Traditional German genealogical numbering system
+    - Each ancestor numbered (father=even, mother=odd)
+    - Relationship descriptions (father, mother, paternal grandfather, etc.)
+    - Generation indicators for each ancestor
+  • Advanced analysis features:
+    - Pedigree collapse detection and warnings
+    - Explanation of what pedigree collapse means
+    - Total ancestor count
+    - Unique ancestor identification
+  • Complete biographical data:
+    - Full names with dates
+    - Birth and death locations
+    - Generation numbers
+    - Relationship to root person
+  • Professional styling:
+    - Ahnentafel number prominently displayed
+    - Clear hierarchy and formatting
+    - Educational footer explaining the numbering system
+    - Warning sections for pedigree collapse
+  • Export from:
+    - Ancestor Report dialog → "Export to HTML" button
+    - Default filename: Ancestors_Surname_GivenName.html
+  • Perfect for:
+    - Research documentation with standard numbering
+    - Academic genealogy presentations
+    - Identifying research gaps (missing ancestors)
+    - Detecting cousin marriages (pedigree collapse)
+    - Professional genealogy submissions
+
+🔒 Privacy Controls for HTML Exports (Phase 11):
+  • Flexible privacy options for all HTML exports:
+    - Privacy settings dialog appears before every export
+    - Two privacy modes to choose from:
+      * Hide all living people (complete exclusion)
+      * Show limited information for living (name only, no dates/places/marriage details)
+    - Default: all information included
+  • Smart filtering across all report types:
+    - Family Group Sheet: filters spouses, children, grandchildren, siblings, marriage details
+    - Descendant Report: filters all descendants by generation
+    - Ancestor Report: filters all ancestors in Ahnentafel list
+  • Privacy-friendly presentation:
+    - Living people with limited info show "(Living)" indicator
+    - Hidden people show "(Information withheld for privacy)" message
+    - Marriage details hidden when both spouses are living (with limited info mode)
+    - Maintains report structure while protecting sensitive data
+  • UX Improvements:
+    - Privacy dialog now appears as modal on report window (not main window)
+    - Dialog stays visible and centered on report
+    - Closing report window automatically closes any open privacy dialogs
+    - No more dialogs appearing behind windows
+  • Use cases:
+    - Public website publication (hide all living)
+    - Family sharing with privacy (show names only for living)
+    - Research collaboration (limit personal details)
+    - GDPR and privacy law compliance
+    - Social media sharing (protect living relatives)
+  • Professional features:
+    - Clear explanatory text in privacy dialog
+    - Mutually exclusive options (prevent confusion)
+    - Consistent privacy handling across all exports
+    - Maintains data integrity while respecting privacy
+
+🌐 Complete Genealogy Website Generation (Phase 11):
+  • Generate complete, multi-page HTML websites:
+    - One command creates an entire browsable website
+    - Multiple interconnected HTML pages with navigation
+    - Shared CSS styling across all pages
+    - Ready to upload to any web host
+  • Website Structure:
+    - index.html: Home page with statistics and overview
+    - surnames.html: Surname index with all individuals grouped
+    - person_[id].html: Individual page for each person
+    - style.css: Professional CSS styling
+  • Navigation Features:
+    - Consistent header and navigation bar on every page
+    - Clickable links between related individuals
+    - Browse by surname with counts
+    - Home and Surnames menu always accessible
+  • Individual Person Pages Include:
+    - Personal information (birth, death, places)
+    - Parents with clickable links
+    - Spouses with clickable links
+    - Children with clickable links
+    - Respects privacy settings for living people
+  • Statistics Dashboard:
+    - Total people count
+    - Number of surnames
+    - Living vs deceased counts (respects privacy)
+    - Visual stat cards with large numbers
+  • Professional Web Design:
+    - Modern, clean responsive layout
+    - Blue and gray color scheme
+    - Card-based design for readability
+    - Print-friendly CSS
+    - Mobile-responsive design
+  • Privacy Integration:
+    - Uses same privacy controls as single-page exports
+    - Privacy note displayed on home page
+    - Filtered navigation (no links to hidden people)
+    - Consistent privacy handling throughout site
+  • Use Cases:
+    - Publish family history on personal website
+    - Share via Dropbox, Google Drive, or cloud storage
+    - Create offline archive on USB drive
+    - Distribute to family on CD/DVD
+    - Host on GitHub Pages, Netlify, or any web host
+  • Export Location:
+    - Select folder for website files
+    - All files generated in chosen directory
+    - Open index.html in browser to view
+  • Access From:
+    - Reports menu → Actions → "Generate Family Website"
+    - Available from popup Reports button in main toolbar
+
+📷 Photo & Media Embedding in HTML Exports (Phase 11):
+  • Photos automatically embedded in all HTML exports:
+    - Individual person pages show photo galleries
+    - Website generation includes all photos
+    - Images embedded as base64 data URIs (no separate files needed)
+    - Single-file exports remain truly portable
+  • Photo Gallery Features:
+    - Responsive grid layout (auto-adjusts to screen size)
+    - High-quality full-resolution images
+    - Photo captions and titles displayed
+    - Date taken shown below each photo
+    - Professional card-based design with shadows
+  • Smart Media Handling:
+    - Uses full-resolution images when available
+    - Falls back to thumbnails if needed
+    - Filters to image media only (documents/audio/video excluded)
+    - Handles both embedded and external media
+  • Photo Display:
+    - Grid layout: 3-4 photos per row on desktop
+    - Responsive: adjusts for tablets and phones
+    - Print-friendly: 2-3 photos per row when printing
+    - Consistent styling across all exports
+  • Integration:
+    - Works with Family Group Sheet HTML export
+    - Works with person pages in website generation
+    - Respects privacy settings (no photos for hidden people)
+    - Automatically included in all relevant exports
+  • Visual Polish:
+    - 200x150px thumbnail display
+    - Object-fit cover (no distortion)
+    - Rounded corners and subtle shadows
+    - Clean caption typography
+    - Color-coded dates in gray
+  • Technical Implementation:
+    - Base64 encoding for portability
+    - No external dependencies
+    - Works offline
+    - Single HTML file contains everything
+  • Use Cases:
+    - Share illustrated family histories
+    - Create visual family websites
+    - Print family albums
+    - Archive photos with context
+    - Email rich family reports
+
+📍 Places Index Page (Phase 11):
+  • Geographic organization of family history:
+    - All birth and death places collected and organized
+    - People grouped by associated places
+    - Counts of events for each location
+    - Alphabetically sorted place names
+  • Smart Data Presentation:
+    - Shows all people born in each place
+    - Shows all people who died in each place
+    - Links to individual person pages
+    - Respects privacy settings (filters living people)
+  • Professional Layout:
+    - Card-based design for each place
+    - Clear section headers for birth/death groupings
+    - Clickable person names
+    - Responsive design for all devices
+  • Access From:
+    - Main navigation: "Places" link
+    - Homepage feature card
+    - Available in all generated websites
+  • Use Cases:
+    - Research migration patterns
+    - Identify geographic clusters in family history
+    - Plan heritage travel destinations
+    - Understand family settlement patterns
+    - Connect with local historical societies
+
+📅 Timeline Page (Phase 11):
+  • Chronological view of all family events:
+    - All births and deaths in chronological order
+    - Events grouped by century
+    - Proper date sorting (not alphabetical)
+    - Living people shown at end with privacy protection
+  • Smart Privacy Handling:
+    - Living people appear in dedicated "Living" section
+    - Birth dates/places hidden for living people when privacy enabled
+    - Message: "(birth information withheld for privacy)"
+    - Living people sorted alphabetically by name
+  • Visual Organization:
+    - Emoji icons for events (👶 births, ✝️ deaths)
+    - Century groupings (1800s, 1900s, 2000s, Living)
+    - Formatted dates with places
+    - Links to individual person pages
+  • Professional Features:
+    - Event count displayed at top
+    - Clean list-based layout
+    - Print-friendly design
+    - Mobile-responsive
+  • Access From:
+    - Main navigation: "Timeline" link
+    - Homepage feature card
+    - Available in all generated websites
+  • Use Cases:
+    - Visualize family history flow
+    - Identify research gaps in time periods
+    - See family continuity across generations
+    - Plan reunion timelines
+    - Create historical context for family events
+
+📊 Statistics Dashboard (Phase 11):
+  • Comprehensive family tree analytics:
+    - Overall statistics (people, surnames, marriages)
+    - Gender distribution breakdown
+    - Date range coverage (earliest/latest births and deaths)
+    - Top 10 most common surnames with visual bars
+    - Top 10 birth places with visual bars
+    - Top 10 death places with visual bars
+  • Interactive Elements:
+    - Surnames stat card links to surnames page
+    - Surname bars link to surnames page with anchors
+    - Birth/death place bars link to places page
+    - Hover effects on all interactive elements
+  • Visual Data Representation:
+    - Horizontal bar charts with percentage bars
+    - Blue gradient fills
+    - Large number stat cards
+    - Color-coded for clarity
+  • Privacy Aware:
+    - Living count shown/hidden based on privacy settings
+    - Birth information for living excluded from date ranges
+    - Privacy notes displayed when applicable
+  • Professional Design:
+    - Grid-based stat cards
+    - Responsive bar charts
+    - Clean typography
+    - Print-friendly layout
+  • Access From:
+    - Main navigation: "Statistics" link
+    - Homepage feature card
+    - Available in all generated websites
+  • Use Cases:
+    - Understand family tree scope and coverage
+    - Identify research focus areas
+    - See geographic distribution patterns
+    - Prepare presentations about family history
+    - Track research progress over time
+
+📚 Source Citations Page (Phase 11):
+  • Professional research documentation:
+    - All sources organized by type
+    - Citation counts for each source
+    - Links to people who cite each source
+    - Complete source metadata
+  • Source Types Supported:
+    - Vital Records (birth, death, marriage certificates)
+    - Census Records
+    - Church Records
+    - Books & Publications
+    - Websites & Online Resources
+    - Military Records
+    - Land & Property Records
+    - Probate & Court Records
+    - Newspapers
+    - Other Sources
+  • Source Information Displayed:
+    - Source title
+    - Author
+    - Publication details
+    - Repository (archive, library, website)
+    - Call number or reference
+    - Notes about the source
+  • Citation Details:
+    - Number of people citing each source
+    - Links to individual person pages
+    - Citation specifics (page, entry, line number)
+    - Confidence level (high/medium/low) with color-coded badges
+  • Person Page Integration:
+    - Sources & Citations section added to person pages
+    - Shows all sources citing that person
+    - Displays transcriptions when available
+    - Shows confidence levels
+    - Includes citation notes
+  • Professional Design:
+    - Card-based source layout
+    - Color-coded confidence badges (green/yellow/red)
+    - Clean citation lists
+    - Styled transcription blocks
+  • Access From:
+    - Main navigation: "Sources" link
+    - Homepage feature card
+    - Individual person pages (bottom section)
+  • Use Cases:
+    - Document research quality
+    - Track source reliability
+    - Identify research gaps
+    - Meet genealogy standards
+    - Share methodology with collaborators
+    - Prepare for genealogy submissions
+
+🔍 JavaScript Search (Phase 11):
+  • Instant client-side search functionality:
+    - Real-time search as you type
+    - No server required (works with local files)
+    - Searches across all person data
+    - 300ms debounce prevents lag
+  • Search Fields:
+    - Full names
+    - Given names
+    - Surnames
+    - Birth dates and places
+    - Death dates and places
+  • Search Features:
+    - Case-insensitive matching
+    - Partial text matching
+    - Result count displayed
+    - Click results to view person pages
+    - Privacy-aware (respects export settings)
+  • Smart Results Display:
+    - Name prominently shown with link
+    - Birth/death information displayed
+    - Living status indicated
+    - Clean card-based layout
+    - No results message when appropriate
+  • User Experience:
+    - Autofocus on search box
+    - Enter key support
+    - Visual feedback on hover
+    - Fast, responsive interface
+    - "Ready to search X people" status
+  • Technical Implementation:
+    - Data embedded directly in HTML (no CORS issues)
+    - Works perfectly with local file:// protocol
+    - XSS protection with HTML escaping
+    - Lightweight, no dependencies
+  • Access From:
+    - Main navigation: "Search" link (first item)
+    - Homepage feature card (with 🔍 icon)
+  • Use Cases:
+    - Quick person lookup
+    - Find people by location
+    - Search by date ranges
+    - Mobile-friendly family tree browsing
+    - Offline genealogy research
+
+🎨 Enhanced Navigation & UX (Phase 11):
+  • Website Folder Creation:
+    - Two-step folder creation process
+    - Default name suggestion: FamilyWebsite_YYYY-MM-DD
+    - Browse to select parent directory
+    - Automatic folder creation
+    - Overwrite confirmation for existing folders
+  • Breadcrumb Navigation:
+    - Appears on all person pages
+    - Shows path: Home » Surnames » [Surname] » [Person Name]
+    - Clickable links at each level
+    - Hidden in print view
+  • Enhanced Homepage:
+    - Feature cards for all major sections (Search, Surnames, Places, Timeline, Statistics, Sources)
+    - Modern grid layout
+    - Clear descriptions for each section
+    - Icon-based visual navigation (🔍📋📍📅📊📚)
+  • Consistent Navigation Bar:
+    - Same navigation on every page
+    - Current page highlighted
+    - Responsive design for mobile
+    - Clean, professional styling
+  • Visual Polish:
+    - Hover effects on all interactive elements
+    - Smooth transitions
+    - Color-coded sections
+    - Card shadows and depth
+    - Professional blue/gray color scheme
+
+📄 PDF Export for Reports (Phase 11):
+  • Professional PDF generation for all report types:
+    - Family Group Sheet → Clean two-column layout
+    - Descendant Report → Indented generational hierarchy
+    - Ancestor Report → Ahnentafel numbering with relationships
+    - Timeline Report → Year-grouped chronological events
+  • Family Group Sheet PDF:
+    - Husband and wife sections with full biographical data
+    - Marriage information with dates and places
+    - Children listed chronologically with spouses
+    - Grandchildren included per child
+    - Parental family information for context
+    - Clean formatting with section headers
+  • Descendant Report PDF:
+    - Generation-based indentation (visual hierarchy)
+    - Each descendant numbered by generation
+    - Birth and death information included
+    - Statistics summary (total count, generation breakdown)
+    - Page breaks between major sections
+  • Ancestor Report PDF:
+    - Traditional Ahnentafel numbering system
+    - Relationship descriptions (e.g., "paternal grandmother")
+    - Pedigree collapse detection with warnings
+    - Generation tracking for each ancestor
+    - Statistics on unique vs total ancestors
+    - Educational footer explaining numbering
+  • Timeline Report PDF:
+    - Events grouped by year with clear headers
+    - Birth (👶), Death (✝️), and Marriage (💍) icons
+    - Chronologically sorted events
+    - Location information for each event
+    - Statistics summary (event counts by type)
+    - Date range coverage
+  • Privacy Controls:
+    - Same privacy dialog for PDF as HTML exports
+    - Hide living people or show limited info
+    - Consistent privacy handling across formats
+    - Marriage details hidden for living couples
+  • Professional Features:
+    - Page numbers on all reports
+    - Headers with report title
+    - Clean typography and spacing
+    - Consistent formatting throughout
+    - Print-ready output
+  • Export Access:
+    - Each report dialog has "Export to PDF" button
+    - Default filenames match report type
+    - Save dialog with format: .pdf
+  • Use Cases:
+    - Print physical copies for family members
+    - Email professional-looking reports
+    - Archive research in portable format
+    - Submit to genealogy societies
+    - Share with relatives without HTML knowledge
+
+📊 CSV Export for Data Analysis (Phase 11):
+  • Comprehensive data exports for analysis and backup:
+    - People list with all biographical data
+    - Timeline events in chronological order
+    - Surname statistics with counts
+    - Place statistics (births and deaths)
+    - Source citations with details
+  • People Export (people_export.csv):
+    - Complete person records: ID, names, gender
+    - Birth dates and places
+    - Death dates and places
+    - Living status indicator
+    - Perfect for: spreadsheet analysis, mail merge, data verification
+  • Timeline Export (timeline_export.csv):
+    - All events with dates
+    - Event type (Birth/Death/Marriage)
+    - Person ID and name
+    - Place information
+    - Chronologically sorted
+    - Perfect for: timeline visualization, date analysis, event tracking
+  • Surnames Export (surnames_export.csv):
+    - All unique surnames
+    - Person count per surname
+    - Sorted by count (descending)
+    - Perfect for: surname research, frequency analysis, focus planning
+  • Places Export (places_export.csv):
+    - All unique places mentioned
+    - Birth count per place
+    - Death count per place
+    - Total event count
+    - Perfect for: migration mapping, geographic analysis, research planning
+  • Sources Export (sources_export.csv):
+    - Complete source details: ID, title, author
+    - Publication information
+    - Repository and call numbers
+    - Source type classification
+    - Citation count per source
+    - Perfect for: source evaluation, research tracking, bibliography creation
+  • Professional Features:
+    - Standard CSV format (opens in Excel, Google Sheets, etc.)
+    - Proper header rows
+    - Quoted fields for data integrity
+    - UTF-8 encoding for international characters
+    - Clean, consistent formatting
+  • Export Access:
+    - Reports menu → Actions → Export to CSV (submenu)
+    - Five separate export options
+    - Default filenames match export type
+  • Use Cases:
+    - Import into Excel/Google Sheets for analysis
+    - Create custom charts and graphs
+    - Generate mailing lists
+    - Build research databases
+    - Backup data in universal format
+    - Share with non-genealogists
+    - Statistical analysis and reporting
+
+✅ Summary - What's New in v1.4.0:
+All three major features from Phase 11 are now complete:
+
+1. HTML Exports & Website Generation ✓
+   - Individual reports (Family Group Sheet, Descendants, Ancestors)
+   - Complete multi-page websites with navigation
+   - Privacy controls for living people
+   - Photo/media embedding with base64
+   - Places Index, Timeline Page, Statistics Dashboard
+   - Source Citations Page with research documentation
+   - JavaScript real-time search
+   - Enhanced UX (breadcrumbs, folder creation)
+
+2. PDF Exports ✓
+   - All four report types (Family Group Sheet, Descendant, Ancestor, Timeline)
+   - Professional formatting with page numbers
+   - Privacy controls integrated
+   - Print-ready output
+
+3. CSV Exports ✓
+   - Five data sets (People, Timeline, Surnames, Places, Sources)
+   - Standard format for Excel/Sheets
+   - Perfect for data analysis and backup
+
+
+
+1.3.1 - January 29, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Enhanced Utilities and Professional Chart Exports!
+
+📅 Date Calculator (Phase 9):
+  • Interactive age and date calculations:
+    - Calculate age at death from birth/death dates
+    - Determine age at specific events
+    - Calculate date ranges between events
+    - Find birth year from age at death
+  • Smart date validation and error handling
+  • User-friendly interface with clear input fields
+  • Accessible from Tools menu
+  • Useful for research verification and data entry
+
+💾 Saved Searches (Phase 9):
+  • Persistent search criteria storage:
+    - Save frequently used search queries
+    - Name your saved searches for easy identification
+    - Quick access to complex multi-field searches
+    - Load saved searches with one click
+  • Integrated with Advanced Search:
+    - Save button available after defining criteria
+    - Load button to restore previous searches
+    - Update or delete existing saved searches
+  • Perfect for genealogy research workflows:
+    - Save searches for specific surname lines
+    - Store location-based queries
+    - Keep research task searches handy
+
+📄 Family Group Sheet (Phase 9):
+  • Traditional genealogy report format:
+    - Complete nuclear family display for married couples
+    - Husband and wife sections with full details (birth, death, places)
+    - Marriage information (date, place)
+    - All children listed in chronological order with:
+      * Birth and death dates/places
+      * Spouse names
+      * Grandchildren (with birth dates)
+      * Clickable navigation
+    - Multiple marriage support (separate sheet per spouse, chronologically ordered)
+  • Parental family view for unmarried individuals:
+    - Parents section
+    - Person details
+    - All siblings in chronological order
+  • Accessible from:
+    - Reports menu → Family Group Sheet
+    - System tray menu → Reports → Family Group Sheet
+    - Right-click any person → Family Group Sheet...
+    - 📊 Reports button in toolbar
+    - Cmd/Ctrl+R → Reports menu
+  • Interactive navigation to all family members
+  • Perfect for:
+    - Printing family records
+    - Sharing with family members
+    - Research documentation
+    - Family history presentations
+
+📊 Enhanced Quick Access Toolbar (Phase 9):
+  • New popup menu buttons in main toolbar for faster access:
+    - **📁 File**: New Database, Open Database, Recent Files, Clear Recent, Backup, Database Maintenance, Restore, Import/Export GEDCOM, GenoPro, Gramps
+    - **🖼️ Media**: Add Media, Media Library, Research Log Manager, Sources Library, View Media (count shown if person has media)
+    - **🔧 Tools**: Date Calculator, Global Search & Replace, Name Case Conversion
+    - **📊 Reports**: All 25 reports in alphabetically organized groups
+    - **⚙️ Settings**: Settings Dialog, Keyboard Shortcuts, Light/Dark/System Theme
+    - **❓ Help**: About, Check for Updates, Help, Load Demo Database
+  • Cmd/Ctrl+R now opens Reports menu (previously Data Quality only)
+  • 100% feature parity with full menus - everything accessible from 6 toolbar buttons
+  • Cleaner, more organized toolbar with dropdown menus
+  • All menu functionality now available without leaving the main window
+  
+📋 Hierarchical Reports Menu (Phase 9):
+  • Reports organized in clean nested submenus (like File → Recent Files):
+    - **Utilities** (3): Advanced Search, Relationship Calculator, Statistics Dashboard
+    - **Lists** (5): All To-Dos, Bookmarked People, Completed To-Dos, Recent People, Recent Research
+    - **Data Quality** (7): All Sources, Conflicts, Data Quality, Duplicates, Living Status, Unsourced People, Well Documented
+    - **Individual Reports** (4): Ancestor Report, Descendant Report, Family Group Sheet, Timeline View
+    - **Chart Views** (3): Descendant Chart, Fan Chart, Geographic Distribution
+    - **Actions** (2): Mass Mark Living, Reviewed Items
+  • Main Reports menu shows 6 categories instead of 24 flat items
+  • Hover over category to see submenu - cleaner, more navigable
+  • All items alphabetically sorted within categories
+  • Consistent organization across toolbar popup, menu bar, and system tray
+    
+🖱️ Enhanced Context Menus (Phase 9):
+  • Right-click pedigree view now includes:
+    - View Media (count) - Quick access to person's photos/documents
+    - All existing context menu options
+  • Convenient quick access to media from any chart view
+
+📊 Professional Chart Exports (Phase 9):
+  • High-quality PDF and PNG exports for all chart types:
+    - Pedigree Chart: 4 generations in columnar layout
+    - Fan Chart: Ancestors shown in pedigree format for print
+    - Descendant Chart: Proper tree structure with parent-child relationships
+  • Export features:
+    - Color-coded by gender (blue/pink) for clarity
+    - Proper Ahnentafel indexing for accurate relationships
+    - Full person details: names, dates, birth places
+    - Clean, professional layout suitable for printing/sharing
+    - Generation labels and connecting lines
+    - Chart overview information and feature descriptions
+  • Smart formatting:
+    - Root person box wider to prevent name truncation
+    - Optimized spacing to fit all generations
+    - No unnecessary connector lines (implicit relationships)
+    - Proper Y-positioning to avoid truncation
+  • File handling:
+    - Automatic file extension (.pdf or .png)
+    - Timestamped default filenames
+    - Standard file save dialog
+  • Perfect for:
+    - Printing family trees
+    - Sharing with family members
+    - Including in research reports
+    - Archiving genealogical data
+
+1.3.0 - January 24, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Major UX enhancements with Advanced Search, Enhanced Visualizations, and Batch Tools!
+
+🔍 Advanced Search (Phase 8):
+  • Multi-field search with comprehensive filters:
+    - Name criteria: Given name, surname, preferred/nickname
+    - Date ranges: Birth year and death year ranges
+    - Place criteria: Birth place, death place (contains matching)
+    - Gender filter
+  • Boolean filters:
+    - Living only / Deceased only
+    - Has media (photos/documents)
+    - Has sources (citations)
+    - Has todos (research tasks)
+    - Is bookmarked (starred)
+  • Export search results in multiple formats:
+    - CSV (Comma Separated Values) - Excel compatible
+    - JSON (JavaScript Object Notation) - for developers/APIs
+    - XML (Extensible Markup Language) - enterprise systems
+  • Smart file extensions automatically added (.csv, .json, .xml)
+  • User-friendly layout: Buttons at top, criteria scrollable below
+  • Keyboard shortcut: Cmd/Ctrl+Shift+F
+  • Accessible from Reports menu and keyboard shortcut
+  • Format selection dialog with clear descriptions
+  • Results list shows full person details with navigation
+
+🌳 Enhanced Pedigree View (Phase 8):
+  • Dynamic generation selection:
+    - Choose 4, 5, 6, 7, or 8 generations
+    - Dynamically builds ancestor chart to selected depth
+    - Recursive algorithm handles any generation count
+  • Color coding modes:
+    - No Color: Traditional view (default)
+    - By Gender: Light blue (M), light pink (F), gray (unknown)
+    - By Living Status: Light green (living), light gray (deceased)
+    - By Data Completeness: Green (80%+), yellow (50-79%), pink (<50%)
+  • Zoom controls:
+    - Slider from 50% to 200%
+    - Live zoom level display (e.g., "Zoom: 125%")
+    - Scales entire chart smoothly
+  • Collapsible branches:
+    - Click "↕" button on any person to collapse/expand their ancestors
+    - Shows "▶" when collapsed, "▼" when expanded
+    - "Expand All" button to restore full view
+    - Focus on specific lineages by collapsing others
+  • All existing indicators preserved:
+    - Bookmarks (★), media (📷), sources (📚)
+    - Todos (📝), research logs (🔍)
+  • Control panel at top:
+    - Generation selector, color mode, zoom slider all visible
+    - No scrolling needed to access controls
+  • Chart title shows current generation count
+  • Export Chart button (placeholder for future PDF/PNG export)
+
+🎯 Fan Chart (Phase 8) - NEW!:
+  • Circular ancestor visualization:
+    - Beautiful circular layout with concentric rings
+    - Center: Current person with larger box
+    - Ancestors spread evenly around 360-degree circle
+    - Efficient use of space - all ancestors visible at default size
+  • Generation selection:
+    - Choose 3, 4, 5, or 6 generations via dropdown
+    - Adaptive sizing: More generations = tighter spacing
+    - Compact, laptop-friendly default window (700x700)
+  • Gender-based color coding:
+    - Pink background for females
+    - Blue background for males
+    - Gray for unknown gender
+    - Clear visual distinction
+  • Enhanced Mode (checkbox):
+    - Toggle "Enhanced (show spouses & children)"
+    - Shows spouses to the right of center person
+    - Shows children below center person
+    - All clickable for navigation
+    - Unique feature not found in traditional genealogy tools!
+  • Dynamic synchronization:
+    - Bidirectional sync with Family View
+    - Navigate in Family View → Fan Chart updates automatically
+    - Navigate in Fan Chart → Family View updates
+    - Multiple fan charts can be open, all sync
+    - Window title updates with current person
+  • Interactive features:
+    - Left-click any person → Navigate to that person
+    - Right-click any person → Context menu with quick actions
+    - All boxes show person names (may truncate, use dynamic sync to see details)
+    - Resizable window for larger displays
+  • Legend & Help:
+    - Built-in legend button explains layout
+    - Shows generation rings and navigation tips
+    - Describes Enhanced Mode layout
+    - Export Chart button (placeholder for future PDF/PNG export)
+  • Access:
+    - Reports menu → Fan Chart
+    - System tray menu → Reports → Fan Chart
+    - Right-click context menu → "View in Fan Chart"
+    - Opens in separate window
+  • Technical implementation:
+    - Full 360-degree circular layout algorithm
+    - Adaptive box sizing for generation depth
+    - Gender-based color rendering
+    - Dynamic window tracking and synchronization
+    - Efficient refresh on navigation events
+  
+🖱️ Quick Actions / Context Menus (Phase 8) - NEW!:
+  • Right-click context menus everywhere:
+    - Available on all person boxes in all views
+    - Family View: Parents, spouse, children
+    - Enhanced Pedigree View: All ancestors
+    - Fan Chart: Center person, ancestors, spouses, children
+    - Descendant Chart: Root person, descendants, spouses
+  • Navigation actions:
+    - "Set as Focus Person" - Navigate to person in Family View
+    - "View in Fan Chart..." - Open Fan Chart for this person
+    - "View in Descendant Chart..." - Open Descendant Chart for this person
+  • Quick actions:
+    - Add/Remove Bookmark - Toggle bookmark status with one click
+    - Add To-Do... - Create research task for this person
+    - View To-Dos (n) - See all to-dos (shows count if any)
+  • Sources & Research:
+    - View Sources (n) - Open Sources Library (shows citation count)
+    - Add Source... - Quick access to add source
+    - View Research Log (n) - Open Research Log (shows entry count)
+    - Add Research Log... - Quick access to add research entry
+  • Copy information:
+    - Copy Name - Copy formatted name to clipboard
+    - Copy ID - Copy database ID to clipboard
+  • Generate reports:
+    - Generate Ancestor Report... - Create ancestor report for any person
+    - Generate Descendant Report... - Create descendant report for any person
+  • Technical implementation:
+    - Custom TappableContainer widget supports left and right clicks
+    - Left-click: Navigate to person
+    - Right-click: Show context menu at cursor position
+    - Unified menu builder creates consistent menus across all views
+    - Smart menu items (shows counts, context-aware labels)
+
+🌳 Descendant Chart (Phase 8) - NEW!:
+  • Visual tree of descendants:
+    - Tree structure flowing downward
+    - Root person at top
+    - Children directly below parent
+    - Grandchildren, great-grandchildren expand recursively
+    - Horizontal branching for multiple children
+  • Dynamic generation selection:
+    - Choose 3, 4, 5, 6, 7, or 8 generations via dropdown
+    - Tree adjusts dynamically to show selected depth
+    - Efficient layout algorithm handles large families
+  • Color coding modes (same as Pedigree View):
+    - No Color: Traditional view (default)
+    - By Gender: Light blue (M), light pink (F), gray (unknown)
+    - By Living Status: Light green (living), light gray (deceased)
+    - By Data Completeness: Green (80%+), yellow (50-79%), pink (<50%)
+  • Zoom controls:
+    - Slider from 50% to 200%
+    - Live zoom level display
+    - Scales entire tree including spacing
+  • Enhanced Mode (checkbox):
+    - Toggle "Enhanced (show spouses)"
+    - Shows spouse names above groups of children
+    - Groups children by marriage/spouse
+    - Marriage dates and end reasons displayed
+    - Clearly shows which children belong to which marriage
+    - Example: Person with 2 marriages shows both spouses with their respective children
+    - Unknown spouse labeled as "(unknown spouse)"
+  • Collapsible branches:
+    - Click "↕" button on any person to collapse/expand their descendants
+    - Shows "▶" when collapsed, "▼" when expanded
+    - "Expand All" button to restore full view
+    - Focus on specific descendant lines
+  • Visual indicators (same as other views):
+    - Bookmarks (★), media (📷), sources (📚)
+    - Todos (📝), research logs (🔍)
+  • Dynamic synchronization:
+    - Bidirectional sync with Family View
+    - Navigate in Family View → All open Descendant Charts update
+    - Navigate in Descendant Chart → Family View updates
+    - Multiple charts can be open, all sync
+    - Window title updates with current person
+  • Interactive features:
+    - Left-click any person → Navigate to that person
+    - Right-click any person → Context menu with quick actions
+    - Click spouse boxes → Navigate to spouse
+    - All boxes support full interaction
+  • Control panel:
+    - Generation selector, color mode, Enhanced checkbox
+    - Zoom slider with percentage display
+    - "Expand All" and "Export Chart" buttons
+    - All controls accessible without scrolling
+  • Access:
+    - Reports menu → Descendant Chart
+    - System tray menu → Reports → Descendant Chart
+    - Right-click context menu → "View in Descendant Chart"
+    - Opens in separate resizable window (1000x700)
+  • Export Chart button (placeholder for future PDF/PNG export)
+  • Technical implementation:
+    - Recursive descendant tree building algorithm
+    - Marriage grouping logic for Enhanced Mode
+    - Dynamic window tracking and synchronization
+    - Thread-safe refresh mechanism (fixes race conditions)
+    - Efficient layout with proper spacing
+
+🛠️ Tools (Phase 8) - NEW!:
+  • Global Search and Replace:
+    - Find and replace text across all records
+    - Search in specific fields or all place fields at once
+    - Field options: Birth Place, Death Place, Address, City, State, Country, Notes, All Place Fields
+    - Case-sensitive search option
+    - Preview all matching records before applying changes
+    - Results list shows person name and matched field
+    - Batch replacement for standardizing data:
+      * Example: "USA" → "United States"
+      * Example: "New York" → "New York, USA"
+      * Example: Fix spelling errors across many records
+    - Safe workflow: Search → Preview → Confirm → Replace
+    - Accessible from Tools menu
+  • Global Name Case Conversion:
+    - Convert names to Proper Case, UPPERCASE, or lowercase
+    - Smart handling of special name cases:
+      * McDonald, MacArthur → Mc/Mac prefix capitalization
+      * O'Brien, O'Connor → Correct apostrophe handling
+      * van der Berg, von Schmidt → Lowercase prefixes preserved
+      * de Vries, la Fontaine → French/Dutch prefixes
+      * Roman numerals: I, II, III, IV, V, VI, VII, VIII, IX, X (stay uppercase)
+      * Suffixes: Jr./Sr. (proper format with period), Esq., PhD, MD, DDS
+    - Apply to specific fields:
+      * Given Names only
+      * Surnames only
+      * Both Given Names and Surnames
+      * Preferred Names only
+    - Preview all affected records with before/after comparison
+    - Perfect use cases:
+      * Fix imported GEDCOM files with "JOHN SMITH"
+      * Standardize inconsistent capitalization
+      * Correct all-uppercase or all-lowercase entries
+    - Results preview shows old → new name for each person
+    - Safe workflow: Select → Preview → Confirm → Apply
+    - Accessible from Tools menu
+  • Technical implementation:
+    - Case-sensitive and case-insensitive search algorithms
+    - Special name pattern recognition (McDonald, O'Brien, van der)
+    - Batch database update with transaction safety
+    - Preview-before-apply pattern for all operations
+    - Proper case conversion with linguistic rules
+    - Count display (n matching records, n will be changed)
+
+📊 Navigation & Usability:
+  • Click any person in any view to navigate to their record
+  • Right-click any person for quick actions menu
+  • Collapse/expand toggles with dedicated button
+  • Visual feedback for all controls
+  • Smooth refresh when changing settings
+  • Charts remain centered and scrollable
+  • Bidirectional synchronization between views
+
+🎨 Technical Improvements:
+  • Refactored pedigree chart to use recursive generation building
+  • Efficient ancestor and descendant traversal algorithms
+  • Custom TappableContainer widget for dual-click support
+  • Unified context menu system across all views
+  • Thread-safe widget refresh mechanisms
+  • Dynamic window tracking for multi-chart synchronization
+  • Marriage/spouse grouping logic for Enhanced Mode
+  • Data completeness calculator (name, birth, death, gender fields)
+  • Color-coded background rectangles with proper theme integration
+  • Responsive box sizing based on zoom level
+  • Collapsed branch tracking with per-person state
+  • Ordinal generation labels (1st, 2nd, 3rd, 4th, etc.)
+
+🎯 Keyboard Shortcut Updates:
+  • Total shortcuts now: 23
+  • Advanced Search: Cmd/Ctrl+Shift+F (with Shift modifier support)
+  • All existing shortcuts preserved
+
+
+
+1.2.1 - January 24, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Preferred names, improved demo database, and enhanced name display!
+
+✨ Preferred Name Field:
+  • Add a preferred name or nickname for any person
+  • Display format: "GivenName (Preferred) Surname"
+  • Perfect for:
+    - Legal middle name or nickname used as first name (e.g., "Stanley (Caveman) Yelnats")
+    - Nicknames (e.g., "William (Bill) Smith")
+    - Shortened names (e.g., "Elizabeth (Beth) Johnson")
+    - Stage/pen names (e.g., "Samuel (Mark Twain) Clemens")
+  • Shows consistently throughout the entire application:
+    - Family View (all people displayed)
+    - Pedigree View (all ancestors)
+    - Individual View (table listing)
+    - All dialogs and reports
+    - Left panel people list
+  • Optional field - leave blank if not needed
+  • Flexible usage for any "commonly known as" scenario
+
+🎭 Demo Database Updates:
+  • Enhanced demo database with 48 people (up from 40)
+  • Now includes preferred name examples:
+    - William (Bill) Foster, Elizabeth (Beth) Morrison
+    - Michael (Mike) Harrison, Christopher (Chris) Chen
+  • Easter egg: Stanley Yelnats family line from "Holes"!
+    - Four generations named Stanley Yelnats (palindrome!)
+    - Family history traces back to Latvia (Elya Yelnats, b. 1850)
+    - Married into Harrison family (Stanley IV marries Esther Ruth Harrison)
+    - Multi-generational naming tradition with biographical notes
+  • Geographic expansion: Now includes Latvia + USA locations
+  • Demonstrates international immigration patterns
+  • Load via Help → Load Demo Database
+
+🎨 UI/UX Improvements:
+  • Improved Family View button layout:
+    - Reorganized buttons into two logical rows
+    - Row 1: Spouse label, Other Marriages, Edit Marriage (marriage-related controls)
+    - Row 2: Manage To-Do, Manage Sources, Research Log (person research tools)
+    - Fixes display width issues when viewing people with multiple marriages
+    - Allows proper resizing of the left panel
+  • Smart marriage prioritization:
+    - When navigating to a person with multiple marriages, now defaults to showing:
+      * Current marriage (no divorce/separation/end reason) - most relevant
+      * If all marriages ended, shows the most recent one
+    - Previous behavior showed oldest marriage first (usually ended)
+    - More intuitive and contextually relevant display
+
+🔧 Database Maintenance Tools (Phase 9):
+  • Comprehensive database maintenance and analysis window
+  • Access via File → Database Maintenance... or Cmd/Ctrl+L
+  • Three-tab interface for statistics, maintenance, and analysis:
+  
+  📊 Statistics Tab:
+    - Real-time database file size and statistics
+    - Record counts (people, relationships, media, sources, citations, research logs, to-dos)
+    - Data quality issue detection (orphaned media, broken relationships, unused sources)
+    - Refresh button for updated stats
+  
+  🔧 Maintenance Tab:
+    - Vacuum Database: Optimize and reclaim unused space
+    - Check Integrity: Verify database is not corrupted
+    - Remove Orphaned Media: Clean up media not linked to anyone
+    - Remove Orphaned Relationships: Fix broken relationship links
+    - Remove Duplicate Relationships: Clean up duplicate entries
+    - All operations show detailed reports with duration and results
+  
+  📈 Analysis Tab:
+    - Find Unused Sources: Identify sources with no citations
+    - Optimize Query Performance: Update SQLite query statistics
+  
+  • Separate resizable window for better usability
+  • All operations run asynchronously (non-blocking UI)
+  • Monospace font for better formatted output
+  • Detailed success/error reporting for each operation
+
+🔧 Technical Improvements:
+  • Database migration automatically adds preferred_name column
+  • Name formatting helper function ensures consistency
+  • Demo generator updated to showcase all new features
+  • All name displays throughout UI now use consistent formatting
+  • Database connection pool increased to 5 for better multi-threading support
+  • WAL mode enabled for concurrent read operations
+
+
+
+1.2.0 - January 23, 2026 (was not committed and published!)
+━━━━━━━━━━━━━━━━━━━━━━━━
+Research tools for genealogists! Track your work with Recent People, Bookmarks, To-Do Lists, and Source Citations.
+
+⭐ Recent People & Bookmarks:
+  • Automatic tracking of people you view (last 20 accessed)
+  • Bookmark/star important people for quick access
+  • ⭐ Bookmark button in toolbar - toggles between ⭐ and ★
+  • Visual indicators throughout the app:
+    - ★ symbol appears next to bookmarked people in all views
+    - Shows in left panel people list
+    - Shows in Family View (parents, spouses, children)
+    - Shows in Pedigree View (ancestors)
+    - Shows in Individual View (table listing)
+    - Shows in all reports
+    - Makes bookmarked people instantly recognizable
+  • Recent People report (Reports → Recent People):
+    - Shows last 20 people you've viewed
+    - Displays access timestamps
+    - Shows bookmark status with ★ indicator
+    - Click any person to navigate directly to them
+  • Bookmarked People report (Reports → Bookmarked People):
+    - Quick access to all starred/bookmarked people
+    - Alphabetically sorted for easy browsing
+    - Perfect for tracking key ancestors or research subjects
+  • Keyboard shortcut: Cmd/Ctrl+W to bookmark current person
+  • Seamless integration with all views and reports
+
+📝 Research To-Do List:
+  • Track research tasks for each person in your database
+  • Create, edit, and manage to-do items per person:
+    - Enter task description (e.g., "Find birth certificate", "Verify marriage date")
+    - Set priority level: 🟢 Low, 🟡 Medium, 🔴 High
+    - Add detailed notes for each task
+    - Mark tasks as completed with automatic timestamp
+    - Edit or delete tasks as needed
+  • Easy access to manage todos:
+    - "📝 Manage To-Do" button in Family View (next to Edit Marriage)
+    - Always visible when viewing any person
+    - Also available in person edit dialog
+    - Quickly add tasks while researching each person
+  • Visual indicators throughout the app:
+    - 📝 symbol appears next to people with pending todos
+    - Shows in all views (Family, Pedigree, Individual, left panel)
+    - Easy to spot who needs research attention
+  • "All Pending To-Dos" report (Reports → All Pending To-Dos):
+    - See all pending research tasks across your entire database
+    - Organized by priority (high, medium, low)
+    - Click any task to navigate to that person
+    - Perfect for planning research sessions
+  • "Completed To-Dos" report (Reports → Completed To-Dos):
+    - Track your research progress and accomplishments
+    - View all completed tasks grouped by person
+    - Shows completion dates for reference
+    - Delete individual tasks or bulk delete all completed items
+    - Keep completed tasks as long as you want for reference
+  • Never forget a research task again!
+
+📚 Source Citations:
+  • Document your genealogy research with proper source citations
+  • Sources Library (Media → Sources Library):
+    - Create and manage all your sources in one place
+    - Source types: 📜 Vital Records, 📊 Census, ⛪ Church Records, 📚 Books, 🌐 Websites, 📄 Other
+    - Comprehensive fields for each source:
+      * Title (required) - e.g., "1900 US Federal Census"
+      * Author or creator
+      * Publication info (publisher, website, archive)
+      * Repository (where it's held)
+      * Call number, film number, or URL
+      * Notes for additional details
+    - View all citations linked to each source
+    - Edit or delete sources with confirmation
+  • Citation Manager per person ("📚 Manage Sources" button in Family View):
+    - Link sources to people with detailed citations
+    - Select from your Sources Library
+    - Link one source to multiple people at once:
+      * Perfect for marriage records (both spouses)
+      * Census records (entire household)
+      * Birth certificates (child + parents)
+      * Any shared family documents
+      * Just check additional people when adding citation
+    - Citation detail field (page, line, entry number, etc.)
+    - Transcription field for recording exact text
+    - Confidence level: Low, Medium, High
+    - Notes specific to this citation
+    - Edit or delete citations
+  • Visual indicators throughout the app:
+    - 📚 symbol appears next to people with source citations
+    - Shows in all views (left panel, Family, Pedigree, Individual)
+    - Easy to see who has documented sources
+  • Citation Reports for research overview:
+    - "All Sources" report (Reports → All Sources):
+      * Browse all sources with citation counts
+      * See which people are cited in each source
+      * Quick overview of your research coverage
+      * Total citation statistics
+    - "Well-Documented People" report (Reports → Well-Documented People):
+      * See people with the most source citations
+      * Ranked by number of sources
+      * Average citations per person statistics
+      * Shows top 50 most documented individuals
+    - "People Without Sources" report (Reports → People Without Sources):
+      * Find people who need source documentation
+      * Shows percentage of people without sources
+      * One-click navigation to add sources
+      * Perfect for improving data quality
+  • Proper genealogy practice made easy!
+
+🔍 Research Log:
+  • Track your research activities and never duplicate work
+  • Record what you searched, where you searched, and what you found
+  • Research Log manager (Media → Research Log):
+    - Add research log entries with dates
+    - Repository/location where you searched (FamilySearch, Archives, Libraries)
+    - Record type (Census, Vital Records, Newspapers, etc.)
+    - Search goal: What you were looking for
+    - Results: What you found (or "Nothing found")
+    - Optional notes field for URLs, reference numbers, details
+    - Link to multiple people at once:
+      * Perfect for census records (entire household)
+      * Marriage certificates (both spouses)
+      * Immigration records (family members)
+      * Any shared family documents
+      * Search filter to find people quickly
+    - Edit or delete entries as needed
+  • Per-person research log (Family View → "🔍 Research Log" button):
+    - View all research activities for a specific person
+    - Quick add new entries from person context
+    - See your complete research history for each individual
+  • "Recent Research Activity" report (Reports → Recent Research Activity):
+    - Browse your last 50 research activities
+    - Chronological view of all searches across your database
+    - Quick reference to avoid duplicate searches
+  • Comprehensive research tracking:
+    - Know what sources you've already checked
+    - Track searches that came up empty
+    - Document your research process
+    - Share research history with collaborators
+  • Professional genealogy practice made systematic!
+
+⭐ Quick Focus Person Selection:
+  • New "⭐ Set Focus" button in main toolbar
+  • One-click to make current person the focus person
+  • No more navigating through Settings → Preferences
+  • Relationships automatically recalculate relative to new focus person
+  • Ideal for quickly exploring different family perspectives
+
+🔗 Independent Relationship Calculator:
+  • Calculate relationships between ANY two people in your database
+  • Not limited to relationships with the focus person
+  • Smart search with real-time filtering:
+    - Type to search, press Enter to filter results
+    - Shows "Found X matches - click to select" for clarity
+    - Auto-selects when only one match found
+  • Comprehensive relationship detection:
+    - Direct relationships up to 3 generations:
+      * Parents/children, grandparents/grandchildren
+      * Great-grandparents/great-grandchildren
+    - Collateral relationships: aunts/uncles, nieces/nephews, great-aunts/uncles
+    - Cousin relationships: 1st, 2nd, 3rd cousins with "removed" variations
+    - In-law relationships with descriptive context
+  • Common ancestor identification and line of descent display
+  • "Did you mean?" suggestions for duplicate names
+  • For deeper ancestor lines (4+ generations), use Pedigree View
+  • Access via: Tools → Relationship Calculator (Cmd/Ctrl+Shift+R)
+
+📂 File Management:
+  • New "Clear Recent Files" option in File menu
+  • Quickly tidy up your recent databases list
+  • Helpful when old database files have been moved or deleted
+  • Recent files menu updates on next application restart
+
+
+
+1.1.1 - January 21, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Quality-of-life improvements, enhanced backup options, and better demo experience!
+
+💾 Enhanced Backup & Import:
+  • Improved backup mechanism with comprehensive media handling:
+    - Option to extract database media to separate ZIP file
+    - Option to backup all externally-linked media to another ZIP
+    - Three-layer backup strategy for maximum data security
+  • Flexible import workflow:
+    - Import to new database (creates fresh .db file)
+    - Merge import into current database (preserves existing data)
+    - Clearer dialogs guide you through the process
+
+📂 Recent Files Menu:
+  • Quick access to 10 most recently used databases
+  • Faster workflow when managing multiple family trees
+  • Accessible from File menu
+
+🎬 Improved Demo Database:
+  • Built-in demo generation (Help → Load Demo Database)
+  • Sample Harrison family tree (40 people, 5 generations)
+  • Michael Harrison set as focus person (showcases multiple marriages)
+  • Demo corrected for date consistency
+  • Full demo with photos/documents available for download separately
+    (keeps application download size small)
+
+📷 Media Discovery Features:
+  • Visual indicators: 📷 emoji appears next to people who have media
+  • Indicators shown in all views (Family, Pedigree, Individual)
+  • Dynamic "View Media" button in toolbar (only when person has media)
+  • Makes it easy to see who has photos/documents at a glance
+
+🎨 UI Improvements:
+  • Increased default window size (1400x850) for better usability
+  • Split pane defaults to 30% (was 25%) - more room for names
+  • Better layout prevents toolbar crowding
+  • Media button moved to toolbar for consistent access
+
+
+
+1.1.0 - January 20, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━
+Major update with advanced reporting, data validation, and workflow improvements!
+
+⌨️  Keyboard Shortcuts:
+  • 20+ keyboard shortcuts for common actions (Cmd/Ctrl + key)
+  • Fully customizable shortcut preferences
+  • Conflict detection prevents duplicate key assignments
+  • Access: Settings → Keyboard Shortcuts (Cmd/Ctrl+K)
+
+🔍 Data Quality & Validation:
+  • Conflicts Report: Detects impossible dates and relationships
+  • Duplicate Detection: Intelligent matching with merge capability
+  • Review/Validation System: Mark conflicts and duplicates as reviewed
+  • Reviewed Items Report: Manage and unmark reviewed items
+  • Filter controls to show/hide reviewed data
+
+📊 Enhanced Reports:
+  • Ancestor Report: Ahnentafel numbering with pedigree collapse detection
+  • Descendant Report: Generation counts with interactive navigation
+  • Timeline View: Chronological display of all life events
+  • Geographic Distribution: Birth/death locations with filtering and sorting
+  • Statistics Dashboard: Oldest living/deceased, average lifespan, and more
+
+✅ Bulk Operations:
+  • Mass "Mark as Living": Identify and bulk-update living status
+  • Smart filtering by name with selection preservation
+  • Sort by name or age for easy review
+  • Select All/Deselect All for efficient workflow
+
+🗺️  Geographic Features:
+  • Location-based reports for births and deaths
+  • Filter by location name
+  • Sort by frequency or alphabetically
+  • Interactive "Show People" for each location
+  • Toggle birth/death location visibility
+
+
+
+1.0.0 - January 18, 2026 - First Public Release
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This is the first official public release of KrankyBear Genealogy!
+
+✨ Core Features:
+  • Three-view interface (Family, Pedigree, Individual)
+  • GEDCOM, GenoPro, and Gramps import/export
+  • Media management (photos, documents, videos)
+  • Multiple marriage support with relationship tracking
+  • Relationship calculator
+  • Data quality and living status reports
+  • Cross-platform (Windows, macOS, Linux)
+  • Choose from portable stanadlone binaries or full installer options
+
+📸 Media Management:
+  • Store photos and documents in database or link externally
+  • Many-to-many linking (one photo → multiple people)
+  • Thumbnail generation
+  • Support for images, PDFs, videos, Microsoft Office documents
+  • Centralized Media Library
+
+💾 Data Management:
+  • SQLite database with hot-switching capability
+  • Backup/restore with timestamped ZIP files
+  • Branch export (person + descendants)
+  • Smart relationship linking
+
+🎨 User Experience:
+  • Focus user preference
+  • Theme support (Light/Dark/System)
+  • Auto update checker
+  • System tray integration
+  • Universal search/filter
+
+📋 Contact & Notes:
+  • Contact information fields
+  • Notes and annotations
+  • Searchable and exportable
+
+For complete feature list, see README.md
+Report issues: https://github.com/amarillier/KrankyBearGenealogy/issues
+
+🔮 Coming Soon (Future Releases):
+  • Undo/Redo functionality (core system ready, needs integration)
+  • GEDCOM merge with conflict resolution
+  • Map View: Geographic visualization of life events
+  • Timeline View enhancements
+  • Chart export to PDF/PNG
+  • Performance optimizations for large databases (10,000+ people)
+  • Mobile companion apps (iOS/Android)
+  • Research notes and additional tools
+  • Date calculator
+  • Data quality tools
+  • 
+

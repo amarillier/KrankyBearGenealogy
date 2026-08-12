@@ -246,8 +246,20 @@ No registration, no tracking, no phone-home (except manual update checks).
 	scrollContent := container.NewScroll(helpLabel)
 	scrollContent.SetMinSize(fyne.NewSize(750, 550))
 
+	// App icon, scaled to fit at a fixed 256x256 -- same badge behavior as
+	// about.go: a small HardHat badge beside the icon when this build is
+	// newer than the latest published GitHub release (see update.go's
+	// aheadOfLatestRelease).
+	icon := newBrandingDialogImage(resourceKrankyBearGenealogyPng)
+	var iconDisplay fyne.CanvasObject = icon
+	if aheadOfLatestRelease.Load() {
+		badge := newBrandingBadgeImage(resourceKrankyBearHardHatPng)
+		iconDisplay = container.NewHBox(icon, badge)
+	}
+
 	// Layout with better proportions
 	header := container.NewVBox(
+		container.NewCenter(iconDisplay),
 		widget.NewLabelWithStyle(appName+" - Help", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		widget.NewSeparator(),
 	)

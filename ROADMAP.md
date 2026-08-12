@@ -135,11 +135,11 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 ---
 
-## Phase 5: Gramps Import Advanced Features (Future)##
+## Phase 5: Gramps Import Advanced Features (Future)
 - ✅ We have equivalent features, but not currently Gramps import
-- ⏳ Source citations
-- ⏳ Full event system
-- ⏳ Research logs
+- ⏳ Import source citations from Gramps
+- ⏳ Import full event system data from Gramps
+- ⏳ Import research logs from Gramps
 
 ### Advanced Media Features (Future)
 - ⏳ Face tagging (link faces in photos to people)
@@ -381,7 +381,7 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Migration distance calculations
   - ✅ 18 zoom levels with auto-centering
   - ✅ Marker statistics display
-  - ⏳ Future enhancements: Migration paths, timeline slider, heat maps (Phase 7)
+  - ⏳ Future enhancements: Timeline slider, heat maps, and historical overlays (Phase 7+)
 
 ### Data Entry Helpers
 - **✅ Smart Date Entry**: Parse "May 1945", "1945", "abt 1945", etc. (v1.5.3)
@@ -389,8 +389,17 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Calendar picker integration
   - ✅ Support for genealogy date qualifiers (abt, bef, aft, circa)
   - ✅ Multiple format parsing (YYYY-MM-DD, DD Mon YYYY, Mon YYYY, YYYY, M/D/YYYY)
-- **⏳ Place Autocomplete**: Suggest standard place names as you type (future)
-- **⏳ Name Authority**: Suggest standard name formats (future)
+- **✅ Place Autocomplete**: Suggest standard place names as you type (v1.6)
+  - ✅ Inline dropdown for place name entry
+  - ✅ Search existing places in database
+  - ✅ Real-time suggestions as user types
+  - ✅ Apply to all place fields
+- **✅ Name Authority**: Suggest standard name formats (v1.7)
+  - ✅ Given name autocomplete with frequency counts
+  - ✅ Surname autocomplete with frequency counts
+  - ✅ Apply to all name entry fields (Person Edit, Advanced Search, Alternate Names)
+  - ✅ Shows usage count for common names (e.g., "John (15)")
+  - ✅ Improves data consistency and reduces typos
 - **⏳ Relationship Suggestions**: AI-assisted relationship detection from notes (future)
 
 ---
@@ -398,7 +407,7 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 ## 🔧 Phase 9: Advanced Features
 
 ### Performance & Scalability (Future)
-- **⏳ Indexed Search**: Full-text search across all fields
+- ✅ **Indexed Search**: Full-text search across all fields (✓ Completed in v1.8)
 - **⏳ Large Database Optimization**: Handle 10,000+ people efficiently
 - **⏳ Lazy Loading**: Load views progressively for large datasets
 - **⏳ Background Processing**: Import/export in background threads
@@ -824,34 +833,280 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 
 ---
 
-### 📋 Future Releases - Medium Priority (v1.6+)
+### 🎯 Released: v1.6 - Quick Wins (Released February 3, 2026)
+
+**Focus:** High-impact, foundational improvements that benefit all users
+
+**Backup Reminders** ⭐ HIGH PRIORITY (✓ Complete)
+- ✅ Track last backup date in database settings
+- ✅ Check on app startup (configurable days threshold, default: 7)
+- ✅ Reminder dialog with "Backup Now" option
+- ✅ Settings toggle to enable/disable reminders
+- ✅ Update tracking when user creates backup via app
+- ✅ Prevents data loss through gentle reminders
+- ✅ Optimized Settings UI layout (backups at top, clear focus user above search)
+- **User Value:** VERY HIGH - Critical data safety feature
+- **Actual Effort:** 2-3 hours (including UI refinements)
+
+**Phase 8: Place Autocomplete** ⭐ HIGH PRIORITY (✓ Complete)
+- ✅ Inline dropdown for place name entry (clean, dialog-friendly UI)
+- ✅ Search existing places in database (birth, death, marriage places)
+- ✅ Real-time suggestions as user types (2+ characters)
+- ✅ Apply to all place fields (person birth/death, marriage/union)
+- ✅ Comprehensive database query (UNION across all place fields)
+- ✅ Improves data quality and consistency automatically
+- ⏳ Fuzzy matching deferred (works well without it)
+- ⏳ GeoNames API integration deferred (database suggestions sufficient)
+- **User Value:** VERY HIGH - Daily quality-of-life improvement
+- **Actual Effort:** 3-4 hours (including popup→inline redesign)
+
+**Phase 9: Performance & Scalability** ⭐ HIGH PRIORITY (✓ Core Complete)
+- ✅ **Database indexing on commonly queried fields** (automatic on migration)
+  - ✅ Names (given, surname, preferred)
+  - ✅ Dates (birth_date, death_date, birth_year, death_year)
+  - ✅ Places (birth_place, death_place, marriage_place)
+  - ✅ Filters (is_living, gender, uid)
+  - ✅ Relationships (type for spouse/partner queries)
+- ✅ **Startup optimization**: Combined backup reminder queries (3 queries → 1)
+- ✅ **Query planner optimization**: PRAGMA optimize for smart index usage
+- ⏳ Lazy loading for large lists (not needed yet, deferred)
+  - People list (load in chunks of 100-200)
+  - Media library (paginated loading)
+  - Report results (virtual scrolling)
+- ⏳ Profile current bottlenecks with benchmarking (deferred)
+- ⏳ Memory optimization for large databases (deferred - not needed yet)
+- ⏳ Background processing for non-critical tasks (deferred)
+- **User Value:** HIGH - Future-proofs for growth, strengthens "fast vs Gramps" competitive advantage
+- **Actual Effort:** 2 hours (core indexing complete, advanced features deferred)
+- **Performance Results:** ✅ Verified fast on 1,400 people, ready for 10,000+
+
+**Total Actual Effort:** 7-9 hours (significantly under original 30-45 hour estimate)
+**Release Date:** February 3, 2026
+
+---
+
+### 🎯 Released: v1.7 - Name Authority (Released February 5, 2026)
+
+**Focus:** Complete Phase 8 Data Entry Helpers with intelligent name suggestions
+
+**Phase 8: Name Authority** ⭐ HIGH PRIORITY (✓ Complete)
+- ✅ **Given Name Autocomplete**: Suggests existing given names as you type
+  - ✅ Searches all given names and preferred names in database
+  - ✅ Shows frequency count for common names (e.g., "John (15)")
+  - ✅ Real-time suggestions with 2+ character trigger
+  - ✅ Smart ranking: most common names appear first
+- ✅ **Surname Autocomplete**: Suggests existing surnames as you type
+  - ✅ Searches all surnames in database
+  - ✅ Shows frequency count for family names
+  - ✅ Helps maintain consistent spelling across family branches
+- ✅ **Universal Integration**: Applied to all name entry locations
+  - ✅ Person Edit Dialog (main edit screen)
+  - ✅ Advanced Search (name criteria fields)
+  - ✅ Alternate Names Manager (both add and edit dialogs)
+- ✅ **Data Quality Benefits**:
+  - ✅ Reduces typos and spelling variations
+  - ✅ Encourages consistent name formatting
+  - ✅ Makes it easy to use established family names
+  - ✅ Improves searchability and reports
+- **User Value:** VERY HIGH - Daily quality-of-life improvement, completes Phase 8
+- **Actual Effort:** 4-5 hours (including all integration points)
+
+**Total Actual Effort:** 4-5 hours
+**Release Date:** February 5, 2026
+
+---
+
+### 🎯 Recent Release: v1.7 - Name Authority & Map Enhancements (February 5, 2026)
+
+In addition to Name Authority, v1.7 includes valuable map improvements:
+
+**Phase 7: Map Enhancements** ⭐ HIGH VALUE (✓ Complete)
+- ✅ **Marriage Location Markers**: Show all marriage places for a person
+  - ✅ 💒 Pink heart markers for each marriage
+  - ✅ Click marker to see marriage details with spouse names
+  - ✅ Age at marriage displayed in popup
+  - ✅ Integrated into person-specific map view
+- ✅ **Current Address for Living People**: Show where living people are now
+  - ✅ 🟢 Green marker for current address
+  - ✅ Uses City/Address/State/Country fields from contact info
+  - ✅ Labeled as "Current Address" with "Present" as date
+  - ✅ Combines address fields for accurate geocoding
+- ✅ **Migration Paths**: Draw lines connecting life events chronologically
+  - ✅ Blue lines for deceased: birth → death
+  - ✅ Green lines for living: birth → current address
+  - ✅ Visual representation of person's life journey
+  - ✅ Toggle on/off with "🔀 Migration Paths" checkbox
+  - ✅ Paths drawn underneath markers for clarity
+- ✅ **Age Display**: Show person's age at each life event
+  - ✅ Calculated age shown in marker popups
+  - ✅ "Age: 85 years" displayed for death events
+  - ✅ Age at marriage also calculated and shown
+  - ✅ Handles incomplete dates gracefully
+- ✅ **Quick Access**: Already available via context menus
+  - ✅ Right-click any person → "View on Map..."
+  - ✅ Opens map centered on person's birth location
+  - ✅ Available in Family View, Pedigree View, Fan Chart, Descendant Chart
+- **User Value:** VERY HIGH - Complete life journey visualization for all people
+- **Actual Effort:** 4-5 hours
+
+**Phase 8: Historical Place Names** ⭐ HIGH VALUE (✓ Complete)
+- ✅ **Database & Models**: Alternate place name mappings
+  - ✅ `alternate_places` table with historical → current mappings
+  - ✅ CRUD operations in store
+  - ✅ Index on historical names for fast lookups
+- ✅ **Management UI**: Tools → Historical Place Names
+  - ✅ Add/Edit/Delete place name mappings
+  - ✅ Examples: "Salisbury, Rhodesia" → "Harare, Zimbabwe"
+  - ✅ Optional year changed and notes fields
+  - ✅ Clear instructions and examples in UI
+- ✅ **Geocoding Fallback**: Automatic retry with modern name
+  - ✅ When historical place not found, tries modern equivalent
+  - ✅ Saves successful geocode with note about fallback
+  - ✅ Dramatically improves geocoding success rate
+- ✅ **Display Helper**: Format place names with context
+  - ✅ Helper function `formatPlaceWithHistoricalContext()`
+  - ✅ Can be integrated throughout UI as needed
+  - ✅ Shows as: "Salisbury, Rhodesia (now Harare, Zimbabwe)"
+- **User Value:** VERY HIGH - Maintains historical accuracy while enabling modern functionality
+- **Actual Effort:** 5-6 hours
+
+**Phase 9: Automatic Background Geocoding** ⭐ HIGH VALUE (✓ Complete)
+- ✅ **Background Service**: Automatic geocoding without user intervention
+  - ✅ Starts 10 seconds after app launch
+  - ✅ Finds all un-geocoded places in database
+  - ✅ Respects 1-second rate limit (Nominatim API requirements)
+  - ✅ Runs quietly in background thread
+  - ✅ Rechecks every 30 minutes for new places
+- ✅ **Smart Place Detection**: Finds all place types
+  - ✅ Birth and death places from persons table
+  - ✅ Marriage places from relationships table
+  - ✅ Current addresses for living people (combines address fields)
+  - ✅ Skips already-geocoded and placeholder places
+- ✅ **Logging**: Console output for monitoring
+  - ✅ Shows start/stop messages
+  - ✅ Logs progress: "Successfully geocoded 'Durban, South Africa' (5/10)"
+  - ✅ Reports success/failure counts
+- ✅ **Lifecycle Management**: Proper start/stop on database changes
+  - ✅ Stops old geocoder when switching databases
+  - ✅ Starts new geocoder for new database
+  - ✅ Thread-safe with mutex protection
+- **User Value:** VERY HIGH - "Set it and forget it" - places are automatically geocoded
+- **Actual Effort:** 2-3 hours
+
+**Total Actual Effort (v1.7):** 14-18 hours (Name Authority + Map Enhancements + Alternate Names + Historical Places + Auto Geocoding)
+**Release Date:** February 5, 2026
+
+---
+
+### 🎯 Released: v1.8 - Quick Wins & Full-Text Search (Released February 5, 2026)
+
+**Focus:** High-impact UX improvements and powerful search capabilities
+
+**UX Improvements** ⭐ HIGH VALUE (✓ Complete)
+- ✅ **Map Export to PNG/PDF**: Export maps with all markers and paths
+  - ✅ 1920x1080 resolution for presentations and reports
+  - ✅ PNG format for web/documents, PDF for printing
+  - ✅ Parallel tile downloading with progress dialog
+  - ✅ Respects API rate limits (max 10 concurrent requests)
+  - ✅ Captures all visible markers, paths, and legend
+- ✅ **Map Panning**: Navigate maps with arrow buttons
+  - ✅ Four directional arrow buttons (up/down/left/right)
+  - ✅ Smooth panning without conflicting with marker clicks
+  - ✅ Simpler than drag-based panning (no event conflicts)
+- ✅ **Family View Scroll**: Fixed large family display issue
+  - ✅ Proper vertical scroll container for families with many children
+  - ✅ Window remains resizable and movable
+  - ✅ Handles families with 10+ siblings smoothly
+- ✅ **Focused Person Context Menu**: Right-click on focused person
+  - ✅ Consistent behavior across all views
+  - ✅ Same context menu as other family members
+- ✅ **Global Search Default**: Changed to "All Place Fields"
+  - ✅ More useful default than "Birth Place" only
+  - ✅ Finds matches across all location fields
+- ✅ **Window Tracking**: Prevent duplicate dialog windows
+  - ✅ Global Search & Replace tracks window state
+  - ✅ Historical Place Names tracks window state
+  - ✅ Brings existing window to front instead of opening duplicates
+- ✅ **Geocoding Bug Fix**: Retry with historical names on failures
+  - ✅ Checks alternate places even for cached "failed" geocodes
+  - ✅ Re-attempts geocoding when user adds historical mappings
+- **User Value:** HIGH - Quality-of-life improvements for daily use
+- **Actual Effort:** 6-8 hours
+
+**Full-Text Search** ⭐ HIGH VALUE (✓ Complete)
+- ✅ **SQLite FTS5 Virtual Table**: Blazing-fast indexed search
+  - ✅ Porter stemming for smart matching ("photographer" finds "photo")
+  - ✅ Unicode support for international names and places
+  - ✅ Automatic index population from existing data
+  - ✅ Schema upgrade detection (auto-recreates on enhancement)
+- ✅ **Comprehensive Search**: Searches all text fields
+  - ✅ Names (given, surname, preferred)
+  - ✅ Places (birth, death, address, city, state, country)
+  - ✅ **Marriage places** (all marriages for a person)
+  - ✅ **Spouse names** (find people by spouse's name)
+  - ✅ Notes (full-text search across all person notes)
+  - ✅ Contact info (email, phone)
+  - ✅ UID (find by unique identifier)
+- ✅ **Powerful Query Syntax**: User-friendly but powerful
+  - ✅ **AND logic** (default): "Durban South Africa" finds all three words
+  - ✅ **OR logic**: "London OR Paris" finds either city
+  - ✅ **NOT logic**: "Durban -Natal" excludes results with Natal
+  - ✅ **Exact phrases**: "military service" (with quotes)
+  - ✅ **Prefix matching**: "photo*" finds photo, photographer, photography
+  - ✅ **Complex boolean**: "Durban AND (photographer OR artist)"
+  - ✅ **Case insensitive**: All searches ignore case automatically
+  - ✅ **In-app help**: Expandable "Advanced Query Syntax" guide
+- ✅ **Smart Results Display**: Context-aware result presentation
+  - ✅ Shows matched field (e.g., "Notes", "Birth Place", "Marriage Place", "Spouse Name")
+  - ✅ Snippet with highlighted match context
+  - ✅ Relevance ranking (most relevant results first)
+  - ✅ Click to navigate directly to person
+- ✅ **UI Integration**: Easy access throughout app
+  - ✅ Tools → Full-Text Search menu item
+  - ✅ Keyboard shortcut: Cmd/Ctrl+Shift+T
+  - ✅ Tools popup menu
+  - ✅ Single-instance window (brings to front if already open)
+  - ✅ Helpful examples in placeholder text
+  - ✅ Quick tips always visible
+  - ✅ Expandable advanced syntax reference
+- ✅ **Real-time Index Updates**: Always current
+  - ✅ Auto-updates FTS index on person create/update/delete
+  - ✅ Auto-updates FTS index on relationship create/update/delete
+  - ✅ Updates both subject and object persons when relationships change
+  - ✅ Rebuild function for manual refresh if needed
+- **User Value:** VERY HIGH - Find anything instantly with powerful yet simple query syntax
+- **Actual Effort:** 7-8 hours (including relationship indexing and query syntax documentation)
+
+**Total Actual Effort (v1.8):** 12-15 hours (UX improvements + Full-Text Search with relationships)
+**Release Date:** February 5, 2026
+
+---
+
+### 📋 Future Releases - Medium Priority (v1.9+)
 
 **Phase 7: Advanced Map Features** (Future Polish & Enhancements)
-- ⏳ Migration paths: Draw lines connecting life events chronologically
 - ⏳ Timeline slider: Show where person was at different ages
-- ⏳ Additional access points: Right-click context menus in all views
 - ⏳ Animated paths: Trace journey over time with animation
-- ⏳ Age display at each location marker
 - ⏳ Heat map overlay: Density visualization of family events
 - ⏳ Measure tool: Calculate distances between any two locations
-- ⏳ Export map as image (PNG, PDF) with legend
+- ✅ Export map as image (PNG, PDF) with legend (✓ Completed in v1.8)
 - ⏳ Historical map overlays: Show borders as they were in different eras
 - ⏳ Street view integration: Link to Google Street View for precise locations
-- **Estimated Effort:** 20-30 hours (multiple releases)
+- **Estimated Effort:** 15-20 hours (multiple releases)
 
-**Phase 8: Data Entry Helpers**
+**Phase 8: Data Entry Helpers** (Mostly Complete)
 - ✅ Smart Date Entry: Parse "May 1945", "1945", "abt 1945", etc. (✓ Completed in v1.5.3)
-- ⏳ Place Autocomplete: Suggest standard place names as you type
-- ⏳ Name Authority: Suggest standard name formats
+- ✅ Place Autocomplete: Suggest standard place names as you type (✓ Completed in v1.6)
+- ✅ Name Authority: Suggest standard name formats (✓ Completed in v1.7)
 - ⏳ Relationship Suggestions: AI-assisted relationship detection from notes
-- **Estimated Effort:** 15-20 hours (Smart Date Entry complete, remaining features deferred)
+- **Actual Effort:** 4-5 hours for Name Authority
 
 **Phase 9: Performance & Scalability**
-- Indexed Search: Full-text search across all fields
+- ✅ Indexed Search: Full-text search across all fields (✓ Completed in v1.8)
 - Large Database Optimization: Handle 10,000+ people efficiently
 - Lazy Loading: Load views progressively for large datasets
 - Background Processing: Import/export in background threads
-- **Estimated Effort:** 20-30 hours
+- **Estimated Effort:** 20-30 hours (reduced with FTS5 completion)
 
 ---
 
@@ -916,7 +1171,6 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 - Street view integration
 - Weather data at events
 - Travel time estimates between locations
-- Export map as image (PNG, PDF)
 - **Estimated Effort:** 20-30 hours
 
 **Advanced AI-Assisted Features** (Future)
@@ -925,6 +1179,56 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 - Duplicate detection using ML
 - Record matching with online databases
 - **Estimated Effort:** 50+ hours
+
+---
+
+## 🌍 Future Considerations (Not Scheduled)
+
+### Internationalization (i18n) & Language Packs
+
+**Strategic Approach:** Build the best genealogy app first, then make it accessible to more languages.
+
+**When to Revisit:**
+- User demand emerges (3+ requests from non-English users)
+- After v1.8-1.9 when major features are mature
+- Identified market opportunity in specific international genealogy communities
+- Natural lull between major feature releases
+
+**Phased Implementation Plan:**
+1. **Phase 1: Infrastructure** (10-15 hours)
+   - Set up translation framework (Fyne i18n support)
+   - Extract menu items only (~50-100 strings)
+   - Add 1-2 languages (Spanish, French)
+   - Language selector in Settings
+   - Test user interest/feedback
+
+2. **Phase 2: Full UI Coverage** (40-60 hours)
+   - Extract all UI strings (buttons, labels, dialogs)
+   - Expand to 3-5 common languages
+   - Handle date/number formatting
+   - UI layout adjustments for text expansion
+
+3. **Phase 3: Complete Localization** (60-80 hours)
+   - All reports and exports
+   - Help text and tooltips
+   - Error messages and notifications
+   - Community contribution system
+
+**Priority Languages for Genealogy:**
+- Spanish (Latin America, Spain)
+- French (France, Canada, Belgium)
+- German (Germany, Austria, Switzerland)
+- Portuguese (Brazil, Portugal)
+- Italian, Polish, Dutch, Chinese (based on demand)
+
+**Development Guidelines (Current):**
+- Keep string externalization in mind during development
+- Avoid deeply embedding UI text in business logic
+- Keep messages/labels organized near top of files
+- Makes future extraction easier without slowing current development
+
+**Total Estimated Effort:** 110-155 hours (full implementation)
+**Recommended Start:** After v1.8+ when feature set stabilizes
 
 ---
 
@@ -950,4 +1254,4 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 
 ---
 
-*Last Updated: January 31, 2026 - v1.5.3 Enhanced Date Entry, Name Variations & Bulk Privacy Settings*
+*Last Updated: March 3, 2026 - Roadmap aligned with v1.8 status and corrected completed/pending items*

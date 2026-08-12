@@ -8,6 +8,7 @@
 # Test files
 test/*
 *.log
+debug.log
 sampledata/*shm
 sampledata/*wal
 MAP_IMPLEMENTATION_PLAN.md
@@ -21,6 +22,7 @@ MAP_IMPLEMENTATION_PLAN.md
 *~
 .DS_Store
 genealogy
+kbgenealogy
 
 # git setup stuff
 git.sh
@@ -36,35 +38,25 @@ build/*
 data/*
 docs/*
 dist/
-installers/
-KrankyBearGenealogy.app/
-Resources/
+installers/*
+assets/
 test/
 vendor/*
-sync*.sh
-compile*.sh
-compile*.ps1
-compile*.bat
-check-windows-env.ps1
-iconprep.sh
-images-optimize.sh
-install-fyne.sh
-install-go.sh
-buildtest.sh
-Makefile
-mkAllZip.sh
-package.sh
-package-resources.sh
-prepare-deps.sh
-rename-app.sh
+*.bat
+*.ps1
+*.sh
 rsrc_windows_amd64.syso
 setIcon.sh
 setver.sh
 prepare-deps.ps1
 rename-app.sh
 rsrc_windows_amd64.syso
+REUSABLE-DIALOGS-GUIDE.md
+CLAUDE.md
 
 # ALLOWED
+!assets/
+assets/images
 !Inno/*
 Inno/.DS_Store
 !winres/*

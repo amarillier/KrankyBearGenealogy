@@ -20,6 +20,7 @@ const (
 	MarkerBirth MarkerType = iota
 	MarkerDeath
 	MarkerMarriage
+	MarkerCurrentAddress // For living people's current location
 )
 
 // MapMarker represents a marker on the map for a life event.
@@ -64,6 +65,12 @@ func GetMarkerStyle(markerType MarkerType) MarkerStyle {
 		return MarkerStyle{
 			Color:  color.RGBA{R: 255, G: 100, B: 150, A: 255}, // Pink
 			Symbol: "💒",
+			Size:   20,
+		}
+	case MarkerCurrentAddress:
+		return MarkerStyle{
+			Color:  color.RGBA{R: 50, G: 200, B: 50, A: 255}, // Green (same as birth)
+			Symbol: "🏠",
 			Size:   20,
 		}
 	default:
@@ -138,6 +145,62 @@ func GetMarkersForPerson(s *store.Store, personID int64) ([]*MapMarker, error) {
 				PersonName: formatPersonName(*person),
 				EventDate:  person.DeathDate,
 				Place:      person.DeathPlace,
+			})
+		}
+	}
+	
+	// Marriage markers - get all spouses/marriages for this person
+	spouses, err := s.GetSpouses(person.ID)
+	if err == nil {
+		for _, spouse := range spouses {
+			if spouse.MarriagePlace != "" && !isUnknownPlace(spouse.MarriagePlace) {
+				geocode, err := s.GetPlaceGeocode(spouse.MarriagePlace)
+				if err == nil && geocode != nil && geocode.GeocodeStatus == "success" {
+					markers = append(markers, &MapMarker{
+						Type:       MarkerMarriage,
+						Latitude:   geocode.Latitude,
+						Longitude:  geocode.Longitude,
+						PersonID:   person.ID,
+						PersonName: formatPersonName(*person),
+						SpouseID:   spouse.Person.ID,
+						SpouseName: formatPersonName(spouse.Person),
+						EventDate:  spouse.MarriageDate,
+						Place:      spouse.MarriagePlace,
+					})
+				}
+			}
+		}
+	}
+	
+	// Current address for living people - use person's City field
+	if person.IsLiving && person.City != "" && !isUnknownPlace(person.City) {
+		// Combine address fields for better geocoding
+		parts := []string{}
+		if person.Address != "" {
+			parts = append(parts, person.Address)
+		}
+		if person.City != "" {
+			parts = append(parts, person.City)
+		}
+		if person.State != "" {
+			parts = append(parts, person.State)
+		}
+		if person.Country != "" {
+			parts = append(parts, person.Country)
+		}
+		
+		addressToGeocode := strings.Join(parts, ", ")
+		
+		geocode, err := s.GetPlaceGeocode(addressToGeocode)
+		if err == nil && geocode != nil && geocode.GeocodeStatus == "success" {
+			markers = append(markers, &MapMarker{
+				Type:       MarkerCurrentAddress,
+				Latitude:   geocode.Latitude,
+				Longitude:  geocode.Longitude,
+				PersonID:   person.ID,
+				PersonName: formatPersonName(*person),
+				EventDate:  "Present",
+				Place:      addressToGeocode,
 			})
 		}
 	}

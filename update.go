@@ -2,20 +2,63 @@
 // Note: About and Help dialogs have been moved to separate files:
 //   - about.go: About dialog (reusable)
 //   - help.go: Help dialog (reusable)
-//   - dialogs.go: Update checker dialog (this file)
+//   - update.go: Update checker dialog (this file)
 package main
 
 import (
 	"net/url"
-	"strings"
+	"sync/atomic"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
 
-func showUpdateDialog(a fyne.App, message string, updateAvailable bool) {
+// aheadOfLatestRelease caches the most recent update check's verdict on
+// whether this build is newer than the latest published GitHub release (an
+// unpublished/dev build) -- set by checkForUpdatesManual/Auto below, and read
+// by about.go's showAbout and help.go's showHelp so their HardHat badge
+// reflects the last known state without running its own network check.
+var aheadOfLatestRelease atomic.Bool
+
+// Repo checked by "Check for Updates".
+const (
+	updateRepoOwner = "amarillier"
+	updateRepo      = "KrankyBearGenealogy"
+	updateRepoDL    = "https://github.com/amarillier/KrankyBearGenealogy/releases/latest"
+)
+
+// checkForUpdatesAuto runs a quiet, throttled (once/day) check on launch and
+// only pops a dialog when an update is actually available.
+func checkForUpdatesAuto(a fyne.App) {
+	go func() {
+		msg, available, remoteTag := updateChecker(updateRepoOwner, updateRepo, appName, updateRepoDL, 1)
+		ahead := versionIsNewer(appVersion, remoteTag)
+		aheadOfLatestRelease.Store(ahead)
+		if !available {
+			return
+		}
+		fyne.Do(func() { showUpdateDialog(a, msg, available, ahead) })
+	}()
+}
+
+// checkForUpdatesManual runs an unthrottled check and always shows the
+// result, for the Help menu "Check for Updates" action.
+func checkForUpdatesManual(a fyne.App) {
+	go func() {
+		msg, available, remoteTag := updateChecker(updateRepoOwner, updateRepo, appName, updateRepoDL, 0)
+		ahead := versionIsNewer(appVersion, remoteTag)
+		aheadOfLatestRelease.Store(ahead)
+		fyne.Do(func() { showUpdateDialog(a, msg, available, ahead) })
+	}()
+}
+
+// showUpdateDialog shows the update-check result. When ahead is true (this
+// build is newer than the latest published release -- an unpublished/dev
+// build), a small HardHat badge appears beside the normal app icon rather
+// than replacing it, so the dialog still reads as this app with a highlight,
+// not a different app.
+func showUpdateDialog(a fyne.App, message string, updateAvailable bool, ahead bool) {
 	if updateWindow != nil && updateWindow.Content().Visible() {
 		updateWindow.Show()
 		updateWindow.RequestFocus()
@@ -25,20 +68,14 @@ func showUpdateDialog(a fyne.App, message string, updateAvailable bool) {
 	updateWindow = a.NewWindow(appName + " - Update Check")
 	updateWindow.SetIcon(resourceKrankyBearGenealogyPng)
 
-	// Detect if running newer version (development/testing)
-	isNewerVersion := strings.Contains(message, "newer version")
+	// App icon, scaled to fit at a fixed 256x256.
+	icon := newBrandingDialogImage(resourceKrankyBearGenealogyPng)
 
-	// Choose icon based on status
-	var iconResource *fyne.StaticResource
-	if isNewerVersion {
-		iconResource = resourceKrankyBearHardHatPng // Hard hat for development version
-	} else {
-		iconResource = resourceKrankyBearGenealogyPng // Normal icon for update available or up to date
+	var iconDisplay fyne.CanvasObject = icon
+	if ahead {
+		badge := newBrandingBadgeImage(resourceKrankyBearHardHatPng)
+		iconDisplay = container.NewHBox(icon, badge)
 	}
-
-	icon := canvas.NewImageFromResource(iconResource)
-	icon.FillMode = canvas.ImageFillContain
-	icon.SetMinSize(fyne.NewSize(256, 256))
 
 	messageLabel := widget.NewLabel(message)
 	messageLabel.Wrapping = fyne.TextWrapWord
@@ -64,7 +101,7 @@ func showUpdateDialog(a fyne.App, message string, updateAvailable bool) {
 		githubLink.Alignment = fyne.TextAlignCenter
 
 		content = container.NewVBox(
-			container.NewCenter(icon),
+			container.NewCenter(iconDisplay),
 			widget.NewSeparator(),
 			messageLabel,
 			widget.NewSeparator(),
@@ -93,7 +130,7 @@ func showUpdateDialog(a fyne.App, message string, updateAvailable bool) {
 		githubLink.Alignment = fyne.TextAlignCenter
 
 		content = container.NewVBox(
-			container.NewCenter(icon),
+			container.NewCenter(iconDisplay),
 			widget.NewSeparator(),
 			messageLabel,
 			widget.NewSeparator(),

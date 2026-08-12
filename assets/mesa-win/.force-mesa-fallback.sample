@@ -1,0 +1,4 @@
+If you need to force Mesa's software OpenGL renderer to always be used on this
+VM (skipping the hardware-OpenGL probe on every launch), rename this file to
+".force-mesa-fallback" — remove the ".sample" extension. Only the file's name
+and location matter; this text is never read by the app.

@@ -17,7 +17,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/jung-kurt/gofpdf"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -25,6 +24,7 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
+	"github.com/jung-kurt/gofpdf"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -44,6 +44,86 @@ var (
 	livingStatusDialog dialog.Dialog
 	settingsDialog     dialog.Dialog
 )
+
+// Window tracking for show/hide lifecycle management
+var (
+	secondaryWindows []fyne.Window
+	isAppHidden      bool
+)
+
+// RegisterSecondaryWindow adds a window to the tracked list for lifecycle management
+func RegisterSecondaryWindow(w fyne.Window) {
+	if w == nil {
+		return
+	}
+	
+	// Don't register if already in list
+	for _, existing := range secondaryWindows {
+		if existing == w {
+			return
+		}
+	}
+	
+	secondaryWindows = append(secondaryWindows, w)
+	
+	// Note: We can't add a close intercept here because many windows already have one set
+	// (for hiding instead of closing). The windows will be automatically cleaned up
+	// when they're closed since we check for nil in ShowAllWindows
+}
+
+// UnregisterSecondaryWindow removes a window from the tracked list
+func UnregisterSecondaryWindow(w fyne.Window) {
+	for i, existing := range secondaryWindows {
+		if existing == w {
+			secondaryWindows = append(secondaryWindows[:i], secondaryWindows[i+1:]...)
+			return
+		}
+	}
+}
+
+// ShowAllWindows shows the main window and all secondary windows
+func ShowAllWindows() {
+	// Show main window first
+	if mainWindowRef != nil {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					// Main window show failed, ignore
+				}
+			}()
+			mainWindowRef.Show()
+			mainWindowRef.RequestFocus()
+		}()
+	}
+	
+	// Make a copy to avoid concurrent modification
+	windowsCopy := make([]fyne.Window, len(secondaryWindows))
+	copy(windowsCopy, secondaryWindows)
+	
+	// Show all secondary windows that are still open
+	var activeWindows []fyne.Window
+	for _, w := range windowsCopy {
+		if w != nil && w.Content() != nil {
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						// Window show failed, skip it
+						return
+					}
+				}()
+				w.Show()
+				activeWindows = append(activeWindows, w)
+			}()
+		}
+	}
+	
+	// Update list to only include active windows
+	secondaryWindows = activeWindows
+	isAppHidden = false
+}
+
+// Note: HideAllWindows removed - causes crashes in Fyne on macOS
+// Users can use Cmd+H or minimize windows individually instead
 
 // Theme and dialog callback functions from main.go
 var (
@@ -169,6 +249,9 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	if currentPersonID == 0 && len(people) > 0 {
 		currentPersonID = people[0].ID
 	}
+
+	// Background geocoding service
+	var backgroundGeocoder *store.BackgroundGeocoder
 
 	// Create views
 	var familyView *FamilyView
@@ -332,9 +415,30 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		filteredPeople = filteredPeople[:0]
 		searchText = strings.ToLower(strings.TrimSpace(searchText))
 		for _, p := range people {
+			matched := false
+			
+			// Check primary names
 			if searchText == "" ||
 				strings.Contains(strings.ToLower(p.GivenName), searchText) ||
-				strings.Contains(strings.ToLower(p.Surname), searchText) {
+				strings.Contains(strings.ToLower(p.Surname), searchText) ||
+				strings.Contains(strings.ToLower(p.PreferredName), searchText) {
+				matched = true
+			}
+			
+			// If primary name doesn't match, check alternate names
+			if !matched && searchText != "" {
+				if altNames, err := getStore().GetAlternateNames(p.ID); err == nil {
+					for _, alt := range altNames {
+						if strings.Contains(strings.ToLower(alt.GivenName), searchText) ||
+							strings.Contains(strings.ToLower(alt.Surname), searchText) {
+							matched = true
+							break
+						}
+					}
+				}
+			}
+			
+			if matched {
 				filteredPeople = append(filteredPeople, p)
 			}
 		}
@@ -592,6 +696,13 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		storeRef[0] = newStore
 		dbPath = newDBPath
 
+		// Start background geocoding service
+		if backgroundGeocoder != nil {
+			backgroundGeocoder.Stop()
+		}
+		backgroundGeocoder = store.NewBackgroundGeocoder(newStore)
+		backgroundGeocoder.Start()
+
 		// Update window title
 		w.SetTitle(fmt.Sprintf("KrankyBear Genealogy - %s", filepath.Base(dbPath)))
 
@@ -601,8 +712,8 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		individualView = NewIndividualView(getStore(), w, navigateToPerson, editPerson)
 		individualView.SetSwitchHandlers(switchToFamily, switchToPedigree)
 
-		// Update tabs with new views
-		tabs.Items[0].Content = familyView
+		// Update tabs with new views (wrap Family View in scroll container)
+		tabs.Items[0].Content = container.NewVScroll(familyView)
 		tabs.Items[1].Content = pedigreeView
 		tabs.Items[2].Content = individualView
 		tabs.Refresh()
@@ -703,12 +814,12 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 				if !confirmed {
 					return
 				}
-				
+
 				// Gather relationship data for undo before deleting
 				spouses, _ := getStore().GetSpouses(currentPersonID)
 				childRels, _ := getStore().GetRelatedPeople(currentPersonID, "child")
 				parentRels, _ := getStore().GetRelatedPeople(currentPersonID, "parent")
-				
+
 				var childIDs, parentIDs []int64
 				for _, child := range childRels {
 					childIDs = append(childIDs, child.ID)
@@ -716,16 +827,16 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 				for _, parent := range parentRels {
 					parentIDs = append(parentIDs, parent.ID)
 				}
-				
+
 				// Perform the deletion
 				if err := getStore().DeletePerson(currentPersonID); err != nil {
 					dialog.ShowError(err, w)
 					return
 				}
-				
+
 				// Record for undo
 				RecordDeletePerson(person, spouses, childIDs, parentIDs)
-				
+
 				// Navigate to first person or clear view
 				refreshAll()
 				if len(people) > 0 {
@@ -997,8 +1108,11 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	updateStatus()
 
 	// Create tabs for different views
+	// Wrap Family View in scroll container to handle large families
+	familyScroll := container.NewVScroll(familyView)
+	
 	tabs = container.NewAppTabs(
-		container.NewTabItem("Family", familyView),
+		container.NewTabItem("Family", familyScroll),
 		container.NewTabItem("Pedigree", pedigreeView),
 		container.NewTabItem("Individual", individualView),
 	)
@@ -1056,6 +1170,30 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	// Users can always use Edit → Undo from the menu
 	// For now, prioritizing menu accessibility over keyboard shortcut reliability
 
+	// Check for backup reminder after UI is ready
+	go func() {
+		time.Sleep(2 * time.Second) // Give UI time to settle
+		checkBackupReminder(w, dbPath, getStore)
+	}()
+
+	// Start background geocoding service
+	backgroundGeocoder = store.NewBackgroundGeocoder(getStore())
+	backgroundGeocoder.Start()
+	
+	// Start window visibility monitor to handle Cmd+H / show all windows
+	// This monitors when the main window is shown after being hidden
+	go func() {
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		
+		for range ticker.C {
+			// If we marked app as hidden but main window is now visible, show all windows
+			if isAppHidden && mainWindowRef != nil && mainWindowRef.Content() != nil && mainWindowRef.Content().Visible() {
+				ShowAllWindows()
+			}
+		}
+	}()
+
 	w.ShowAndRun()
 }
 
@@ -1068,12 +1206,10 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 
 	// Window actions
 	show := fyne.NewMenuItem("Show", func() {
-		w.Show()
-		w.RequestFocus()
+		ShowAllWindows()
 	})
-	hide := fyne.NewMenuItem("Hide", func() {
-		w.Hide()
-	})
+	// Note: Hide functionality removed - causes crashes in Fyne on macOS when multiple windows are open
+	// Users can use Cmd+H or minimize windows individually instead
 
 	// File menu items (using button callbacks)
 	newDB := fyne.NewMenuItem("New Database...", func() {
@@ -1360,8 +1496,43 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	})
 
 	// Tools menu items
+	fullTextSearch := fyne.NewMenuItem("Full-Text Search...", func() {
+		showFullTextSearchDialog(w, getStore(), navigateToPerson)
+	})
+	
+	rebuildSearchIndex := fyne.NewMenuItem("Rebuild Search Index...", func() {
+		dialog.ShowConfirm("Rebuild Search Index", 
+			"This will rebuild the full-text search index for all people.\n\n"+
+			"This may take a few seconds for large databases.\n\n"+
+			"Continue?", 
+			func(ok bool) {
+				if ok {
+					progressDialog := dialog.NewCustomWithoutButtons("Rebuilding Search Index", 
+						widget.NewLabel("Rebuilding full-text search index...\nPlease wait..."), w)
+					progressDialog.Show()
+					
+					go func() {
+						err := getStore().RebuildFullTextIndex()
+						progressDialog.Hide()
+						
+						if err != nil {
+							dialog.ShowError(fmt.Errorf("Failed to rebuild search index: %v", err), w)
+						} else {
+							dialog.ShowInformation("Success", 
+								"Search index rebuilt successfully!\n\n"+
+								"All people are now searchable.", w)
+						}
+					}()
+				}
+			}, w)
+	})
+
 	geocodingTool := fyne.NewMenuItem("Batch Geocoding...", func() {
 		showGeocodingToolDialog(w, getStore())
+	})
+
+	historicalPlaces := fyne.NewMenuItem("Historical Place Names...", func() {
+		showAlternatePlacesManager(w, getStore())
 	})
 
 	globalSearchReplace := fyne.NewMenuItem("Global Search and Replace...", func() {
@@ -1395,7 +1566,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	})
 	// Display keyboard shortcut hint (Cmd/Ctrl+U)
 	undoItem.Shortcut = &desktop.CustomShortcut{KeyName: fyne.KeyU, Modifier: desktop.ControlModifier}
-	
+
 	redoItem := fyne.NewMenuItem("Redo", func() {
 		if !CanRedo() {
 			dialog.ShowInformation("Redo", "Nothing to redo", w)
@@ -1523,7 +1694,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	editMenuItem.ChildMenu = editSubMenu
 
 	menu := fyne.NewMenu("KrankyBear Genealogy",
-		show, hide,
+		show,
 		fyne.NewMenuItemSeparator(),
 		fileMenuItem,
 		editMenuItem,
@@ -1542,11 +1713,11 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		backup, restore, maintenance, fyne.NewMenuItemSeparator(),
 		importGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(), quit)
 	mediaMenu := fyne.NewMenu("Media", mediaLibraryMenuItem, addMediaMenuItem, fyne.NewMenuItemSeparator(), sourcesLibraryMenuItem, researchLogMenuItem)
-	
+
 	// Edit menu (uses undoItem/redoItem created earlier)
 	editMenu := fyne.NewMenu("Edit", undoItem, redoItem)
-	toolsMenu := fyne.NewMenu("Tools", advancedSearch, dateCalculator, geocodingTool, globalSearchReplace, 
-		mapView, nameCaseConversion, relationshipCalc, fyne.NewMenuItemSeparator(), projectNotes)
+	toolsMenu := fyne.NewMenu("Tools", advancedSearch, dateCalculator, fullTextSearch, rebuildSearchIndex, geocodingTool, globalSearchReplace, 
+		historicalPlaces, mapView, nameCaseConversion, relationshipCalc, fyne.NewMenuItemSeparator(), projectNotes)
 	reportsMenu := fyne.NewMenu("Reports",
 		// Utilities
 		statistics,
@@ -1581,7 +1752,7 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 	statisticsItem := fyne.NewMenuItem("Statistics Dashboard", func() {
 		showStatisticsDashboard(w, s)
 	})
-	
+
 	// Lists submenu
 	listsMenu := fyne.NewMenu("",
 		fyne.NewMenuItem("All To-Dos", func() {
@@ -1605,7 +1776,7 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 	)
 	lists := fyne.NewMenuItem("Lists", nil)
 	lists.ChildMenu = listsMenu
-	
+
 	// Data Quality submenu
 	dataQualityMenu := fyne.NewMenu("",
 		fyne.NewMenuItem("All Sources", func() {
@@ -1632,7 +1803,7 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 	)
 	dataQuality := fyne.NewMenuItem("Data Quality", nil)
 	dataQuality.ChildMenu = dataQualityMenu
-	
+
 	// Individual Reports submenu
 	individualMenu := fyne.NewMenu("",
 		fyne.NewMenuItem("Ancestor Report", func() {
@@ -1650,7 +1821,7 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 	)
 	individual := fyne.NewMenuItem("Individual Reports", nil)
 	individual.ChildMenu = individualMenu
-	
+
 	// Chart Views submenu
 	chartsMenu := fyne.NewMenu("",
 		fyne.NewMenuItem("Descendant Chart View", func() {
@@ -1683,7 +1854,7 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 	)
 	geographic := fyne.NewMenuItem("Geographic Reports", nil)
 	geographic.ChildMenu = geographicMenu
-	
+
 	// Export submenu
 	exportMenu := fyne.NewMenu("",
 		fyne.NewMenuItem("People to CSV", func() {
@@ -1704,7 +1875,7 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 	)
 	exports := fyne.NewMenuItem("Export to CSV", nil)
 	exports.ChildMenu = exportMenu
-	
+
 	// Actions submenu
 	actionsMenu := fyne.NewMenu("",
 		fyne.NewMenuItem("Generate Family Website", func() {
@@ -1725,7 +1896,7 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 	)
 	actions := fyne.NewMenuItem("Actions", nil)
 	actions.ChildMenu = actionsMenu
-	
+
 	// Main menu with submenus
 	items := []*fyne.MenuItem{
 		statisticsItem,
@@ -1738,9 +1909,9 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 		fyne.NewMenuItemSeparator(),
 		actions,
 	}
-	
+
 	menu := fyne.NewMenu("", items...)
-	
+
 	// Show popup at center of window
 	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
 	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
@@ -1762,7 +1933,7 @@ func showMediaPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64) {
 			showSourcesLibrary(w, s)
 		}),
 	}
-	
+
 	// Add View Media if current person has media
 	if currentPersonID > 0 {
 		if media, err := s.GetMediaForPerson(currentPersonID); err == nil && len(media) > 0 {
@@ -1775,7 +1946,7 @@ func showMediaPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64) {
 			}
 		}
 	}
-	
+
 	menu := fyne.NewMenu("", items...)
 	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
 	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
@@ -1795,7 +1966,7 @@ func showFilePopupMenu(w fyne.Window, cfg *config.Config, dbPath string, getStor
 			}
 		}),
 	}
-	
+
 	// Add Recent Files submenu if there are any
 	if len(cfg.RecentDatabases) > 0 {
 		recentFilesMenu := fyne.NewMenu("")
@@ -1809,11 +1980,11 @@ func showFilePopupMenu(w fyne.Window, cfg *config.Config, dbPath string, getStor
 					reloadWithDatabase(dbPathCopy, true) // true = skip confirmation
 				}))
 		}
-		
+
 		recentFilesItem := fyne.NewMenuItem("Recent Files", nil)
 		recentFilesItem.ChildMenu = recentFilesMenu
 		items = append(items, recentFilesItem)
-		
+
 		items = append(items, fyne.NewMenuItem("Clear Recent Files", func() {
 			if len(cfg.RecentDatabases) == 0 {
 				dialog.ShowInformation("Clear Recent Files", "The recent files list is already empty.", w)
@@ -1830,7 +2001,7 @@ func showFilePopupMenu(w fyne.Window, cfg *config.Config, dbPath string, getStor
 				}, w)
 		}))
 	}
-	
+
 	items = append(items, fyne.NewMenuItemSeparator())
 	items = append(items, fyne.NewMenuItem("Backup Database", func() {
 		showBackupDialog(w, dbPath, getStore)
@@ -1862,7 +2033,7 @@ func showFilePopupMenu(w fyne.Window, cfg *config.Config, dbPath string, getStor
 			importGrampsBtn.OnTapped()
 		}
 	}))
-	
+
 	menu := fyne.NewMenu("", items...)
 	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
 	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
@@ -1880,8 +2051,14 @@ func showToolsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, na
 		fyne.NewMenuItem("Date Calculator", func() {
 			showDateCalculatorDialog(w)
 		}),
+		fyne.NewMenuItem("Full-Text Search", func() {
+			showFullTextSearchDialog(w, s, navigateFunc)
+		}),
 		fyne.NewMenuItem("Global Search & Replace", func() {
 			showGlobalSearchReplaceDialog(w, s)
+		}),
+		fyne.NewMenuItem("Historical Place Names", func() {
+			showAlternatePlacesManager(w, s)
 		}),
 		fyne.NewMenuItem("Map View", func() {
 			showMapViewDialog(w, s, currentPersonID, navigateFunc)
@@ -1897,7 +2074,7 @@ func showToolsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, na
 			showProjectNotesDialog(w, s)
 		}),
 	}
-	
+
 	menu := fyne.NewMenu("", items...)
 	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
 	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
@@ -1953,9 +2130,9 @@ func showProjectNotesDialog(parentWindow fyne.Window, s *store.Store) {
 	// Layout
 	buttons := container.NewHBox(saveBtn, closeBtn)
 	content := container.NewBorder(
-		infoLabel,     // Top
-		buttons,       // Bottom
-		nil, nil,      // Left, Right
+		infoLabel, // Top
+		buttons,   // Bottom
+		nil, nil,  // Left, Right
 		container.NewScroll(notesEntry), // Center
 	)
 
@@ -1995,7 +2172,7 @@ func showSettingsPopupMenu(w fyne.Window, cfg *config.Config, dbPath string, get
 			}
 		}),
 	}
-	
+
 	menu := fyne.NewMenu("", items...)
 	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
 	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
@@ -2024,7 +2201,7 @@ func showHelpPopupMenu(w fyne.Window, cfg *config.Config, reloadWithDatabase fun
 			showLoadDemoDialog(w, cfg, reloadWithDatabase)
 		}),
 	}
-	
+
 	menu := fyne.NewMenu("", items...)
 	pos := fyne.NewPos(w.Canvas().Size().Width/2, w.Canvas().Size().Height/2)
 	widget.ShowPopUpMenuAtPosition(menu, w.Canvas(), pos)
@@ -2155,6 +2332,22 @@ func setupKeyboardShortcuts(a fyne.App, w fyne.Window, cfg *config.Config, tabs 
 			})
 		}
 	}
+	
+	// Full-Text Search (Cmd/Ctrl+Shift+T)
+	cmdShiftT := &desktop.CustomShortcut{
+		KeyName:  fyne.KeyT,
+		Modifier: fyne.KeyModifierSuper | fyne.KeyModifierShift,
+	}
+	w.Canvas().AddShortcut(cmdShiftT, func(shortcut fyne.Shortcut) {
+		showFullTextSearchDialog(w, getStore(), navigateToPerson)
+	})
+	ctrlShiftT := &desktop.CustomShortcut{
+		KeyName:  fyne.KeyT,
+		Modifier: fyne.KeyModifierControl | fyne.KeyModifierShift,
+	}
+	w.Canvas().AddShortcut(ctrlShiftT, func(shortcut fyne.Shortcut) {
+		showFullTextSearchDialog(w, getStore(), navigateToPerson)
+	})
 
 	// Undo (Cmd/Ctrl+U) - using U instead of Z to avoid conflict with text field undo
 	// Cmd+Z is reserved for text field undo (native behavior)
@@ -2169,7 +2362,7 @@ func setupKeyboardShortcuts(a fyne.App, w fyne.Window, cfg *config.Config, tabs 
 			refreshAll()
 		}
 	})
-	
+
 	// Redo (Cmd/Ctrl+Shift+U) - consistent with Undo using U
 	redoShortcutCmd := &desktop.CustomShortcut{KeyName: fyne.KeyU, Modifier: fyne.KeyModifierSuper | fyne.KeyModifierShift}
 	w.Canvas().AddShortcut(redoShortcutCmd, func(shortcut fyne.Shortcut) {
@@ -2283,18 +2476,13 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 		isEdit = true
 	}
 
-	// Form fields
-	givenEntry := widget.NewEntry()
-	givenEntry.SetPlaceHolder("Given name(s)")
-	givenEntry.SetText(person.GivenName)
+	// Form fields with autocomplete
+	givenAutocomplete := NewGivenNameAutocomplete(func() *store.Store { return s }, person.GivenName)
 
-	surnameEntry := widget.NewEntry()
-	surnameEntry.SetPlaceHolder("Surname")
-	surnameEntry.SetText(person.Surname)
+	surnameAutocomplete := NewSurnameAutocomplete(func() *store.Store { return s }, person.Surname)
 
-	preferredNameEntry := widget.NewEntry()
-	preferredNameEntry.SetPlaceHolder("Preferred name (optional, e.g. 'Allan' for 'Ivan Allan')")
-	preferredNameEntry.SetText(person.PreferredName)
+	preferredNameAutocomplete := NewGivenNameAutocomplete(func() *store.Store { return s }, person.PreferredName)
+	preferredNameAutocomplete.Entry.SetPlaceHolder("Preferred name (optional, e.g. 'Allan' for 'Ivan Allan')")
 
 	genderSelect := widget.NewSelect([]string{"", "M", "F"}, func(string) {})
 	if person.Gender != "" {
@@ -2305,16 +2493,12 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 	birthDateEntry := NewDateEntry(w)
 	birthDateEntry.SetText(person.BirthDate)
 
-	birthPlaceEntry := widget.NewEntry()
-	birthPlaceEntry.SetPlaceHolder("City, State/Province, Country")
-	birthPlaceEntry.SetText(person.BirthPlace)
+	birthPlaceAutocomplete := NewPlaceAutocompleteContainer(func() *store.Store { return s }, person.BirthPlace)
 
 	deathDateEntry := NewDateEntry(w)
 	deathDateEntry.SetText(person.DeathDate)
 
-	deathPlaceEntry := widget.NewEntry()
-	deathPlaceEntry.SetPlaceHolder("City, State/Province, Country")
-	deathPlaceEntry.SetText(person.DeathPlace)
+	deathPlaceAutocomplete := NewPlaceAutocompleteContainer(func() *store.Store { return s }, person.DeathPlace)
 
 	isLivingCheck := widget.NewCheck("Still living", func(bool) {})
 	// Default to living for new persons, or use existing value for edits
@@ -2332,7 +2516,7 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 		if originalDeathDateCallback != nil {
 			originalDeathDateCallback(text)
 		}
-		
+
 		// Then update living checkbox
 		if strings.TrimSpace(text) != "" {
 			// Death date entered - uncheck living
@@ -2342,6 +2526,23 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 			if !isEdit || person.IsLiving {
 				isLivingCheck.SetChecked(true)
 			}
+		}
+	}
+
+	// Auto-update living checkbox based on death place
+	deathPlaceAutocomplete.Entry.OnChanged = func(text string) {
+		if strings.TrimSpace(text) != "" {
+			// Death place entered - uncheck living
+			isLivingCheck.SetChecked(false)
+		}
+	}
+
+	// Auto-clear death info when checking "still living"
+	isLivingCheck.OnChanged = func(checked bool) {
+		if checked {
+			// User marked as living - clear death date and place
+			deathDateEntry.SetText("")
+			deathPlaceAutocomplete.SetText("")
 		}
 	}
 
@@ -2424,16 +2625,16 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 	}
 
 	formItems := []fyne.CanvasObject{
-		widget.NewLabel("Given Name(s):"), givenEntry,
-		widget.NewLabel("Surname:"), surnameEntry,
-		widget.NewLabel("Preferred Name:"), preferredNameEntry,
+		widget.NewLabel("Given Name(s):"), givenAutocomplete.Container,
+		widget.NewLabel("Surname:"), surnameAutocomplete.Container,
+		widget.NewLabel("Preferred Name:"), preferredNameAutocomplete.Container,
 		widget.NewLabel("Gender:"), genderSelect,
 		widget.NewSeparator(),
 		widget.NewLabel("Birth Date:"), birthDateEntry.GetWidget(),
-		widget.NewLabel("Birth Place:"), birthPlaceEntry,
+		widget.NewLabel("Birth Place:"), birthPlaceAutocomplete.Container,
 		widget.NewSeparator(),
 		widget.NewLabel("Death Date:"), deathDateEntry.GetWidget(),
-		widget.NewLabel("Death Place:"), deathPlaceEntry,
+		widget.NewLabel("Death Place:"), deathPlaceAutocomplete.Container,
 		isLivingCheck,
 		widget.NewSeparator(),
 		widget.NewLabel("Contact Information (for living relatives):"),
@@ -2494,21 +2695,21 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 		validationLabel.Hide()
 
 		// Validate required fields
-		if strings.TrimSpace(givenEntry.Text) == "" && strings.TrimSpace(surnameEntry.Text) == "" {
+		if strings.TrimSpace(givenAutocomplete.GetText()) == "" && strings.TrimSpace(surnameAutocomplete.GetText()) == "" {
 			validationLabel.SetText("❌ Please enter at least a given name or surname")
 			validationLabel.Show()
 			scrollable.ScrollToTop()
 			return
 		}
 
-		person.GivenName = strings.TrimSpace(givenEntry.Text)
-		person.Surname = strings.TrimSpace(surnameEntry.Text)
-		person.PreferredName = strings.TrimSpace(preferredNameEntry.Text)
+		person.GivenName = strings.TrimSpace(givenAutocomplete.GetText())
+		person.Surname = strings.TrimSpace(surnameAutocomplete.GetText())
+		person.PreferredName = strings.TrimSpace(preferredNameAutocomplete.GetText())
 		person.Gender = genderSelect.Selected
 		person.BirthDate = strings.TrimSpace(birthDateEntry.GetText())
-		person.BirthPlace = strings.TrimSpace(birthPlaceEntry.Text)
+		person.BirthPlace = strings.TrimSpace(birthPlaceAutocomplete.GetText())
 		person.DeathDate = strings.TrimSpace(deathDateEntry.GetText())
-		person.DeathPlace = strings.TrimSpace(deathPlaceEntry.Text)
+		person.DeathPlace = strings.TrimSpace(deathPlaceAutocomplete.GetText())
 		person.IsLiving = isLivingCheck.Checked
 		person.Address = strings.TrimSpace(addressEntry.Text)
 		person.City = strings.TrimSpace(cityEntry.Text)
@@ -2559,11 +2760,11 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 	buttons := container.NewHBox(saveBtn, cancelBtn)
 	content := container.NewBorder(nil, buttons, nil, nil, scrollable)
 	personWindow.SetContent(content)
-	
+
 	// Note: Cmd+Z not added to edit window to avoid confusion
 	// (it would undo previous saved operations, not current unsaved edits)
 	// Users should use Edit → Undo from main window after saving
-	
+
 	personWindow.Show()
 }
 
@@ -2972,9 +3173,9 @@ func showStatisticsDashboard(w fyne.Window, s *store.Store) {
 		}
 	}
 
-	content.Add(widget.NewLabel(fmt.Sprintf("  Birth Places Recorded: %d (%.1f%%)", 
+	content.Add(widget.NewLabel(fmt.Sprintf("  Birth Places Recorded: %d (%.1f%%)",
 		peopleWithBirthPlace, float64(peopleWithBirthPlace)/float64(totalPeople)*100)))
-	content.Add(widget.NewLabel(fmt.Sprintf("  Death Places Recorded: %d (%.1f%%)", 
+	content.Add(widget.NewLabel(fmt.Sprintf("  Death Places Recorded: %d (%.1f%%)",
 		peopleWithDeathPlace, float64(deceased)*100)))
 	content.Add(widget.NewLabel(fmt.Sprintf("  Countries Represented (births): %d", len(birthCountries))))
 	content.Add(widget.NewLabel(fmt.Sprintf("  Unique Birth Locations: %d", len(birthCities))))
@@ -2990,7 +3191,7 @@ func showStatisticsDashboard(w fyne.Window, s *store.Store) {
 		}
 	}
 	if maxBirthCountry != "" {
-		content.Add(widget.NewLabel(fmt.Sprintf("  Most Common Birth Country: %s (%d people)", 
+		content.Add(widget.NewLabel(fmt.Sprintf("  Most Common Birth Country: %s (%d people)",
 			maxBirthCountry, maxBirthCount)))
 	}
 
@@ -3481,7 +3682,38 @@ func showSettingsDialog(w fyne.Window, cfg *config.Config, dbPath string, s *sto
 	content.Add(openModeRadio)
 	content.Add(widget.NewSeparator())
 
-	// Section: Focus User
+	// Section: Database Backups (moved up for better visibility)
+	backupSectionLabel := widget.NewLabelWithStyle("Database Backups", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	content.Add(backupSectionLabel)
+
+	// Get current backup settings
+	enabled, _ := s.GetBackupReminderEnabled()
+	lastBackup, _ := s.GetLastBackupDate()
+
+	// Backup reminder checkbox
+	backupReminderCheck := widget.NewCheck("Enable backup reminders", func(checked bool) {
+		s.SetBackupReminderEnabled(checked)
+	})
+	backupReminderCheck.SetChecked(enabled)
+	content.Add(backupReminderCheck)
+
+	// Last backup info
+	var lastBackupText string
+	if lastBackup != nil {
+		daysSince := int(time.Since(*lastBackup).Hours() / 24)
+		lastBackupText = fmt.Sprintf("Last backup: %s (%d days ago)", lastBackup.Format("Jan 2, 2006"), daysSince)
+	} else {
+		lastBackupText = "No backup recorded"
+	}
+	backupInfoLabel := widget.NewLabel(lastBackupText)
+	content.Add(backupInfoLabel)
+
+	reminderNote := widget.NewLabel("You'll be reminded every 7 days if no backup has been made.")
+	reminderNote.Wrapping = fyne.TextWrapWord
+	content.Add(reminderNote)
+	content.Add(widget.NewSeparator())
+
+	// Section: Focus User Settings (moved below backups)
 	focusLabel := widget.NewLabelWithStyle("Focus User Settings", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	content.Add(focusLabel)
 
@@ -3495,12 +3727,23 @@ func showSettingsDialog(w fyne.Window, cfg *config.Config, dbPath string, s *sto
 		}())
 	content.Add(currentFocusLabel)
 
+	// Results label (declared early for Clear button callback)
+	resultsLabel := widget.NewLabel("")
+
+	// Clear Focus User button (moved above search for better visibility)
+	clearBtn := widget.NewButton("Clear Focus User", func() {
+		cfg.SetFocusUserForDatabase(dbPath, 0)
+		focusUserName = ""
+		currentFocusLabel.SetText("Current Focus User: (not set)")
+		resultsLabel.SetText("Focus User cleared")
+	})
+	content.Add(clearBtn)
+	content.Add(widget.NewSeparator())
+
 	// Search by ID or Name
 	searchLabel := widget.NewLabel("Search by ID or Name:")
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Enter ID (e.g., 123) or name (e.g., Ivan Marillier)")
-
-	resultsLabel := widget.NewLabel("")
 
 	// List to display search results
 	var searchResults []store.Person
@@ -3581,17 +3824,8 @@ func showSettingsDialog(w fyne.Window, cfg *config.Config, dbPath string, s *sto
 
 	// Results list with scroll
 	resultsScroll := container.NewScroll(resultsList)
-	resultsScroll.SetMinSize(fyne.NewSize(500, 200))
+	resultsScroll.SetMinSize(fyne.NewSize(500, 100))
 	content.Add(resultsScroll)
-
-	// Clear Focus User button
-	clearBtn := widget.NewButton("Clear Focus User", func() {
-		cfg.SetFocusUserForDatabase(dbPath, 0)
-		focusUserName = ""
-		currentFocusLabel.SetText("Current Focus User: (not set)")
-		resultsLabel.SetText("Focus User cleared")
-	})
-	content.Add(clearBtn)
 
 	// Scroll container for entire dialog
 	scroll := container.NewScroll(content)
@@ -4435,6 +4669,95 @@ func showExportOptionsDialog(w fyne.Window, cfg *config.Config, dbPath string, g
 	}, w)
 }
 
+// checkBackupReminder checks if a backup reminder should be shown
+func checkBackupReminder(w fyne.Window, dbPath string, getStore func() *store.Store) {
+	s := getStore()
+	if s == nil {
+		return
+	}
+
+	// Get all backup reminder settings in one optimized query
+	enabled, lastBackup, reminderDays, err := s.GetBackupReminderSettings()
+	if err != nil || !enabled {
+		return
+	}
+
+	// If no backup recorded yet, record now and don't nag
+	if lastBackup == nil {
+		s.UpdateLastBackupDate()
+		return
+	}
+
+	// Calculate days since last backup
+	daysSince := int(time.Since(*lastBackup).Hours() / 24)
+
+	// Show reminder if past threshold
+	if daysSince >= reminderDays {
+		showBackupReminderDialog(w, dbPath, getStore, *lastBackup, daysSince)
+	}
+}
+
+// showBackupReminderDialog shows the backup reminder dialog
+func showBackupReminderDialog(w fyne.Window, dbPath string, getStore func() *store.Store, lastBackup time.Time, daysSince int) {
+	s := getStore()
+
+	// Format message
+	messageLabel := widget.NewLabel(fmt.Sprintf("It's been %d days since your last backup.\n\nWould you like to back up your database now?\n\nLast backup: %s",
+		daysSince, lastBackup.Format("January 2, 2006")))
+	messageLabel.Wrapping = fyne.TextWrapWord
+
+	// Create disable checkbox
+	disableCheck := widget.NewCheck("Don't remind me again", nil)
+
+	// Create buttons first so we can reference them in callbacks
+	var d dialog.Dialog
+
+	// Create buttons
+	backupBtn := widget.NewButton("Backup Now", func() {
+		if d != nil {
+			d.Hide()
+		}
+		showBackupDialog(w, dbPath, getStore)
+	})
+	backupBtn.Importance = widget.HighImportance
+
+	laterBtn := widget.NewButton("Remind Me Later", func() {
+		// Snooze for 1 day by updating the date
+		if s != nil {
+			// Set to yesterday to be reminded tomorrow
+			yesterday := time.Now().Add(-24 * time.Hour * time.Duration(daysSince-1))
+			s.DB.Exec(`UPDATE settings SET last_backup_date = ? WHERE id = 1`, yesterday.Format(time.RFC3339))
+		}
+		if d != nil {
+			d.Hide()
+		}
+	})
+
+	// Create button container (no separate Close button, use dialog's dismiss)
+	buttonBox := container.NewHBox(backupBtn, laterBtn)
+
+	// Create content with buttons at bottom
+	content := container.NewVBox(
+		messageLabel,
+		widget.NewSeparator(),
+		disableCheck,
+		widget.NewSeparator(),
+		buttonBox,
+	)
+
+	// Create dialog with Close dismiss button
+	d = dialog.NewCustom("⚠️  Backup Reminder", "Close", content, w)
+
+	// Handle checkbox when dialog is dismissed
+	d.SetOnClosed(func() {
+		if disableCheck.Checked && s != nil {
+			s.SetBackupReminderEnabled(false)
+		}
+	})
+
+	d.Show()
+}
+
 // showBackupDialog creates a timestamped zip backup of the current database
 func showBackupDialog(w fyne.Window, dbPath string, getStore func() *store.Store) {
 	s := getStore()
@@ -4547,6 +4870,11 @@ func showBackupDialog(w fyne.Window, dbPath string, getStore func() *store.Store
 				} else {
 					resultMsg += fmt.Sprintf("\n\n✅ External media backed up to:\n%s", externalMediaBackupPath)
 				}
+			}
+
+			// Record backup date
+			if s != nil {
+				s.UpdateLastBackupDate()
 			}
 
 			dialog.ShowInformation("Backup Complete", resultMsg, w)
@@ -6047,7 +6375,7 @@ func showDescendantReport(w fyne.Window, s *store.Store, rootPersonID int64, nav
 	scroll.SetMinSize(fyne.NewSize(600, 400))
 
 	descendantDialog = fyne.CurrentApp().NewWindow("Descendant (Pedigree) Report")
-	
+
 	// Export buttons - created after dialog window so we can pass it
 	exportHTMLBtn := widget.NewButton("Export to HTML", func() {
 		exportDescendantReportHTML(descendantDialog, s, rootPersonID)
@@ -6184,7 +6512,7 @@ func showAncestorReport(w fyne.Window, s *store.Store, rootPersonID int64, navig
 	scroll.SetMinSize(fyne.NewSize(700, 400))
 
 	ancestorDialog = fyne.CurrentApp().NewWindow("Ancestor (Ahnentafel) Report")
-	
+
 	// Export buttons - created after dialog window so we can pass it
 	exportHTMLBtn := widget.NewButton("Export to HTML", func() {
 		exportAncestorReportHTML(ancestorDialog, s, rootPersonID)
@@ -6314,13 +6642,13 @@ func showFamilyGroupSheet(w fyne.Window, s *store.Store, personID int64, navigat
 
 	// Get spouse(s) with marriage information
 	spouseInfos, _ := s.GetSpouses(personID)
-	
+
 	if len(spouseInfos) > 0 {
 		// Sort spouses chronologically by marriage date (earliest first)
 		sort.Slice(spouseInfos, func(i, j int) bool {
 			return spouseInfos[i].MarriageDate < spouseInfos[j].MarriageDate
 		})
-		
+
 		// Show as married couple with children
 		for _, spouseInfo := range spouseInfos {
 			spouseCopy := spouseInfo.Spouse
@@ -6337,7 +6665,7 @@ func showFamilyGroupSheet(w fyne.Window, s *store.Store, personID int64, navigat
 	scroll.SetMinSize(fyne.NewSize(700, 400))
 
 	familyGroupDialog = fyne.CurrentApp().NewWindow("Family Group Sheet")
-	
+
 	// Export buttons - created after dialog window so we can pass it
 	exportHTMLBtn := widget.NewButton("Export to HTML", func() {
 		exportFamilyGroupSheetHTML(familyGroupDialog, s, personID)
@@ -6422,7 +6750,7 @@ func exportCompleteWebsite(w fyne.Window, s *store.Store) {
 		folderNameEntry := widget.NewEntry()
 		folderNameEntry.SetText(defaultFolderName)
 		folderNameEntry.SetPlaceHolder("Enter folder name")
-		
+
 		folderDialog := dialog.NewCustomConfirm(
 			"Website Folder Name",
 			"Next",
@@ -6436,12 +6764,12 @@ func exportCompleteWebsite(w fyne.Window, s *store.Store) {
 				if !proceed {
 					return
 				}
-				
+
 				folderName := strings.TrimSpace(folderNameEntry.Text)
 				if folderName == "" {
 					folderName = defaultFolderName
 				}
-				
+
 				// Step 2: Show folder selection dialog for parent directory
 				dialog.ShowFolderOpen(func(uri fyne.ListableURI, err error) {
 					if err != nil || uri == nil {
@@ -6450,7 +6778,7 @@ func exportCompleteWebsite(w fyne.Window, s *store.Store) {
 
 					parentPath := uri.Path()
 					fullFolderPath := filepath.Join(parentPath, folderName)
-					
+
 					// Check if folder already exists
 					if _, err := os.Stat(fullFolderPath); err == nil {
 						dialog.ShowConfirm(
@@ -6465,13 +6793,13 @@ func exportCompleteWebsite(w fyne.Window, s *store.Store) {
 						)
 						return
 					}
-					
+
 					// Create the folder
 					if err := os.MkdirAll(fullFolderPath, 0755); err != nil {
 						dialog.ShowError(fmt.Errorf("Failed to create folder: %w", err), w)
 						return
 					}
-					
+
 					// Generate website
 					generateWebsiteInFolder(w, s, fullFolderPath, options)
 				}, w)
@@ -6486,16 +6814,16 @@ func exportCompleteWebsite(w fyne.Window, s *store.Store) {
 // generateWebsiteInFolder handles the actual website generation with progress indicator
 func generateWebsiteInFolder(w fyne.Window, s *store.Store, folderPath string, options HTMLExportOptions) {
 	// Generate website with progress indicator
-	progressDialog := dialog.NewCustom("Generating Website", "Close", 
+	progressDialog := dialog.NewCustom("Generating Website", "Close",
 		widget.NewLabel("Generating family website...\nThis may take a moment."), w)
 	progressDialog.Show()
 
 	go func() {
 		err := generateCompleteWebsite(s, folderPath, options)
-		
+
 		fyne.Do(func() {
 			progressDialog.Hide()
-			
+
 			if err != nil {
 				dialog.ShowError(fmt.Errorf("Failed to generate website: %w", err), w)
 				return
@@ -6584,7 +6912,7 @@ func generateCompleteWebsite(s *store.Store, outputDir string, options HTMLExpor
 	if err := os.WriteFile(searchPath, []byte(searchHTML), 0644); err != nil {
 		return fmt.Errorf("failed to write search.html: %w", err)
 	}
-	
+
 	// Also save standalone JSON file for reference/API use
 	peopleJSONPath := filepath.Join(outputDir, "people.json")
 	if err := os.WriteFile(peopleJSONPath, []byte(peopleJSON), 0644); err != nil {
@@ -7254,7 +7582,7 @@ func generatePlacesIndexPage(s *store.Store, people []store.Person, options HTML
 	// Collect all places
 	birthPlaces := make(map[string][]store.Person)
 	deathPlaces := make(map[string][]store.Person)
-	
+
 	for _, p := range people {
 		if p.BirthPlace != "" && (!options.LimitLivingInfo || !p.IsLiving) {
 			birthPlaces[p.BirthPlace] = append(birthPlaces[p.BirthPlace], p)
@@ -7272,7 +7600,7 @@ func generatePlacesIndexPage(s *store.Store, people []store.Person, options HTML
 	for place := range deathPlaces {
 		placeSet[place] = true
 	}
-	
+
 	var places []string
 	for place := range placeSet {
 		places = append(places, place)
@@ -7311,11 +7639,11 @@ func generatePlacesIndexPage(s *store.Store, people []store.Person, options HTML
 		births := birthPlaces[place]
 		deaths := deathPlaces[place]
 		totalEvents := len(births) + len(deaths)
-		
+
 		html.WriteString(`        <div class="surname-group">
             <h3>` + place + ` (` + fmt.Sprintf("%d events", totalEvents) + `)</h3>
 `)
-		
+
 		if len(births) > 0 {
 			html.WriteString(`            <h4 style="margin: 10px 0 5px 20px; color: #2c3e50;">Births (` + fmt.Sprintf("%d", len(births)) + `)</h4>
             <ul class="person-list">
@@ -7335,7 +7663,7 @@ func generatePlacesIndexPage(s *store.Store, people []store.Person, options HTML
 			html.WriteString(`            </ul>
 `)
 		}
-		
+
 		if len(deaths) > 0 {
 			html.WriteString(`            <h4 style="margin: 10px 0 5px 20px; color: #2c3e50;">Deaths (` + fmt.Sprintf("%d", len(deaths)) + `)</h4>
             <ul class="person-list">
@@ -7355,7 +7683,7 @@ func generatePlacesIndexPage(s *store.Store, people []store.Person, options HTML
 			html.WriteString(`            </ul>
 `)
 		}
-		
+
 		html.WriteString(`        </div>
 `)
 	}
@@ -7382,9 +7710,9 @@ func generateTimelinePage(s *store.Store, people []store.Person, options HTMLExp
 		Person store.Person
 		Place  string
 	}
-	
+
 	var events []WebTimelineEvent
-	
+
 	// Add births
 	for _, p := range people {
 		// Show living people on timeline, but hide details if LimitLivingInfo is set
@@ -7411,7 +7739,7 @@ func generateTimelinePage(s *store.Store, people []store.Person, options HTMLExp
 			}
 		}
 	}
-	
+
 	// Add deaths
 	for _, p := range people {
 		if p.DeathDate != "" && !p.IsLiving {
@@ -7425,20 +7753,20 @@ func generateTimelinePage(s *store.Store, people []store.Person, options HTMLExp
 			})
 		}
 	}
-	
+
 	// Sort by date chronologically, then alphabetically by name for living people
 	sort.Slice(events, func(i, j int) bool {
 		// Parse dates for proper chronological comparison
 		dateI := normalizeDateForSort(events[i].Date)
 		dateJ := normalizeDateForSort(events[j].Date)
-		
+
 		// If dates are the same (both empty = living people), sort by name
 		if dateI == dateJ {
 			nameI := formatPersonName(events[i].Person)
 			nameJ := formatPersonName(events[j].Person)
 			return nameI < nameJ
 		}
-		
+
 		return dateI < dateJ
 	})
 
@@ -7484,7 +7812,7 @@ func generateTimelinePage(s *store.Store, people []store.Person, options HTMLExp
 			// Living people with hidden dates go in "Living" section
 			centuryStr = "Living"
 		}
-		
+
 		if centuryStr != "" && centuryStr != currentCentury {
 			if currentCentury != "" {
 				html.WriteString(`            </ul>
@@ -7501,38 +7829,38 @@ func generateTimelinePage(s *store.Store, people []store.Person, options HTMLExp
             <ul class="person-list">
 `)
 		}
-		
+
 		eventIcon := "📅"
 		if event.Type == "birth" {
 			eventIcon = "👶"
 		} else if event.Type == "death" {
 			eventIcon = "✝️"
 		}
-		
+
 		eventType := event.Type
 		if event.Type == "birth" {
 			eventType = "Born"
 		} else if event.Type == "death" {
 			eventType = "Died"
 		}
-		
+
 		// Format date and place
 		dateStr := ""
 		if event.Date != "" {
 			dateStr = `<strong>` + formatFGSDate(event.Date) + `</strong> - `
 		}
-		
+
 		placeStr := ""
 		if event.Place != "" {
 			placeStr = " in " + event.Place
 		} else if event.Date == "" && event.Person.IsLiving {
 			placeStr = " (birth information withheld for privacy)"
 		}
-		
+
 		html.WriteString(`                <li>` + eventIcon + ` ` + dateStr + eventType + `: <a href="person_` + fmt.Sprintf("%d", event.Person.ID) + `.html">` + formatPersonName(event.Person) + `</a>` + placeStr + `</li>
 `)
 	}
-	
+
 	if len(events) > 0 {
 		html.WriteString(`            </ul>
         </div>
@@ -7560,17 +7888,17 @@ func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeo
 	maleCount := 0
 	femaleCount := 0
 	unknownGenderCount := 0
-	
+
 	birthCount := 0
 	deathCount := 0
 	marriageCount := 0
-	
+
 	var earliestBirth, latestBirth, earliestDeath, latestDeath string
-	
+
 	surnameMap := make(map[string]int)
 	birthPlaceMap := make(map[string]int)
 	deathPlaceMap := make(map[string]int)
-	
+
 	for _, p := range visiblePeople {
 		// Living/Deceased
 		if p.IsLiving {
@@ -7578,7 +7906,7 @@ func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeo
 		} else {
 			deceasedCount++
 		}
-		
+
 		// Gender
 		switch p.Gender {
 		case "M":
@@ -7588,12 +7916,12 @@ func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeo
 		default:
 			unknownGenderCount++
 		}
-		
+
 		// Surnames
 		if p.Surname != "" {
 			surnameMap[p.Surname]++
 		}
-		
+
 		// Birth statistics
 		if p.BirthDate != "" && (!options.LimitLivingInfo || !p.IsLiving) {
 			birthCount++
@@ -7603,12 +7931,12 @@ func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeo
 			if latestBirth == "" || p.BirthDate > latestBirth {
 				latestBirth = p.BirthDate
 			}
-			
+
 			if p.BirthPlace != "" {
 				birthPlaceMap[p.BirthPlace]++
 			}
 		}
-		
+
 		// Death statistics
 		if p.DeathDate != "" {
 			deathCount++
@@ -7618,13 +7946,13 @@ func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeo
 			if latestDeath == "" || p.DeathDate > latestDeath {
 				latestDeath = p.DeathDate
 			}
-			
+
 			if p.DeathPlace != "" {
 				deathPlaceMap[p.DeathPlace]++
 			}
 		}
 	}
-	
+
 	// Count marriages (only for visible people)
 	for _, p := range visiblePeople {
 		spouses, err := s.GetSpouses(p.ID)
@@ -7647,7 +7975,7 @@ func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeo
 			}
 		}
 	}
-	
+
 	// Sort surnames by frequency
 	type SurnameCount struct {
 		Name  string
@@ -7663,7 +7991,7 @@ func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeo
 		}
 		return surnames[i].Count > surnames[j].Count
 	})
-	
+
 	// Sort places by frequency
 	type PlaceCount struct {
 		Name  string
@@ -7679,7 +8007,7 @@ func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeo
 		}
 		return birthPlaces[i].Count > birthPlaces[j].Count
 	})
-	
+
 	var deathPlaces []PlaceCount
 	for name, count := range deathPlaceMap {
 		deathPlaces = append(deathPlaces, PlaceCount{Name: name, Count: count})
@@ -7835,7 +8163,7 @@ func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeo
 		if len(surnames) < displayCount {
 			displayCount = len(surnames)
 		}
-		
+
 		for i := 0; i < displayCount; i++ {
 			sn := surnames[i]
 			percentage := float64(sn.Count) / float64(maxCount) * 100
@@ -7864,7 +8192,7 @@ func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeo
 		if len(birthPlaces) < displayCount {
 			displayCount = len(birthPlaces)
 		}
-		
+
 		for i := 0; i < displayCount; i++ {
 			pl := birthPlaces[i]
 			percentage := float64(pl.Count) / float64(maxCount) * 100
@@ -7893,7 +8221,7 @@ func generateStatisticsPage(s *store.Store, allPeople []store.Person, visiblePeo
 		if len(deathPlaces) < displayCount {
 			displayCount = len(deathPlaces)
 		}
-		
+
 		for i := 0; i < displayCount; i++ {
 			pl := deathPlaces[i]
 			percentage := float64(pl.Count) / float64(maxCount) * 100
@@ -7943,15 +8271,15 @@ func generateSourcesPage(s *store.Store, visiblePeople []store.Person, options H
 		Citations   []store.Citation
 		PeopleCount int
 	}
-	
+
 	sourcesByType := make(map[string][]SourceWithCitations)
-	
+
 	for _, source := range allSources {
 		citations, err := s.GetCitationsForSource(source.ID)
 		if err != nil {
 			continue
 		}
-		
+
 		// Filter citations to only include visible people
 		var visibleCitations []store.Citation
 		for _, cit := range citations {
@@ -7959,14 +8287,14 @@ func generateSourcesPage(s *store.Store, visiblePeople []store.Person, options H
 				visibleCitations = append(visibleCitations, cit)
 			}
 		}
-		
+
 		// Only include sources that have visible citations
 		if len(visibleCitations) > 0 {
 			sourceType := source.SourceType
 			if sourceType == "" {
 				sourceType = "other"
 			}
-			
+
 			sourcesByType[sourceType] = append(sourcesByType[sourceType], SourceWithCitations{
 				Source:      source,
 				Citations:   visibleCitations,
@@ -8074,7 +8402,7 @@ func generateSourcesPage(s *store.Store, visiblePeople []store.Person, options H
 
 			for _, swc := range sources {
 				src := swc.Source
-				
+
 				html.WriteString(`            <div class="source-card">
                 <h3>` + src.Title + `</h3>
 `)
@@ -8110,11 +8438,11 @@ func generateSourcesPage(s *store.Store, visiblePeople []store.Person, options H
 					if err != nil {
 						continue
 					}
-					
+
 					html.WriteString(`                    <div class="citation-item">
                         <a href="person_` + fmt.Sprintf("%d", person.ID) + `.html">` + formatPersonName(*person) + `</a>
 `)
-					
+
 					if cit.CitationDetail != "" {
 						html.WriteString(`                        <span class="citation-detail">` + cit.CitationDetail + `</span>
 `)
@@ -8124,7 +8452,7 @@ func generateSourcesPage(s *store.Store, visiblePeople []store.Person, options H
 						html.WriteString(`                        <span class="citation-confidence ` + confidenceClass + `">` + cit.Confidence + `</span>
 `)
 					}
-					
+
 					html.WriteString(`                    </div>
 `)
 				}
@@ -8411,12 +8739,12 @@ func normalizeDateForSort(dateStr string) string {
 	if dateStr == "" {
 		return "9999-99-99" // Put empty dates at end
 	}
-	
+
 	// If already in YYYY-MM-DD format (or close), return as-is
 	if len(dateStr) >= 10 && dateStr[4] == '-' && dateStr[7] == '-' {
 		return dateStr
 	}
-	
+
 	// Try parsing common formats
 	layouts := []string{
 		"2006-01-02",
@@ -8424,13 +8752,13 @@ func normalizeDateForSort(dateStr string) string {
 		"Jan 2006",
 		"2006",
 	}
-	
+
 	for _, layout := range layouts {
 		if t, err := time.Parse(layout, dateStr); err == nil {
 			return t.Format("2006-01-02")
 		}
 	}
-	
+
 	// If we can't parse, return as-is
 	return dateStr
 }
@@ -8590,7 +8918,7 @@ func generatePersonPage(s *store.Store, person *store.Person, options HTMLExport
 			if err != nil {
 				continue
 			}
-			
+
 			html.WriteString(`                <div class="person-citation-item">
                     <div class="citation-source-title">` + source.Title + `</div>
 `)
@@ -8675,34 +9003,34 @@ func exportFamilyGroupSheetPDF(w fyne.Window, s *store.Store, personID int64) {
 func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options HTMLExportOptions, filepath string) error {
 	pdf := gofpdf.New("P", "mm", "Letter", "")
 	pdf.AddPage()
-	
+
 	// Title
 	pdf.SetFont("Arial", "B", 16)
 	pdf.CellFormat(0, 10, "Family Group Sheet", "", 1, "C", false, 0, "")
 	pdf.Ln(2)
-	
+
 	// Main person name
 	pdf.SetFont("Arial", "B", 14)
 	pdf.CellFormat(0, 8, formatPersonName(*person), "", 1, "C", false, 0, "")
 	pdf.Ln(3)
-	
+
 	// Get spouse(s)
 	spouseInfos, _ := s.GetSpouses(person.ID)
-	
+
 	if len(spouseInfos) > 0 {
 		// Sort spouses chronologically
 		sort.Slice(spouseInfos, func(i, j int) bool {
 			return spouseInfos[i].MarriageDate < spouseInfos[j].MarriageDate
 		})
-		
+
 		// Show each marriage
 		for idx, spouseInfo := range spouseInfos {
 			if idx > 0 {
 				pdf.AddPage()
 			}
-			
+
 			spouse := spouseInfo.Spouse
-			
+
 			// Husband section
 			pdf.SetFont("Arial", "B", 12)
 			pdf.SetFillColor(52, 152, 219) // Blue
@@ -8710,17 +9038,17 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 			pdf.CellFormat(0, 8, "Husband", "", 1, "L", true, 0, "")
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetFont("Arial", "", 10)
-			
+
 			husband := person
 			wife := &spouse
 			if person.Gender == "F" {
 				husband = &spouse
 				wife = person
 			}
-			
+
 			addPersonDetailsToPDF(pdf, husband, options, "husband")
 			pdf.Ln(2)
-			
+
 			// Wife section
 			pdf.SetFont("Arial", "B", 12)
 			pdf.SetFillColor(231, 76, 60) // Red/Pink
@@ -8728,10 +9056,10 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 			pdf.CellFormat(0, 8, "Wife", "", 1, "L", true, 0, "")
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetFont("Arial", "", 10)
-			
+
 			addPersonDetailsToPDF(pdf, wife, options, "wife")
 			pdf.Ln(2)
-			
+
 			// Marriage information
 			pdf.SetFont("Arial", "B", 12)
 			pdf.SetFillColor(46, 204, 113) // Green
@@ -8739,7 +9067,7 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 			pdf.CellFormat(0, 8, "Marriage", "", 1, "L", true, 0, "")
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetFont("Arial", "", 10)
-			
+
 			// Check if both are living for privacy
 			bothLiving := husband.IsLiving && wife.IsLiving
 			if options.LimitLivingInfo && bothLiving {
@@ -8755,7 +9083,7 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 				}
 			}
 			pdf.Ln(2)
-			
+
 			// Children section
 			pdf.SetFont("Arial", "B", 12)
 			pdf.SetFillColor(155, 89, 182) // Purple
@@ -8763,10 +9091,10 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 			pdf.CellFormat(0, 8, "Children", "", 1, "L", true, 0, "")
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetFont("Arial", "", 10)
-			
+
 			// Get children
 			children, _ := s.GetRelatedPeople(person.ID, "child")
-			
+
 			// Filter children by this spouse
 			var marriageChildren []store.Person
 			for _, child := range children {
@@ -8778,12 +9106,12 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 					}
 				}
 			}
-			
+
 			// Sort children by birth date
 			sort.Slice(marriageChildren, func(i, j int) bool {
 				return marriageChildren[i].BirthDate < marriageChildren[j].BirthDate
 			})
-			
+
 			if len(marriageChildren) == 0 {
 				pdf.CellFormat(0, 6, "No children recorded", "", 1, "L", false, 0, "")
 			} else {
@@ -8792,7 +9120,7 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 						pdf.SetFont("Arial", "B", 10)
 						pdf.CellFormat(0, 6, fmt.Sprintf("%d. %s", childIdx+1, formatPersonName(child)), "", 1, "L", false, 0, "")
 						pdf.SetFont("Arial", "", 9)
-						
+
 						details := formatPersonDetailsPDF(&child, options)
 						if details != "" {
 							pdf.CellFormat(10, 5, "", "", 0, "L", false, 0, "")
@@ -8805,14 +9133,14 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 	} else {
 		// Show parental family
 		parents, _ := s.GetRelatedPeople(person.ID, "parent")
-		
+
 		pdf.SetFont("Arial", "B", 12)
 		pdf.SetFillColor(52, 152, 219)
 		pdf.SetTextColor(255, 255, 255)
 		pdf.CellFormat(0, 8, "Parents", "", 1, "L", true, 0, "")
 		pdf.SetTextColor(0, 0, 0)
 		pdf.SetFont("Arial", "", 10)
-		
+
 		if len(parents) == 0 {
 			pdf.CellFormat(0, 6, "No parents recorded", "", 1, "L", false, 0, "")
 		} else {
@@ -8829,9 +9157,9 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 				}
 			}
 		}
-		
+
 		pdf.Ln(2)
-		
+
 		// Siblings
 		siblings, _ := s.GetRelatedPeople(person.ID, "sibling")
 		if len(siblings) > 0 {
@@ -8841,7 +9169,7 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 			pdf.CellFormat(0, 8, "Siblings", "", 1, "L", true, 0, "")
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetFont("Arial", "", 10)
-			
+
 			for _, sibling := range siblings {
 				if shouldShowPerson(&sibling, options) {
 					pdf.CellFormat(0, 6, formatPersonName(sibling), "", 1, "L", false, 0, "")
@@ -8849,7 +9177,7 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 			}
 		}
 	}
-	
+
 	// Save PDF
 	return pdf.OutputFileAndClose(filepath)
 }
@@ -8859,7 +9187,7 @@ func formatPersonDetailsPDF(person *store.Person, options HTMLExportOptions) str
 	if options.LimitLivingInfo && person.IsLiving {
 		return "(Living)"
 	}
-	
+
 	var details []string
 	if person.BirthDate != "" {
 		birthStr := "Born: " + formatFGSDate(person.BirthDate)
@@ -8868,7 +9196,7 @@ func formatPersonDetailsPDF(person *store.Person, options HTMLExportOptions) str
 		}
 		details = append(details, birthStr)
 	}
-	
+
 	if !person.IsLiving {
 		if person.DeathDate != "" {
 			deathStr := "Died: " + formatFGSDate(person.DeathDate)
@@ -8878,11 +9206,11 @@ func formatPersonDetailsPDF(person *store.Person, options HTMLExportOptions) str
 			details = append(details, deathStr)
 		}
 	}
-	
+
 	if len(details) == 0 && person.IsLiving {
 		return "(Living)"
 	}
-	
+
 	return strings.Join(details, "; ")
 }
 
@@ -8890,7 +9218,7 @@ func formatPersonDetailsPDF(person *store.Person, options HTMLExportOptions) str
 func addPersonDetailsToPDF(pdf *gofpdf.Fpdf, person *store.Person, options HTMLExportOptions, role string) {
 	pdf.CellFormat(60, 6, "Full Name:", "", 0, "L", false, 0, "")
 	pdf.CellFormat(0, 6, formatPersonName(*person), "", 1, "L", false, 0, "")
-	
+
 	if options.LimitLivingInfo && person.IsLiving {
 		pdf.CellFormat(0, 6, "(Limited information - person is living)", "", 1, "L", false, 0, "")
 	} else {
@@ -9001,7 +9329,7 @@ func exportPeopleToCSV(w fyne.Window, s *store.Store) {
 			if person.IsLiving {
 				livingStr = "Yes"
 			}
-			
+
 			row := []string{
 				fmt.Sprintf("%d", person.ID),
 				person.GivenName,
@@ -9074,7 +9402,7 @@ func exportTimelineToCSV(w fyne.Window, s *store.Store) {
 				}
 				eventCount++
 			}
-			
+
 			// Death events
 			if p.DeathDate != "" {
 				year := extractYear(p.DeathDate)
@@ -9187,7 +9515,7 @@ func exportPlacesToCSV(w fyne.Window, s *store.Store) {
 		BirthCount int
 		DeathCount int
 	})
-	
+
 	for _, p := range allPeople {
 		if p.BirthPlace != "" {
 			entry := placeMap[p.BirthPlace]
@@ -9296,7 +9624,7 @@ func exportSourcesToCSV(w fyne.Window, s *store.Store) {
 			// Get citation count
 			citations, _ := s.GetCitationsForSource(source.ID)
 			citationCount := len(citations)
-			
+
 			row := []string{
 				fmt.Sprintf("%d", source.ID),
 				source.Title,
@@ -9353,11 +9681,11 @@ func generatePhotoGalleryHTML(s *store.Store, personID int64) string {
 
 	var html strings.Builder
 	html.WriteString(`<div class="photo-gallery">`)
-	
+
 	for _, img := range images {
 		var imageData []byte
 		var mimeType string
-		
+
 		if img.IsExternal {
 			// Handle external images - read from file path
 			if img.ExternalPath != "" {
@@ -9377,7 +9705,7 @@ func generatePhotoGalleryHTML(s *store.Store, personID int64) string {
 				mimeType = img.MimeType
 			}
 		}
-		
+
 		if len(imageData) > 0 {
 			dataURI := encodeImageAsDataURI(imageData, mimeType)
 			html.WriteString(`<div class="photo-item">`)
@@ -9391,7 +9719,7 @@ func generatePhotoGalleryHTML(s *store.Store, personID int64) string {
 			html.WriteString(`</div>`)
 		}
 	}
-	
+
 	html.WriteString(`</div>`)
 	return html.String()
 }
@@ -9739,7 +10067,7 @@ func generateMarriedFamilyHTML(s *store.Store, person *store.Person, spouse *sto
 			html.WriteString(`<div class="child-entry">`)
 			html.WriteString(`<div class="child-number">` + fmt.Sprintf("%d.", childNum) + ` ` + formatPersonName(child) + `</div>`)
 			html.WriteString(`<div class="person-details">`)
-			
+
 			// Handle privacy for child's details
 			if options.LimitLivingInfo && child.IsLiving {
 				html.WriteString(`<div style="color: #7f8c8d; font-style: italic;">(Living - limited information)</div>`)
@@ -9790,7 +10118,7 @@ func generateMarriedFamilyHTML(s *store.Store, person *store.Person, spouse *sto
 						html.WriteString(`<div><span class="detail-label">Place:</span> ` + child.DeathPlace + `</div>`)
 					}
 				}
-				
+
 				// Add photo gallery for child
 				photoGalleryHTML := generatePhotoGalleryHTML(s, child.ID)
 				if photoGalleryHTML != "" {
@@ -9959,20 +10287,20 @@ func exportDescendantReportPDF(w fyne.Window, s *store.Store, rootPersonID int64
 func generateDescendantReportPDF(s *store.Store, rootPerson *store.Person, options HTMLExportOptions, filepath string) error {
 	pdf := gofpdf.New("P", "mm", "Letter", "")
 	pdf.AddPage()
-	
+
 	// Title
 	pdf.SetFont("Arial", "B", 16)
 	pdf.CellFormat(0, 10, "Descendant Report", "", 1, "C", false, 0, "")
 	pdf.Ln(2)
-	
+
 	// Root person
 	pdf.SetFont("Arial", "B", 14)
 	pdf.CellFormat(0, 8, "Descendants of "+formatPersonName(*rootPerson), "", 1, "C", false, 0, "")
 	pdf.Ln(3)
-	
+
 	// Collect descendants
 	descendants := collectDescendants(s, rootPerson.ID, 1)
-	
+
 	// Filter based on privacy
 	var filteredDescendants []DescendantNode
 	for _, desc := range descendants {
@@ -9980,19 +10308,19 @@ func generateDescendantReportPDF(s *store.Store, rootPerson *store.Person, optio
 			filteredDescendants = append(filteredDescendants, desc)
 		}
 	}
-	
+
 	// Count generations
 	genCounts := make(map[int]int)
 	for _, desc := range filteredDescendants {
 		genCounts[desc.Generation]++
 	}
-	
+
 	// Statistics
 	pdf.SetFont("Arial", "", 10)
 	pdf.CellFormat(0, 6, fmt.Sprintf("Total Descendants: %d", len(filteredDescendants)), "", 1, "L", false, 0, "")
 	pdf.CellFormat(0, 6, fmt.Sprintf("Generations: %d", len(genCounts)), "", 1, "L", false, 0, "")
 	pdf.Ln(3)
-	
+
 	// Render descendants
 	for _, node := range filteredDescendants {
 		// Check if we need a new page
@@ -10001,18 +10329,18 @@ func generateDescendantReportPDF(s *store.Store, rootPerson *store.Person, optio
 		if y > pageHeight-30 {
 			pdf.AddPage()
 		}
-		
+
 		// Set indent based on generation
 		indent := (node.Generation - 1) * 5
 		leftMargin := 10.0 + float64(indent)
 		pdf.SetLeftMargin(leftMargin)
 		pdf.SetX(leftMargin)
-		
+
 		// Generation indicator
 		pdf.SetFont("Arial", "B", 10)
 		genLabel := fmt.Sprintf("Gen %d: ", node.Generation)
 		pdf.Cell(20, 6, genLabel)
-		
+
 		// Person name
 		pdf.SetFont("Arial", "", 10)
 		personInfo := formatPersonName(node.Person)
@@ -10027,11 +10355,11 @@ func generateDescendantReportPDF(s *store.Store, rootPerson *store.Person, optio
 			personInfo += " (Living)"
 		}
 		pdf.MultiCell(0, 6, personInfo, "", "L", false)
-		
+
 		// Reset margin
 		pdf.SetLeftMargin(10)
 	}
-	
+
 	return pdf.OutputFileAndClose(filepath)
 }
 
@@ -10086,7 +10414,7 @@ func generateDescendantReportHTML(s *store.Store, rootPerson *store.Person, opti
 
 	// Build descendant tree
 	descendants := collectDescendants(s, rootPerson.ID, 0)
-	
+
 	// Filter descendants based on privacy settings
 	filteredDescendants := []DescendantNode{}
 	for _, d := range descendants {
@@ -10233,7 +10561,7 @@ func generateDescendantReportHTML(s *store.Store, rootPerson *store.Person, opti
 					}
 					html.WriteString(`<div class="person-entry ` + genClass + `">`)
 					html.WriteString(`<span class="person-name">` + formatPersonName(d.Person) + `</span>`)
-					
+
 					// Handle privacy for dates
 					if options.LimitLivingInfo && d.Person.IsLiving {
 						html.WriteString(`<span class="person-dates" style="font-style: italic; color: #7f8c8d;">(Living)</span>`)
@@ -10308,22 +10636,22 @@ func exportAncestorReportPDF(w fyne.Window, s *store.Store, rootPersonID int64) 
 func generateAncestorReportPDF(s *store.Store, rootPerson *store.Person, options HTMLExportOptions, filepath string) error {
 	pdf := gofpdf.New("P", "mm", "Letter", "")
 	pdf.AddPage()
-	
+
 	// Title
 	pdf.SetFont("Arial", "B", 16)
 	pdf.CellFormat(0, 10, "Ancestor Report", "", 1, "C", false, 0, "")
 	pdf.SetFont("Arial", "", 10)
 	pdf.CellFormat(0, 6, "(Ahnentafel Numbering System)", "", 1, "C", false, 0, "")
 	pdf.Ln(2)
-	
+
 	// Root person
 	pdf.SetFont("Arial", "B", 14)
 	pdf.CellFormat(0, 8, "Ancestors of "+formatPersonName(*rootPerson), "", 1, "C", false, 0, "")
 	pdf.Ln(3)
-	
+
 	// Collect ancestors
 	ancestors := collectAncestors(s, rootPerson.ID, 1)
-	
+
 	// Filter based on privacy
 	var filteredAncestors []AncestorNode
 	for _, anc := range ancestors {
@@ -10331,12 +10659,12 @@ func generateAncestorReportPDF(s *store.Store, rootPerson *store.Person, options
 			filteredAncestors = append(filteredAncestors, anc)
 		}
 	}
-	
+
 	// Sort by Ahnentafel number for proper order
 	sort.Slice(filteredAncestors, func(i, j int) bool {
 		return filteredAncestors[i].AhnentafelNumber < filteredAncestors[j].AhnentafelNumber
 	})
-	
+
 	// Count generations
 	generations := make(map[int]bool)
 	for _, anc := range filteredAncestors {
@@ -10349,13 +10677,13 @@ func generateAncestorReportPDF(s *store.Store, rootPerson *store.Person, options
 		}
 		generations[generation] = true
 	}
-	
+
 	// Statistics
 	pdf.SetFont("Arial", "", 10)
 	pdf.CellFormat(0, 6, fmt.Sprintf("Total Ancestors: %d", len(filteredAncestors)), "", 1, "L", false, 0, "")
 	pdf.CellFormat(0, 6, fmt.Sprintf("Generations: %d", len(generations)), "", 1, "L", false, 0, "")
 	pdf.Ln(3)
-	
+
 	// Check for pedigree collapse
 	uniqueIDs := make(map[int64]bool)
 	for _, anc := range filteredAncestors {
@@ -10367,7 +10695,7 @@ func generateAncestorReportPDF(s *store.Store, rootPerson *store.Person, options
 		pdf.MultiCell(0, 6, "Warning: Pedigree Collapse Detected - Some ancestors appear multiple times", "", "L", true)
 		pdf.Ln(2)
 	}
-	
+
 	// Render ancestors
 	pdf.SetFont("Arial", "", 10)
 	for _, anc := range filteredAncestors {
@@ -10377,11 +10705,11 @@ func generateAncestorReportPDF(s *store.Store, rootPerson *store.Person, options
 		if y > pageHeight-30 {
 			pdf.AddPage()
 		}
-		
+
 		// Ahnentafel number
 		pdf.SetFont("Arial", "B", 10)
 		pdf.Cell(15, 6, fmt.Sprintf("%d.", anc.AhnentafelNumber))
-		
+
 		// Person name and details
 		pdf.SetFont("Arial", "", 10)
 		personInfo := formatPersonName(anc.Person)
@@ -10405,7 +10733,7 @@ func generateAncestorReportPDF(s *store.Store, rootPerson *store.Person, options
 			personInfo += " (Living)"
 		}
 		pdf.MultiCell(0, 6, personInfo, "", "L", false)
-		
+
 		// Relationship (calculate from Ahnentafel number)
 		relationship := getAhnentafelRelationship(anc.AhnentafelNumber)
 		if relationship != "" {
@@ -10415,12 +10743,12 @@ func generateAncestorReportPDF(s *store.Store, rootPerson *store.Person, options
 			pdf.Ln(5)
 		}
 	}
-	
+
 	// Footer with explanation
 	pdf.Ln(3)
 	pdf.SetFont("Arial", "I", 8)
 	pdf.MultiCell(0, 4, "Ahnentafel Numbering: Person 1 is the root. For any person N: father = 2N, mother = 2N+1", "", "L", false)
-	
+
 	return pdf.OutputFileAndClose(filepath)
 }
 
@@ -10475,7 +10803,7 @@ func generateAncestorReportHTML(s *store.Store, rootPerson *store.Person, option
 
 	// Build ancestor tree in ahnentafel format
 	ancestors := collectAncestors(s, rootPerson.ID, 1)
-	
+
 	// Filter ancestors based on privacy settings
 	filteredAncestors := []AncestorNode{}
 	for _, a := range ancestors {
@@ -10647,7 +10975,7 @@ func generateAncestorReportHTML(s *store.Store, rootPerson *store.Person, option
 			html.WriteString(`<span class="generation">[Gen ` + fmt.Sprintf("%d", generation) + `]</span>`)
 			html.WriteString(`</div>`)
 			html.WriteString(`<div class="person-details">`)
-			
+
 			// Handle privacy for details
 			if options.LimitLivingInfo && a.Person.IsLiving {
 				html.WriteString(`<span style="font-style: italic; color: #7f8c8d;">(Living - limited information)</span>`)
@@ -10765,7 +11093,7 @@ func renderMarriedFamily(content *fyne.Container, s *store.Store, person *store.
 
 	// Children section
 	content.Add(widget.NewLabelWithStyle("CHILDREN", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
-	
+
 	// Get children of this specific couple
 	var children []store.Person
 	if husband != nil && wife != nil {
@@ -10792,7 +11120,7 @@ func renderMarriedFamily(content *fyne.Container, s *store.Store, person *store.
 		// Only wife, get all her children
 		children, _ = s.GetRelatedPeople(wife.ID, "child")
 	}
-	
+
 	if len(children) == 0 {
 		content.Add(widget.NewLabel("  (No children recorded)"))
 	} else {
@@ -10800,22 +11128,22 @@ func renderMarriedFamily(content *fyne.Container, s *store.Store, person *store.
 		sort.Slice(children, func(i, j int) bool {
 			return children[i].BirthDate < children[j].BirthDate
 		})
-		
+
 		for i, child := range children {
 			childCopy := child
 			childNum := widget.NewLabelWithStyle(fmt.Sprintf("%d.", i+1), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 			content.Add(childNum)
-			
+
 			childBtn := widget.NewButton(
 				fmt.Sprintf("  %s", formatPersonName(childCopy)),
 				func() { navigateFunc(childCopy.ID) })
 			content.Add(childBtn)
-			
+
 			content.Add(widget.NewLabel(fmt.Sprintf("    Born: %s", formatFGSDate(child.BirthDate))))
 			if child.BirthPlace != "" {
 				content.Add(widget.NewLabel(fmt.Sprintf("    Place: %s", child.BirthPlace)))
 			}
-			
+
 			// Show spouse if married
 			childSpouses, _ := s.GetRelatedPeople(child.ID, "spouse")
 			if len(childSpouses) > 0 {
@@ -10825,7 +11153,7 @@ func renderMarriedFamily(content *fyne.Container, s *store.Store, person *store.
 				}
 				content.Add(widget.NewLabel(fmt.Sprintf("    Spouse: %s", strings.Join(spouseNames, ", "))))
 			}
-			
+
 			// Show grandchildren (children of this child)
 			grandchildren, _ := s.GetRelatedPeople(child.ID, "child")
 			if len(grandchildren) > 0 {
@@ -10839,7 +11167,7 @@ func renderMarriedFamily(content *fyne.Container, s *store.Store, person *store.
 				}
 				content.Add(widget.NewLabel(fmt.Sprintf("    Children: %s", strings.Join(grandchildNames, ", "))))
 			}
-			
+
 			if !child.IsLiving {
 				content.Add(widget.NewLabel(fmt.Sprintf("    Died: %s", formatFGSDate(child.DeathDate))))
 				if child.DeathPlace != "" {
@@ -10861,10 +11189,10 @@ func renderParentalFamily(content *fyne.Container, s *store.Store, person *store
 			mother = &parents[i]
 		}
 	}
-	
+
 	if father != nil || mother != nil {
 		content.Add(widget.NewLabelWithStyle("PARENTS", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
-		
+
 		if father != nil {
 			fatherCopy := *father
 			fatherBtn := widget.NewButton(
@@ -10872,7 +11200,7 @@ func renderParentalFamily(content *fyne.Container, s *store.Store, person *store
 				func() { navigateFunc(fatherCopy.ID) })
 			content.Add(fatherBtn)
 		}
-		
+
 		if mother != nil {
 			motherCopy := *mother
 			motherBtn := widget.NewButton(
@@ -10882,7 +11210,7 @@ func renderParentalFamily(content *fyne.Container, s *store.Store, person *store
 		}
 		content.Add(widget.NewLabel(""))
 	}
-	
+
 	// Show the person themselves
 	content.Add(widget.NewLabelWithStyle("PERSON", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
 	personCopy := *person
@@ -10901,11 +11229,11 @@ func renderParentalFamily(content *fyne.Container, s *store.Store, person *store
 		}
 	}
 	content.Add(widget.NewLabel(""))
-	
+
 	// Show siblings
 	content.Add(widget.NewLabelWithStyle("SIBLINGS", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
 	siblings := []store.Person{}
-	
+
 	// Get siblings through parents
 	if father != nil {
 		fatherChildren, _ := s.GetRelatedPeople(father.ID, "child")
@@ -10922,7 +11250,7 @@ func renderParentalFamily(content *fyne.Container, s *store.Store, person *store
 			}
 		}
 	}
-	
+
 	if len(siblings) == 0 {
 		content.Add(widget.NewLabel("  (No siblings recorded)"))
 	} else {
@@ -10931,7 +11259,7 @@ func renderParentalFamily(content *fyne.Container, s *store.Store, person *store
 		for _, sib := range siblings {
 			uniqueSiblings[sib.ID] = sib
 		}
-		
+
 		// Convert back to slice and sort
 		siblings = []store.Person{}
 		for _, sib := range uniqueSiblings {
@@ -10940,7 +11268,7 @@ func renderParentalFamily(content *fyne.Container, s *store.Store, person *store
 		sort.Slice(siblings, func(i, j int) bool {
 			return siblings[i].BirthDate < siblings[j].BirthDate
 		})
-		
+
 		for _, sibling := range siblings {
 			siblingCopy := sibling
 			sibBtn := widget.NewButton(
@@ -11036,7 +11364,7 @@ func showTimelineView(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
 	scroll.SetMinSize(fyne.NewSize(700, 400))
 
 	timelineDialog = fyne.CurrentApp().NewWindow("Timeline View")
-	
+
 	// Export buttons
 	exportHTMLBtn := widget.NewButton("Export to HTML", func() {
 		exportTimelineToHTMLFile(timelineDialog, s, events)
@@ -11045,7 +11373,7 @@ func showTimelineView(w fyne.Window, s *store.Store, navigateFunc func(int64)) {
 		exportTimelineToPDFFile(timelineDialog, s, events)
 	})
 	exportButtons := container.NewHBox(exportHTMLBtn, exportPDFBtn)
-	
+
 	// Main content with export buttons at bottom
 	mainContent := container.NewBorder(nil, exportButtons, nil, nil, scroll)
 	timelineDialog.SetContent(mainContent)
@@ -11094,7 +11422,7 @@ func exportTimelineToHTMLFile(w fyne.Window, s *store.Store, events []TimelineEv
 // generateTimelineHTMLReport creates an HTML document for the timeline
 func generateTimelineHTMLReport(events []TimelineEvent) string {
 	var html strings.Builder
-	
+
 	html.WriteString(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11167,14 +11495,14 @@ func generateTimelineHTMLReport(events []TimelineEvent) string {
 			marriageCount++
 		}
 	}
-	
-	html.WriteString(fmt.Sprintf("<p>Total events: %d (births: %d, deaths: %d, marriages: %d)</p>", 
+
+	html.WriteString(fmt.Sprintf("<p>Total events: %d (births: %d, deaths: %d, marriages: %d)</p>",
 		len(events), birthCount, deathCount, marriageCount))
-	
+
 	if len(events) > 0 {
 		html.WriteString(fmt.Sprintf("<p>Date range: %s - %s</p>", events[0].Date, events[len(events)-1].Date))
 	}
-	
+
 	html.WriteString(`        </div>
 `)
 
@@ -11182,7 +11510,7 @@ func generateTimelineHTMLReport(events []TimelineEvent) string {
 	currentYear := ""
 	for _, event := range events {
 		year := extractYear(event.Date)
-		
+
 		if year != currentYear {
 			if currentYear != "" {
 				html.WriteString(`        </div>
@@ -11193,7 +11521,7 @@ func generateTimelineHTMLReport(events []TimelineEvent) string {
             <div class="year-header">` + year + `</div>
 `)
 		}
-		
+
 		// Event
 		eventClass := strings.ToLower(event.Type)
 		eventIcon := ""
@@ -11205,7 +11533,7 @@ func generateTimelineHTMLReport(events []TimelineEvent) string {
 		case "Marriage":
 			eventIcon = "💒"
 		}
-		
+
 		html.WriteString(`            <div class="event ` + eventClass + `">
                 <span class="event-icon">` + eventIcon + `</span>
                 <span class="event-date">` + formatFGSDate(event.Date) + `</span> - 
@@ -11219,12 +11547,12 @@ func generateTimelineHTMLReport(events []TimelineEvent) string {
 		html.WriteString(`            </div>
 `)
 	}
-	
+
 	if currentYear != "" {
 		html.WriteString(`        </div>
 `)
 	}
-	
+
 	html.WriteString(`    </div>
 </body>
 </html>`)
@@ -11260,12 +11588,12 @@ func exportTimelineToPDFFile(w fyne.Window, s *store.Store, events []TimelineEve
 func generateTimelinePDFReport(events []TimelineEvent, filepath string) error {
 	pdf := gofpdf.New("P", "mm", "Letter", "")
 	pdf.AddPage()
-	
+
 	// Title
 	pdf.SetFont("Arial", "B", 16)
 	pdf.CellFormat(0, 10, "Timeline of Life Events", "", 1, "C", false, 0, "")
 	pdf.Ln(2)
-	
+
 	// Statistics
 	pdf.SetFont("Arial", "", 10)
 	birthCount := 0
@@ -11281,16 +11609,16 @@ func generateTimelinePDFReport(events []TimelineEvent, filepath string) error {
 			marriageCount++
 		}
 	}
-	
+
 	pdf.CellFormat(0, 6, fmt.Sprintf("Total events: %d (births: %d, deaths: %d, marriages: %d)",
 		len(events), birthCount, deathCount, marriageCount), "", 1, "L", false, 0, "")
-	
+
 	if len(events) > 0 {
 		pdf.CellFormat(0, 6, fmt.Sprintf("Date range: %s - %s", events[0].Date, events[len(events)-1].Date), "", 1, "L", false, 0, "")
 	}
-	
+
 	pdf.Ln(5)
-	
+
 	// Group by year
 	currentYear := ""
 	for _, event := range events {
@@ -11300,9 +11628,9 @@ func generateTimelinePDFReport(events []TimelineEvent, filepath string) error {
 		if y > pageHeight-30 {
 			pdf.AddPage()
 		}
-		
+
 		year := extractYear(event.Date)
-		
+
 		if year != currentYear {
 			currentYear = year
 			pdf.Ln(2)
@@ -11312,19 +11640,19 @@ func generateTimelinePDFReport(events []TimelineEvent, filepath string) error {
 			pdf.CellFormat(0, 8, year, "", 1, "L", true, 0, "")
 			pdf.SetTextColor(0, 0, 0)
 		}
-		
+
 		// Event
 		pdf.SetFont("Arial", "B", 10)
 		pdf.Cell(30, 6, formatFGSDate(event.Date))
 		pdf.SetFont("Arial", "", 10)
-		
+
 		eventText := event.Type + ": " + event.PersonName
 		if event.Place != "" {
 			eventText += " (" + event.Place + ")"
 		}
 		pdf.MultiCell(0, 6, eventText, "", "L", false)
 	}
-	
+
 	return pdf.OutputFileAndClose(filepath)
 }
 
@@ -11406,23 +11734,23 @@ func extractYear(dateStr string) string {
 	if dateStr == "" {
 		return ""
 	}
-	
+
 	// Try parsing common formats
 	layouts := []string{
-		"2006-01-02",      // YYYY-MM-DD
-		"02 Jan 2006",     // DD Mon YYYY
-		"Jan 2006",        // Mon YYYY
-		"2006",            // YYYY only
-		"01/02/2006",      // MM/DD/YYYY
-		"02-01-2006",      // DD-MM-YYYY
+		"2006-01-02",  // YYYY-MM-DD
+		"02 Jan 2006", // DD Mon YYYY
+		"Jan 2006",    // Mon YYYY
+		"2006",        // YYYY only
+		"01/02/2006",  // MM/DD/YYYY
+		"02-01-2006",  // DD-MM-YYYY
 	}
-	
+
 	for _, layout := range layouts {
 		if t, err := time.Parse(layout, dateStr); err == nil {
 			return fmt.Sprintf("%d", t.Year())
 		}
 	}
-	
+
 	// Fallback: if string starts with 4 digits, use those
 	if len(dateStr) >= 4 {
 		// Check if starts with year (19xx or 20xx)
@@ -11438,7 +11766,7 @@ func extractYear(dateStr string) string {
 			}
 		}
 	}
-	
+
 	return dateStr
 }
 
@@ -12126,8 +12454,8 @@ func showMigrationDistanceReport(w fyne.Window, s *store.Store, navigateFunc fun
 
 	// Calculate migration distances for each person
 	type migrationStat struct {
-		person   store.Person
-		distance float64
+		person    store.Person
+		distance  float64
 		fromPlace string
 		toPlace   string
 	}
@@ -12137,9 +12465,9 @@ func showMigrationDistanceReport(w fyne.Window, s *store.Store, navigateFunc fun
 		birthPlace := strings.TrimSpace(p.BirthPlace)
 		deathPlace := strings.TrimSpace(p.DeathPlace)
 
-		if birthPlace != "" && !isUnknownPlace(birthPlace) && 
-		   deathPlace != "" && !isUnknownPlace(deathPlace) && 
-		   !p.IsLiving {
+		if birthPlace != "" && !isUnknownPlace(birthPlace) &&
+			deathPlace != "" && !isUnknownPlace(deathPlace) &&
+			!p.IsLiving {
 			// Get geocoded locations
 			birthCoords, err1 := s.GetPlaceGeocode(birthPlace)
 			deathCoords, err2 := s.GetPlaceGeocode(deathPlace)
@@ -12150,8 +12478,8 @@ func showMigrationDistanceReport(w fyne.Window, s *store.Store, navigateFunc fun
 					deathCoords.Latitude, deathCoords.Longitude)
 
 				migrations = append(migrations, migrationStat{
-					person:   p,
-					distance: distance,
+					person:    p,
+					distance:  distance,
 					fromPlace: birthPlace,
 					toPlace:   deathPlace,
 				})

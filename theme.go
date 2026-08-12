@@ -1,5 +1,5 @@
-//go:generate fyne bundle -o bundled.go Resources/Images/KrankyBearGenealogy.png
-//go:generate fyne bundle -o bundled.go -a Resources/Images/KrankyBearGenealogy64.png
+//go:generate fyne bundle -o bundled.go assets/images/KrankyBearGenealogy.png
+//go:generate fyne bundle -o bundled.go -a assets/images/KrankyBearGenealogy64.png
 
 package main
 

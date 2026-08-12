@@ -266,6 +266,14 @@ func (s *Store) InitSchema() error {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );`,
 		`INSERT OR IGNORE INTO project_notes (id, notes) VALUES (1, '');`,
+		`CREATE TABLE IF NOT EXISTS settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            last_backup_date DATETIME,
+            backup_reminder_enabled INTEGER DEFAULT 1,
+            backup_reminder_days INTEGER DEFAULT 7,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );`,
+		`INSERT OR IGNORE INTO settings (id) VALUES (1);`,
 		`CREATE TABLE IF NOT EXISTS alternate_names (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             person_id INTEGER NOT NULL,
@@ -277,6 +285,15 @@ func (s *Store) InitSchema() error {
             FOREIGN KEY(person_id) REFERENCES persons(id) ON DELETE CASCADE
         );`,
 		`CREATE INDEX IF NOT EXISTS idx_alternate_names_person ON alternate_names(person_id);`,
+		`CREATE TABLE IF NOT EXISTS alternate_places (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            historical_name TEXT NOT NULL,
+            current_name TEXT NOT NULL,
+            year_changed INTEGER,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );`,
+		`CREATE INDEX IF NOT EXISTS idx_alternate_places_historical ON alternate_places(historical_name);`,
 	}
 
 	tx, err := s.DB.Begin()
@@ -584,6 +601,157 @@ func (s *Store) MigrateSchema() error {
 		}
 	}
 
+	// Create project_notes table if it doesn't exist (v1.5.1+)
+	_, err = s.DB.Exec(`CREATE TABLE IF NOT EXISTS project_notes (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		notes TEXT DEFAULT '',
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`)
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.Exec(`INSERT OR IGNORE INTO project_notes (id, notes) VALUES (1, '');`)
+	if err != nil {
+		return err
+	}
+
+	// Create alternate_names table if it doesn't exist (v1.5.3+)
+	_, err = s.DB.Exec(`CREATE TABLE IF NOT EXISTS alternate_names (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		person_id INTEGER NOT NULL,
+		name_type TEXT DEFAULT 'spelling',
+		given_name TEXT,
+		surname TEXT,
+		notes TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY(person_id) REFERENCES persons(id) ON DELETE CASCADE
+	);`)
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_alternate_names_person ON alternate_names(person_id);`)
+	if err != nil {
+		return err
+	}
+
+	// Create alternate_places table if it doesn't exist (v1.7+)
+	_, err = s.DB.Exec(`CREATE TABLE IF NOT EXISTS alternate_places (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		historical_name TEXT NOT NULL,
+		current_name TEXT NOT NULL,
+		year_changed INTEGER,
+		notes TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`)
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_alternate_places_historical ON alternate_places(historical_name);`)
+	if err != nil {
+		return err
+	}
+
+	// Create settings table if it doesn't exist (v1.6.0+)
+	_, err = s.DB.Exec(`CREATE TABLE IF NOT EXISTS settings (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		last_backup_date DATETIME,
+		backup_reminder_enabled INTEGER DEFAULT 1,
+		backup_reminder_days INTEGER DEFAULT 7,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`)
+	if err != nil {
+		return err
+	}
+
+	// Initialize settings with default row
+	_, err = s.DB.Exec(`INSERT OR IGNORE INTO settings (id) VALUES (1);`)
+	if err != nil {
+		return err
+	}
+
+	// Performance indexes (v1.6.0+) - speed up common queries
+	performanceIndexes := []string{
+		// Date-based queries (timeline reports, date range filtering)
+		`CREATE INDEX IF NOT EXISTS idx_person_birth_date ON persons(birth_date);`,
+		`CREATE INDEX IF NOT EXISTS idx_person_death_date ON persons(death_date);`,
+		`CREATE INDEX IF NOT EXISTS idx_person_birth_year ON persons(birth_year);`,
+		`CREATE INDEX IF NOT EXISTS idx_person_death_year ON persons(death_year);`,
+
+		// Place-based queries (autocomplete, geographic reports)
+		`CREATE INDEX IF NOT EXISTS idx_person_birth_place ON persons(birth_place);`,
+		`CREATE INDEX IF NOT EXISTS idx_person_death_place ON persons(death_place);`,
+		`CREATE INDEX IF NOT EXISTS idx_relationship_marriage_place ON relationships(marriage_place);`,
+
+		// Common filters
+		`CREATE INDEX IF NOT EXISTS idx_person_is_living ON persons(is_living);`,
+		`CREATE INDEX IF NOT EXISTS idx_person_gender ON persons(gender);`,
+		`CREATE INDEX IF NOT EXISTS idx_person_uid ON persons(uid);`,
+
+		// Preferred name for search
+		`CREATE INDEX IF NOT EXISTS idx_person_preferred_name ON persons(preferred_name);`,
+
+		// Relationship type filtering
+		`CREATE INDEX IF NOT EXISTS idx_relationship_type ON relationships(type);`,
+	}
+
+	for _, indexSQL := range performanceIndexes {
+		if _, err := s.DB.Exec(indexSQL); err != nil {
+			// Log but don't fail - indexes are performance optimization
+			fmt.Printf("Warning: Could not create performance index: %v\n", err)
+		}
+	}
+
+	// Optimize query planner statistics after creating indexes
+	s.DB.Exec(`PRAGMA optimize;`)
+	
+	// Create FTS5 virtual table for full-text search (v1.8)
+	// Check if FTS table exists and has correct schema
+	var tableName string
+	err = s.DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='persons_fts'`).Scan(&tableName)
+	
+	if err == nil {
+		// Table exists - check if it has the new columns
+		var hasMarriagePlaces bool
+		err = s.DB.QueryRow(`SELECT sql FROM sqlite_master WHERE type='table' AND name='persons_fts'`).Scan(&tableName)
+		hasMarriagePlaces = strings.Contains(tableName, "marriage_places")
+		
+		if !hasMarriagePlaces {
+			// Old schema - drop and recreate
+			fmt.Println("Upgrading full-text search index with marriage places and spouse names...")
+			s.DB.Exec(`DROP TABLE IF EXISTS persons_fts;`)
+		}
+	}
+	
+	// Create FTS5 table with full schema
+	_, err = s.DB.Exec(`
+		CREATE VIRTUAL TABLE IF NOT EXISTS persons_fts USING fts5(
+			person_id UNINDEXED,
+			given_name,
+			surname,
+			preferred_name,
+			notes,
+			birth_place,
+			death_place,
+			address,
+			city,
+			state,
+			country,
+			uid,
+			marriage_places,
+			spouse_names,
+			tokenize = 'porter unicode61'
+		);
+	`)
+	if err != nil {
+		fmt.Printf("Warning: Could not create FTS5 table: %v\n", err)
+	}
+	
+	// Populate FTS table with existing data (idempotent - replaces all)
+	err = s.RebuildFullTextIndex()
+	if err != nil {
+		fmt.Printf("Warning: Could not populate FTS5 table: %v\n", err)
+	}
+
 	return nil
 }
 
@@ -601,6 +769,10 @@ func (s *Store) CreatePerson(p *Person) error {
 	p.ID = id
 	p.CreatedAt = time.Now()
 	p.UpdatedAt = time.Now()
+	
+	// Update FTS index
+	s.UpdateFullTextIndexForPerson(p.ID)
+	
 	return nil
 }
 
@@ -615,11 +787,20 @@ func (s *Store) CreatePersonWithID(p *Person) error {
 func (s *Store) UpdatePerson(p *Person) error {
 	_, err := s.DB.Exec(`UPDATE persons SET given_name=?,surname=?,preferred_name=?,gender=?,birth_date=?,birth_place=?,death_date=?,death_place=?,is_living=?,address=?,city=?,state=?,postal_code=?,country=?,email=?,phone=?,uid=?,notes=?,bookmarked=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`,
 		p.GivenName, p.Surname, p.PreferredName, p.Gender, p.BirthDate, p.BirthPlace, p.DeathDate, p.DeathPlace, intFromBool(p.IsLiving), p.Address, p.City, p.State, p.PostalCode, p.Country, p.Email, p.Phone, p.UID, p.Notes, intFromBool(p.Bookmarked), p.ID)
+	
+	if err == nil {
+		// Update FTS index
+		s.UpdateFullTextIndexForPerson(p.ID)
+	}
+	
 	return err
 }
 
 // DeletePerson removes a person and cascades to relationships/events via FK.
 func (s *Store) DeletePerson(id int64) error {
+	// Delete from FTS index first
+	s.DeleteFullTextIndexForPerson(id)
+	
 	_, err := s.DB.Exec(`DELETE FROM persons WHERE id = ?`, id)
 	return err
 }
@@ -1126,15 +1307,47 @@ func (s *Store) CreateRelationship(rel *Relationship) error {
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	
+	// Update FTS index for both people (marriage places and spouse names changed)
+	s.UpdateFullTextIndexForPerson(rel.SubjectID)
+	s.UpdateFullTextIndexForPerson(rel.ObjectID)
+	
+	return nil
 }
 
 // UpdateRelationship updates an existing relationship.
 func (s *Store) UpdateRelationship(rel *Relationship) error {
-	_, err := s.DB.Exec(`UPDATE relationships 
+	// Get the subject_id and object_id before updating (for FTS index update)
+	var subjectID, objectID int64
+	var relType string
+	err := s.DB.QueryRow(`SELECT subject_id, object_id, type FROM relationships WHERE id = ?`, rel.ID).Scan(&subjectID, &objectID, &relType)
+	if err != nil {
+		return err
+	}
+	
+	// Update the relationship
+	_, err = s.DB.Exec(`UPDATE relationships 
 		SET marriage_date=?, marriage_place=?, divorce_date=?, separation_date=?, end_reason=? 
 		WHERE id=?`,
 		rel.MarriageDate, rel.MarriagePlace, rel.DivorceDate, rel.SeparationDate, rel.EndReason, rel.ID)
+	
+	if err == nil {
+		// Also update the inverse relationship with same data
+		inverseType := getInverseRelationType(relType)
+		s.DB.Exec(`UPDATE relationships 
+			SET marriage_date=?, marriage_place=?, divorce_date=?, separation_date=?, end_reason=? 
+			WHERE subject_id=? AND object_id=? AND type=?`,
+			rel.MarriageDate, rel.MarriagePlace, rel.DivorceDate, rel.SeparationDate, rel.EndReason,
+			objectID, subjectID, inverseType)
+		
+		// Update FTS index for both people
+		s.UpdateFullTextIndexForPerson(subjectID)
+		s.UpdateFullTextIndexForPerson(objectID)
+	}
+	
 	return err
 }
 
@@ -1194,6 +1407,13 @@ func (s *Store) GetRelationshipsForPerson(personID int64) ([]Relationship, error
 // DeleteRelationship deletes a specific relationship.
 func (s *Store) DeleteRelationship(subjectID, objectID int64, relType string) error {
 	_, err := s.DB.Exec(`DELETE FROM relationships WHERE subject_id = ? AND object_id = ? AND type = ?`, subjectID, objectID, relType)
+	
+	if err == nil {
+		// Update FTS index for both people (marriage places and spouse names may have changed)
+		s.UpdateFullTextIndexForPerson(subjectID)
+		s.UpdateFullTextIndexForPerson(objectID)
+	}
+	
 	return err
 }
 
@@ -2805,7 +3025,7 @@ func (s *Store) GetPeopleForResearchLog(logID int64) ([]Person, error) {
 		var isLiving sql.NullInt64
 		var address, city, state, postalCode, country, email, phone, uid, notes sql.NullString
 		var bookmarked sql.NullInt64
-		
+
 		if err := rows.Scan(&p.ID, &p.GivenName, &p.Surname, &preferredName, &p.Gender, &birthDate, &birthPlace,
 			&deathDate, &deathPlace, &isLiving, &address, &city, &state,
 			&postalCode, &country, &email, &phone, &uid, &notes,
@@ -2813,11 +3033,11 @@ func (s *Store) GetPeopleForResearchLog(logID int64) ([]Person, error) {
 			&birthYear, &deathYear); err != nil {
 			return nil, err
 		}
-		
+
 		if preferredName.Valid {
 			p.PreferredName = preferredName.String
 		}
-		
+
 		// Convert nullable fields
 		if birthDate.Valid {
 			p.BirthDate = birthDate.String
@@ -3009,5 +3229,413 @@ func (s *Store) UpdateAlternateName(alt *AlternateName) error {
 // DeleteAlternateName deletes an alternate name
 func (s *Store) DeleteAlternateName(id int64) error {
 	_, err := s.DB.Exec(`DELETE FROM alternate_names WHERE id = ?`, id)
+	return err
+}
+
+// CreateAlternatePlace creates a new alternate place name mapping
+func (s *Store) CreateAlternatePlace(alt *AlternatePlace) error {
+	result, err := s.DB.Exec(`
+		INSERT INTO alternate_places (historical_name, current_name, year_changed, notes)
+		VALUES (?, ?, ?, ?)
+	`, alt.HistoricalName, alt.CurrentName, alt.YearChanged, alt.Notes)
+	if err != nil {
+		return err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	alt.ID = id
+	return nil
+}
+
+// GetAllAlternatePlaces returns all alternate place name mappings
+func (s *Store) GetAllAlternatePlaces() ([]AlternatePlace, error) {
+	rows, err := s.DB.Query(`
+		SELECT id, historical_name, current_name, year_changed, notes, created_at
+		FROM alternate_places
+		ORDER BY historical_name ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var places []AlternatePlace
+	for rows.Next() {
+		var alt AlternatePlace
+		var yearChanged sql.NullInt64
+		if err := rows.Scan(&alt.ID, &alt.HistoricalName, &alt.CurrentName, &yearChanged, &alt.Notes, &alt.CreatedAt); err != nil {
+			return nil, err
+		}
+		if yearChanged.Valid {
+			alt.YearChanged = int(yearChanged.Int64)
+		}
+		places = append(places, alt)
+	}
+	return places, rows.Err()
+}
+
+// GetAlternatePlaceFor returns the current name for a historical place name (if it exists)
+func (s *Store) GetAlternatePlaceFor(historicalName string) (*AlternatePlace, error) {
+	var alt AlternatePlace
+	var yearChanged sql.NullInt64
+	err := s.DB.QueryRow(`
+		SELECT id, historical_name, current_name, year_changed, notes, created_at
+		FROM alternate_places
+		WHERE LOWER(historical_name) = LOWER(?)
+		LIMIT 1
+	`, historicalName).Scan(&alt.ID, &alt.HistoricalName, &alt.CurrentName, &yearChanged, &alt.Notes, &alt.CreatedAt)
+	
+	if err == sql.ErrNoRows {
+		return nil, nil // No alternate found, not an error
+	}
+	if err != nil {
+		return nil, err
+	}
+	
+	if yearChanged.Valid {
+		alt.YearChanged = int(yearChanged.Int64)
+	}
+	return &alt, nil
+}
+
+// UpdateAlternatePlace updates an alternate place name mapping
+func (s *Store) UpdateAlternatePlace(alt *AlternatePlace) error {
+	_, err := s.DB.Exec(`
+		UPDATE alternate_places
+		SET historical_name = ?, current_name = ?, year_changed = ?, notes = ?
+		WHERE id = ?
+	`, alt.HistoricalName, alt.CurrentName, alt.YearChanged, alt.Notes, alt.ID)
+	return err
+}
+
+// DeleteAlternatePlace deletes an alternate place name mapping
+func (s *Store) DeleteAlternatePlace(id int64) error {
+	_, err := s.DB.Exec(`DELETE FROM alternate_places WHERE id = ?`, id)
+	return err
+}
+
+// GetLastBackupDate retrieves the last backup date
+func (s *Store) GetLastBackupDate() (*time.Time, error) {
+	var dateStr sql.NullString
+	err := s.DB.QueryRow(`SELECT last_backup_date FROM settings WHERE id = 1`).Scan(&dateStr)
+	if err != nil {
+		return nil, err
+	}
+	if !dateStr.Valid || dateStr.String == "" {
+		return nil, nil
+	}
+	t, err := time.Parse(time.RFC3339, dateStr.String)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// UpdateLastBackupDate updates the last backup timestamp
+func (s *Store) UpdateLastBackupDate() error {
+	_, err := s.DB.Exec(`
+		UPDATE settings 
+		SET last_backup_date = ?, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = 1
+	`, time.Now().Format(time.RFC3339))
+	return err
+}
+
+// GetBackupReminderEnabled checks if backup reminders are enabled
+func (s *Store) GetBackupReminderEnabled() (bool, error) {
+	var enabled int
+	err := s.DB.QueryRow(`SELECT backup_reminder_enabled FROM settings WHERE id = 1`).Scan(&enabled)
+	if err != nil {
+		return true, err // default to enabled
+	}
+	return enabled == 1, nil
+}
+
+// GetBackupReminderSettings retrieves all backup reminder settings in one query (optimized)
+func (s *Store) GetBackupReminderSettings() (enabled bool, lastBackup *time.Time, days int, err error) {
+	var enabledInt int
+	var dateStr sql.NullString
+
+	err = s.DB.QueryRow(`
+		SELECT backup_reminder_enabled, last_backup_date, backup_reminder_days 
+		FROM settings WHERE id = 1
+	`).Scan(&enabledInt, &dateStr, &days)
+
+	if err != nil {
+		return true, nil, 7, err // defaults
+	}
+
+	enabled = enabledInt == 1
+
+	if dateStr.Valid && dateStr.String != "" {
+		t, parseErr := time.Parse(time.RFC3339, dateStr.String)
+		if parseErr == nil {
+			lastBackup = &t
+		}
+	}
+
+	return enabled, lastBackup, days, nil
+}
+
+// SetBackupReminderEnabled enables/disables backup reminders
+func (s *Store) SetBackupReminderEnabled(enabled bool) error {
+	val := 0
+	if enabled {
+		val = 1
+	}
+	_, err := s.DB.Exec(`
+		UPDATE settings 
+		SET backup_reminder_enabled = ?, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = 1
+	`, val)
+	return err
+}
+
+// GetBackupReminderDays gets the number of days before reminding
+func (s *Store) GetBackupReminderDays() (int, error) {
+	var days int
+	err := s.DB.QueryRow(`SELECT backup_reminder_days FROM settings WHERE id = 1`).Scan(&days)
+	if err != nil {
+		return 7, err // default to 7 days
+	}
+	return days, nil
+}
+
+// SetBackupReminderDays sets the number of days before reminding
+func (s *Store) SetBackupReminderDays(days int) error {
+	_, err := s.DB.Exec(`
+		UPDATE settings 
+		SET backup_reminder_days = ?, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = 1
+	`, days)
+	return err
+}
+
+// RebuildFullTextIndex rebuilds the FTS5 index with all current person data.
+func (s *Store) RebuildFullTextIndex() error {
+	// Clear existing FTS data
+	_, err := s.DB.Exec(`DELETE FROM persons_fts;`)
+	if err != nil {
+		return err
+	}
+	
+	// Populate FTS table from persons table with relationship data
+	// Aggregate marriage places and spouse names for each person
+	_, err = s.DB.Exec(`
+		INSERT INTO persons_fts (
+			person_id, given_name, surname, preferred_name, notes,
+			birth_place, death_place, address, city, state, country, uid,
+			marriage_places, spouse_names
+		)
+		SELECT 
+			p.id, 
+			p.given_name, 
+			p.surname, 
+			p.preferred_name, 
+			p.notes,
+			p.birth_place, 
+			p.death_place, 
+			p.address, 
+			p.city, 
+			p.state, 
+			p.country, 
+			p.uid,
+			COALESCE(
+				(SELECT GROUP_CONCAT(r.marriage_place, ' ')
+				 FROM (SELECT DISTINCT marriage_place FROM relationships 
+				       WHERE subject_id = p.id AND marriage_place IS NOT NULL AND marriage_place != '') r),
+				''
+			) as marriage_places,
+			COALESCE(
+				(SELECT GROUP_CONCAT(spouse_name, ' ')
+				 FROM (SELECT DISTINCT (spouse.given_name || ' ' || spouse.surname) as spouse_name
+				       FROM relationships r
+				       JOIN persons spouse ON spouse.id = r.object_id
+				       WHERE r.subject_id = p.id AND r.type IN ('spouse', 'partner')) s),
+				''
+			) as spouse_names
+		FROM persons p;
+	`)
+	
+	return err
+}
+
+// FullTextSearchResult represents a search result with context.
+type FullTextSearchResult struct {
+	PersonID     int64
+	Person       Person
+	MatchedField string // Which field matched (e.g., "notes", "birth_place")
+	Snippet      string // Context snippet showing the match
+	Rank         float64 // FTS5 relevance rank
+}
+
+// FullTextSearch performs a full-text search across all person data.
+func (s *Store) FullTextSearch(query string, maxResults int) ([]FullTextSearchResult, error) {
+	if query == "" {
+		return []FullTextSearchResult{}, nil
+	}
+	
+	if maxResults <= 0 {
+		maxResults = 50 // Default limit
+	}
+	
+	// Query FTS5 table with ranking
+	rows, err := s.DB.Query(`
+		SELECT 
+			person_id,
+			snippet(persons_fts, -1, '**', '**', '...', 30) as snippet,
+			rank
+		FROM persons_fts
+		WHERE persons_fts MATCH ?
+		ORDER BY rank
+		LIMIT ?
+	`, query, maxResults)
+	
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var results []FullTextSearchResult
+	for rows.Next() {
+		var result FullTextSearchResult
+		var snippet string
+		var rank float64
+		
+		err := rows.Scan(&result.PersonID, &snippet, &rank)
+		if err != nil {
+			continue
+		}
+		
+		// Get full person record
+		person, err := s.GetPersonByID(result.PersonID)
+		if err != nil {
+			continue
+		}
+		
+		result.Person = *person
+		result.Snippet = snippet
+		result.Rank = rank
+		
+		// Determine which field matched (look for ** markers in snippet)
+		result.MatchedField = determineMatchedField(snippet, person)
+		
+		results = append(results, result)
+	}
+	
+	return results, nil
+}
+
+// determineMatchedField identifies which field contains the search match.
+func determineMatchedField(snippet string, person *Person) string {
+	// The snippet contains the matched text with ** markers
+	// Remove markers for comparison
+	cleanSnippet := strings.ReplaceAll(snippet, "**", "")
+	
+	// Check which field the snippet came from
+	// Priority order: more specific fields first
+	if strings.Contains(person.GivenName, cleanSnippet) {
+		return "Given Name"
+	}
+	if strings.Contains(person.Surname, cleanSnippet) {
+		return "Surname"
+	}
+	if strings.Contains(person.PreferredName, cleanSnippet) {
+		return "Preferred Name"
+	}
+	if strings.Contains(person.BirthPlace, cleanSnippet) {
+		return "Birth Place"
+	}
+	if strings.Contains(person.DeathPlace, cleanSnippet) {
+		return "Death Place"
+	}
+	if strings.Contains(person.Address, cleanSnippet) {
+		return "Address"
+	}
+	if strings.Contains(person.City, cleanSnippet) {
+		return "City"
+	}
+	if strings.Contains(person.State, cleanSnippet) {
+		return "State"
+	}
+	if strings.Contains(person.Country, cleanSnippet) {
+		return "Country"
+	}
+	if strings.Contains(person.Notes, cleanSnippet) {
+		return "Notes"
+	}
+	if strings.Contains(person.UID, cleanSnippet) {
+		return "UID"
+	}
+	
+	// Check if it's from marriage places or spouse names
+	// These require a database query since they're not in the Person struct
+	if strings.Contains(strings.ToLower(snippet), "marriage") || 
+	   strings.Contains(strings.ToLower(snippet), "married") {
+		return "Marriage Place"
+	}
+	
+	// Could be spouse name if it contains typical name patterns
+	if len(strings.Fields(cleanSnippet)) >= 2 {
+		return "Spouse Name"
+	}
+	
+	return "Related Field"
+}
+
+// UpdateFullTextIndexForPerson updates the FTS index for a single person.
+func (s *Store) UpdateFullTextIndexForPerson(personID int64) error {
+	// Delete existing FTS entry
+	_, err := s.DB.Exec(`DELETE FROM persons_fts WHERE person_id = ?`, personID)
+	if err != nil {
+		return err
+	}
+	
+	// Re-insert from persons table with relationship data
+	_, err = s.DB.Exec(`
+		INSERT INTO persons_fts (
+			person_id, given_name, surname, preferred_name, notes,
+			birth_place, death_place, address, city, state, country, uid,
+			marriage_places, spouse_names
+		)
+		SELECT 
+			p.id, 
+			p.given_name, 
+			p.surname, 
+			p.preferred_name, 
+			p.notes,
+			p.birth_place, 
+			p.death_place, 
+			p.address, 
+			p.city, 
+			p.state, 
+			p.country, 
+			p.uid,
+			COALESCE(
+				(SELECT GROUP_CONCAT(r.marriage_place, ' ')
+				 FROM (SELECT DISTINCT marriage_place FROM relationships 
+				       WHERE subject_id = p.id AND marriage_place IS NOT NULL AND marriage_place != '') r),
+				''
+			) as marriage_places,
+			COALESCE(
+				(SELECT GROUP_CONCAT(spouse_name, ' ')
+				 FROM (SELECT DISTINCT (spouse.given_name || ' ' || spouse.surname) as spouse_name
+				       FROM relationships r
+				       JOIN persons spouse ON spouse.id = r.object_id
+				       WHERE r.subject_id = p.id AND r.type IN ('spouse', 'partner')) s),
+				''
+			) as spouse_names
+		FROM persons p
+		WHERE p.id = ?;
+	`, personID)
+	
+	return err
+}
+
+// DeleteFullTextIndexForPerson removes a person from the FTS index.
+func (s *Store) DeleteFullTextIndexForPerson(personID int64) error {
+	_, err := s.DB.Exec(`DELETE FROM persons_fts WHERE person_id = ?`, personID)
 	return err
 }

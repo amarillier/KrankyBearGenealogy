@@ -12,11 +12,24 @@ import (
 	"genealogy/store"
 )
 
+var globalSearchReplaceWindow fyne.Window
+
 // showGlobalSearchReplaceDialog shows the global search and replace dialog
 func showGlobalSearchReplaceDialog(w fyne.Window, s *store.Store) {
+	// If window already exists and is visible, just bring it to front
+	if globalSearchReplaceWindow != nil && globalSearchReplaceWindow.Content().Visible() {
+		globalSearchReplaceWindow.Show()
+		globalSearchReplaceWindow.RequestFocus()
+		return
+	}
+
 	// Create a new window for the dialog
 	searchWin := fyne.CurrentApp().NewWindow("Global Search and Replace")
 	searchWin.Resize(fyne.NewSize(800, 600))
+	globalSearchReplaceWindow = searchWin
+	
+	// Register for window lifecycle management
+	RegisterSecondaryWindow(searchWin)
 
 	// Search and replace fields
 	searchEntry := widget.NewEntry()
@@ -27,16 +40,17 @@ func showGlobalSearchReplaceDialog(w fyne.Window, s *store.Store) {
 
 	// Field selector
 	fieldSelect := widget.NewSelect([]string{
+		"All Place Fields",
 		"Birth Place",
 		"Death Place",
+		"Marriage Place",
 		"Address",
 		"City",
 		"State",
 		"Country",
 		"Notes",
-		"All Place Fields",
 	}, nil)
-	fieldSelect.SetSelected("Birth Place")
+	fieldSelect.SetSelected("All Place Fields")
 
 	// Case sensitive checkbox
 	caseSensitive := widget.NewCheck("Case sensitive", nil)
@@ -44,6 +58,7 @@ func showGlobalSearchReplaceDialog(w fyne.Window, s *store.Store) {
 	// Results list
 	var resultsList *widget.List
 	var matchedPeople []store.Person
+	var resultsLabel *widget.Label
 	var updateList func()
 
 	resultsList = widget.NewList(
@@ -62,7 +77,7 @@ func showGlobalSearchReplaceDialog(w fyne.Window, s *store.Store) {
 			person := matchedPeople[id]
 			checkbox.SetChecked(true)
 
-			matchText := getMatchInfo(person, fieldSelect.Selected, searchEntry.Text)
+			matchText := getMatchInfo(s, person, fieldSelect.Selected, searchEntry.Text)
 			label.SetText(fmt.Sprintf("%s - %s", formatPersonName(person), matchText))
 		},
 	)
@@ -70,6 +85,7 @@ func showGlobalSearchReplaceDialog(w fyne.Window, s *store.Store) {
 	updateList = func() {
 		matchedPeople = findMatches(s, searchEntry.Text, fieldSelect.Selected, caseSensitive.Checked)
 		resultsList.Refresh()
+		resultsLabel.SetText(fmt.Sprintf("Results: %d matches found", len(matchedPeople)))
 	}
 
 	// Search button
@@ -134,7 +150,7 @@ func showGlobalSearchReplaceDialog(w fyne.Window, s *store.Store) {
 
 	buttons := container.NewHBox(searchBtn, replaceBtn)
 
-	resultsLabel := widget.NewLabel("Results: (click Search to find matches)")
+	resultsLabel = widget.NewLabel("Results: (click Search to find matches)")
 	resultsContainer := container.NewBorder(resultsLabel, nil, nil, nil, container.NewVScroll(resultsList))
 
 	content := container.NewBorder(
@@ -144,7 +160,14 @@ func showGlobalSearchReplaceDialog(w fyne.Window, s *store.Store) {
 	)
 
 	searchWin.SetContent(content)
+	
+	// Hide window instead of closing it, so we can reuse it
+	searchWin.SetCloseIntercept(func() {
+		searchWin.Hide()
+	})
+	
 	searchWin.Show()
+	searchWin.RequestFocus() // Bring window to front
 }
 
 // findMatches finds all people matching the search criteria
@@ -160,7 +183,7 @@ func findMatches(s *store.Store, searchText, field string, caseSensitive bool) [
 
 	var matches []store.Person
 	for _, person := range people {
-		if personMatchesSearch(person, searchText, field, caseSensitive) {
+		if personMatchesSearch(s, person, searchText, field, caseSensitive) {
 			matches = append(matches, person)
 		}
 	}
@@ -169,7 +192,7 @@ func findMatches(s *store.Store, searchText, field string, caseSensitive bool) [
 }
 
 // personMatchesSearch checks if a person matches the search criteria
-func personMatchesSearch(person store.Person, searchText, field string, caseSensitive bool) bool {
+func personMatchesSearch(s *store.Store, person store.Person, searchText, field string, caseSensitive bool) bool {
 	search := searchText
 	if !caseSensitive {
 		search = strings.ToLower(search)
@@ -182,6 +205,16 @@ func personMatchesSearch(person store.Person, searchText, field string, caseSens
 		fieldsToSearch = []string{person.BirthPlace}
 	case "Death Place":
 		fieldsToSearch = []string{person.DeathPlace}
+	case "Marriage Place":
+		// Get all relationships for this person and check marriage places
+		rels, err := s.GetRelationshipsForPerson(person.ID)
+		if err == nil {
+			for _, rel := range rels {
+				if rel.MarriagePlace != "" {
+					fieldsToSearch = append(fieldsToSearch, rel.MarriagePlace)
+				}
+			}
+		}
 	case "Address":
 		fieldsToSearch = []string{person.Address}
 	case "City":
@@ -194,6 +227,15 @@ func personMatchesSearch(person store.Person, searchText, field string, caseSens
 		fieldsToSearch = []string{person.Notes}
 	case "All Place Fields":
 		fieldsToSearch = []string{person.BirthPlace, person.DeathPlace, person.Address, person.City, person.State, person.Country}
+		// Also include marriage places
+		rels, err := s.GetRelationshipsForPerson(person.ID)
+		if err == nil {
+			for _, rel := range rels {
+				if rel.MarriagePlace != "" {
+					fieldsToSearch = append(fieldsToSearch, rel.MarriagePlace)
+				}
+			}
+		}
 	}
 
 	for _, fieldValue := range fieldsToSearch {
@@ -210,12 +252,32 @@ func personMatchesSearch(person store.Person, searchText, field string, caseSens
 }
 
 // getMatchInfo returns information about what matched
-func getMatchInfo(person store.Person, field, searchText string) string {
+func getMatchInfo(s *store.Store, person store.Person, field, searchText string) string {
 	switch field {
 	case "Birth Place":
 		return fmt.Sprintf("Birth Place: %s", person.BirthPlace)
 	case "Death Place":
 		return fmt.Sprintf("Death Place: %s", person.DeathPlace)
+	case "Marriage Place":
+		// Find matching marriage places
+		rels, err := s.GetRelationshipsForPerson(person.ID)
+		if err == nil {
+			for _, rel := range rels {
+				if rel.MarriagePlace != "" && strings.Contains(strings.ToLower(rel.MarriagePlace), strings.ToLower(searchText)) {
+					// Get spouse name
+					spouseID := rel.ObjectID
+					if spouseID == person.ID {
+						spouseID = rel.SubjectID
+					}
+					spouse, err := s.GetPersonByID(spouseID)
+					spouseName := "Unknown"
+					if err == nil && spouse != nil {
+						spouseName = formatPersonName(*spouse)
+					}
+					return fmt.Sprintf("Marriage to %s: %s", spouseName, rel.MarriagePlace)
+				}
+			}
+		}
 	case "Address":
 		return fmt.Sprintf("Address: %s", person.Address)
 	case "City":
@@ -249,6 +311,24 @@ func getMatchInfo(person store.Person, field, searchText string) string {
 				return fmt.Sprintf("%s: %s", f.name, f.value)
 			}
 		}
+		// Check marriage places
+		rels, err := s.GetRelationshipsForPerson(person.ID)
+		if err == nil {
+			for _, rel := range rels {
+				if rel.MarriagePlace != "" && strings.Contains(strings.ToLower(rel.MarriagePlace), strings.ToLower(searchText)) {
+					spouseID := rel.ObjectID
+					if spouseID == person.ID {
+						spouseID = rel.SubjectID
+					}
+					spouse, err := s.GetPersonByID(spouseID)
+					spouseName := "Unknown"
+					if err == nil && spouse != nil {
+						spouseName = formatPersonName(*spouse)
+					}
+					return fmt.Sprintf("Marriage to %s: %s", spouseName, rel.MarriagePlace)
+				}
+			}
+		}
 	}
 	return ""
 }
@@ -268,6 +348,25 @@ func performReplacement(s *store.Store, people []store.Person, searchText, repla
 		case "Death Place":
 			personCopy.DeathPlace = replaceInString(person.DeathPlace, searchText, replaceText, caseSensitive)
 			modified = personCopy.DeathPlace != person.DeathPlace
+		case "Marriage Place":
+			// Update marriage places in relationships
+			rels, err := s.GetRelationshipsForPerson(person.ID)
+			if err != nil {
+				return count, err
+			}
+			for _, rel := range rels {
+				if rel.MarriagePlace != "" && strings.Contains(strings.ToLower(rel.MarriagePlace), strings.ToLower(searchText)) {
+					originalPlace := rel.MarriagePlace
+					rel.MarriagePlace = replaceInString(rel.MarriagePlace, searchText, replaceText, caseSensitive)
+					if rel.MarriagePlace != originalPlace {
+						err := s.UpdateRelationship(&rel)
+						if err != nil {
+							return count, err
+						}
+						modified = true
+					}
+				}
+			}
 		case "Address":
 			personCopy.Address = replaceInString(person.Address, searchText, replaceText, caseSensitive)
 			modified = personCopy.Address != person.Address
@@ -296,13 +395,35 @@ func performReplacement(s *store.Store, people []store.Person, searchText, repla
 				personCopy.City != person.City ||
 				personCopy.State != person.State ||
 				personCopy.Country != person.Country
+			
+			// Also update marriage places
+			rels, err := s.GetRelationshipsForPerson(person.ID)
+			if err != nil {
+				return count, err
+			}
+			for _, rel := range rels {
+				if rel.MarriagePlace != "" && strings.Contains(strings.ToLower(rel.MarriagePlace), strings.ToLower(searchText)) {
+					originalPlace := rel.MarriagePlace
+					rel.MarriagePlace = replaceInString(rel.MarriagePlace, searchText, replaceText, caseSensitive)
+					if rel.MarriagePlace != originalPlace {
+						err := s.UpdateRelationship(&rel)
+						if err != nil {
+							return count, err
+						}
+						modified = true
+					}
+				}
+			}
 		}
 
-		if modified {
+		if modified && field != "Marriage Place" {
+			// For Marriage Place, we already updated the relationships directly
 			err := s.UpdatePerson(&personCopy)
 			if err != nil {
 				return count, err
 			}
+			count++
+		} else if modified && field == "Marriage Place" {
 			count++
 		}
 	}

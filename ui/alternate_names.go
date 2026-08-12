@@ -62,8 +62,10 @@ func showAlternateNamesManager(w fyne.Window, s *store.Store, personID int64, pe
 
 	// Instructions
 	instructions := widget.NewLabel(
-		"Alternate names help track name variations, spellings, nicknames, and maiden names. " +
-		"These will be included in searches and displayed in person details.")
+		"Alternate names help track name variations, spellings, nicknames, and maiden names.\n" +
+		"• Displayed in Family View for all people (shown as \"Also known as: ...\")\n" +
+		"• Searchable in main people list (left panel filter)\n" +
+		"• Searchable in Advanced Search (Tools → Advanced Search)")
 	instructions.Wrapping = fyne.TextWrapWord
 
 	// Layout
@@ -141,12 +143,12 @@ func makeAlternateNameCard(alt store.AlternateName, s *store.Store, onUpdate fun
 
 // showAddAlternateNameDialog shows a dialog to add a new alternate name
 func showAddAlternateNameDialog(parentWindow fyne.Window, s *store.Store, personID int64, onSave func()) {
-	// Create form fields
-	givenNameEntry := widget.NewEntry()
-	givenNameEntry.SetPlaceHolder("Alternate given name(s)")
+	// Create form fields with autocomplete
+	givenNameAutocomplete := NewGivenNameAutocomplete(func() *store.Store { return s }, "")
+	givenNameAutocomplete.Entry.SetPlaceHolder("Alternate given name(s)")
 
-	surnameEntry := widget.NewEntry()
-	surnameEntry.SetPlaceHolder("Alternate surname")
+	surnameAutocomplete := NewSurnameAutocomplete(func() *store.Store { return s }, "")
+	surnameAutocomplete.Entry.SetPlaceHolder("Alternate surname")
 
 	typeSelect := widget.NewSelect([]string{"nickname", "maiden", "married", "spelling", "other"}, nil)
 	typeSelect.SetSelected("spelling") // Default
@@ -160,8 +162,8 @@ func showAddAlternateNameDialog(parentWindow fyne.Window, s *store.Store, person
 
 	// Form items
 	form := container.NewVBox(
-		widget.NewLabel("Alternate Given Name:"), givenNameEntry,
-		widget.NewLabel("Alternate Surname:"), surnameEntry,
+		widget.NewLabel("Alternate Given Name:"), givenNameAutocomplete.Container,
+		widget.NewLabel("Alternate Surname:"), surnameAutocomplete.Container,
 		widget.NewLabel("Name Type:"), typeSelect,
 		widget.NewLabel("Notes (optional):"), notesEntry,
 		validationLabel,
@@ -177,8 +179,8 @@ func showAddAlternateNameDialog(parentWindow fyne.Window, s *store.Store, person
 		}
 
 		// Validate
-		givenName := givenNameEntry.Text
-		surname := surnameEntry.Text
+		givenName := givenNameAutocomplete.GetText()
+		surname := surnameAutocomplete.GetText()
 
 		if givenName == "" && surname == "" {
 			validationLabel.SetText("❌ Please enter at least a given name or surname")
@@ -209,14 +211,12 @@ func showAddAlternateNameDialog(parentWindow fyne.Window, s *store.Store, person
 
 // showEditAlternateNameDialog shows a dialog to edit an existing alternate name
 func showEditAlternateNameDialog(parentWindow fyne.Window, s *store.Store, alt *store.AlternateName, onSave func()) {
-	// Create form fields with existing values
-	givenNameEntry := widget.NewEntry()
-	givenNameEntry.SetText(alt.GivenName)
-	givenNameEntry.SetPlaceHolder("Alternate given name(s)")
+	// Create form fields with existing values and autocomplete
+	givenNameAutocomplete := NewGivenNameAutocomplete(func() *store.Store { return s }, alt.GivenName)
+	givenNameAutocomplete.Entry.SetPlaceHolder("Alternate given name(s)")
 
-	surnameEntry := widget.NewEntry()
-	surnameEntry.SetText(alt.Surname)
-	surnameEntry.SetPlaceHolder("Alternate surname")
+	surnameAutocomplete := NewSurnameAutocomplete(func() *store.Store { return s }, alt.Surname)
+	surnameAutocomplete.Entry.SetPlaceHolder("Alternate surname")
 
 	typeSelect := widget.NewSelect([]string{"nickname", "maiden", "married", "spelling", "other"}, nil)
 	typeSelect.SetSelected(alt.NameType)
@@ -231,8 +231,8 @@ func showEditAlternateNameDialog(parentWindow fyne.Window, s *store.Store, alt *
 
 	// Form items
 	form := container.NewVBox(
-		widget.NewLabel("Alternate Given Name:"), givenNameEntry,
-		widget.NewLabel("Alternate Surname:"), surnameEntry,
+		widget.NewLabel("Alternate Given Name:"), givenNameAutocomplete.Container,
+		widget.NewLabel("Alternate Surname:"), surnameAutocomplete.Container,
 		widget.NewLabel("Name Type:"), typeSelect,
 		widget.NewLabel("Notes (optional):"), notesEntry,
 		validationLabel,
@@ -248,8 +248,8 @@ func showEditAlternateNameDialog(parentWindow fyne.Window, s *store.Store, alt *
 		}
 
 		// Validate
-		givenName := givenNameEntry.Text
-		surname := surnameEntry.Text
+		givenName := givenNameAutocomplete.GetText()
+		surname := surnameAutocomplete.GetText()
 
 		if givenName == "" && surname == "" {
 			validationLabel.SetText("❌ Please enter at least a given name or surname")

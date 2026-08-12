@@ -9,23 +9,23 @@ import (
 	"fyne.io/fyne/v2"
 )
 
-//go:embed Resources/Images/KrankyBearGenealogy.png
+//go:embed assets/images/KrankyBearGenealogy.png
 var resourceKrankyBearGenealogyPngData []byte
 var resourceKrankyBearGenealogyPng = &fyne.StaticResource{
-	StaticName:    "Resources/Images/KrankyBearGenealogy.png",
+	StaticName:    "assets/images/KrankyBearGenealogy.png",
 	StaticContent: resourceKrankyBearGenealogyPngData,
 }
 
-//go:embed Resources/Images/KrankyBearGenealogy64.png
+//go:embed assets/images/KrankyBearGenealogy64.png
 var resourceKrankyBearGenealogy64PngData []byte
 var resourceKrankyBearGenealogy64Png = &fyne.StaticResource{
-	StaticName:    "Resources/Images/KrankyBearGenealogy64.png",
+	StaticName:    "assets/images/KrankyBearGenealogy64.png",
 	StaticContent: resourceKrankyBearGenealogy64PngData,
 }
 
-//go:embed Resources/Images/KrankyBearHardHat.png
+//go:embed assets/images/KrankyBearHardHat.png
 var resourceKrankyBearHardHatPngData []byte
 var resourceKrankyBearHardHatPng = &fyne.StaticResource{
-	StaticName:    "Resources/Images/KrankyBearHardHat.png",
+	StaticName:    "assets/images/KrankyBearHardHat.png",
 	StaticContent: resourceKrankyBearHardHatPngData,
 }

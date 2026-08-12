@@ -4,7 +4,6 @@ import (
 	"net/url"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
@@ -27,10 +26,17 @@ func showAbout(a fyne.App) {
 	aboutWindow = a.NewWindow(appName + " - About")
 	aboutWindow.SetIcon(resourceKrankyBearGenealogyPng)
 
-	// App icon - fixed size 256x256
-	icon := canvas.NewImageFromResource(resourceKrankyBearGenealogyPng)
-	icon.FillMode = canvas.ImageFillContain
-	icon.SetMinSize(fyne.NewSize(256, 256))
+	// App icon, scaled to fit at a fixed 256x256.
+	icon := newBrandingDialogImage(resourceKrankyBearGenealogyPng)
+
+	// Reflects the last update check's verdict (see update.go's
+	// aheadOfLatestRelease): a small HardHat badge beside the app icon when
+	// this build is newer than the latest published GitHub release.
+	var iconDisplay fyne.CanvasObject = icon
+	if aheadOfLatestRelease.Load() {
+		badge := newBrandingBadgeImage(resourceKrankyBearHardHatPng)
+		iconDisplay = container.NewHBox(icon, badge)
+	}
 
 	// Title and version info
 	title := widget.NewLabelWithStyle(appName, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
@@ -63,7 +69,7 @@ func showAbout(a fyne.App) {
 
 	// Layout
 	content := container.NewVBox(
-		container.NewCenter(icon),
+		container.NewCenter(iconDisplay),
 		widget.NewSeparator(),
 		title,
 		version,
