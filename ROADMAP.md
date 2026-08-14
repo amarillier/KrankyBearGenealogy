@@ -255,12 +255,12 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 ### Sharing Features
 - **✅ Selective Branch Export**: Already implemented
-- **⏳ Change Tracking**: Audit log of all edits (who, when, what)
+- **✅ Change Tracking**: Persistent audit log of all edits (who, when, what) - Completed in v1.7.0
 - **⏳ GEDCOM Merge**: Import another GEDCOM and resolve conflicts
   - ⏳ Side-by-side comparison
   - ⏳ Manual conflict resolution
   - ⏳ Smart duplicate detection
-- **⏳ Collaborative Editing**: Lock mechanism for multi-user scenarios
+- **⏳ Collaborative Editing**: Lock mechanism for multi-user scenarios - low priority, most use is expected to be single user
 - ✅ **Family Website Generator** (v1.4.0): Complete multi-page static HTML website from database
   - ✅ Individual person pages with photos and relationships
   - ✅ Places index page (geographic organization)
@@ -381,7 +381,8 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Migration distance calculations
   - ✅ 18 zoom levels with auto-centering
   - ✅ Marker statistics display
-  - ⏳ Future enhancements: Timeline slider, heat maps, and historical overlays (Phase 7+)
+  - ✅ Timeline slider - Completed in v1.7.0
+  - ⏳ Future enhancements: Heat maps and historical overlays (Phase 7+)
 
 ### Data Entry Helpers
 - **✅ Smart Date Entry**: Parse "May 1945", "1945", "abt 1945", etc. (v1.5.3)
@@ -394,7 +395,7 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Search existing places in database
   - ✅ Real-time suggestions as user types
   - ✅ Apply to all place fields
-- **✅ Name Authority**: Suggest standard name formats (v1.7)
+- **✅ Name Authority**: Suggest standard name formats (v1.6.0)
   - ✅ Given name autocomplete with frequency counts
   - ✅ Surname autocomplete with frequency counts
   - ✅ Apply to all name entry fields (Person Edit, Advanced Search, Alternate Names)
@@ -406,17 +407,17 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 ## 🔧 Phase 9: Advanced Features
 
-### Performance & Scalability (Future)
-- ✅ **Indexed Search**: Full-text search across all fields (✓ Completed in v1.8)
-- **⏳ Large Database Optimization**: Handle 10,000+ people efficiently
-- **⏳ Lazy Loading**: Load views progressively for large datasets
-- **⏳ Background Processing**: Import/export in background threads
+### Performance & Scalability
+- ✅ **Indexed Search**: Full-text search across all fields (✓ Completed in v1.6.0)
+- ✅ **Large Database Optimization**: Batch person indicators replacing per-row queries in the People list and Individual View (✓ Completed in v1.7.0)
+- ✅ **Background Processing**: Import/export/backup/restore in background threads (✓ Completed in v1.7.0)
+- **⏳ Lazy Loading**: Load views progressively for large datasets (not yet needed - profiling in v1.7.0 showed the bottleneck was per-row queries, not the underlying data load; revisit if databases grow well past 10,000 people)
 
 ### Integration (Future)
-- **⏳ Online Search Integration**: Quick links to Ancestry, FamilySearch, etc.
+- **✅ Online Search Integration**: Quick links to Ancestry, FamilySearch, etc. - Completed in v1.7.0
 - **⏳ Census Data Import**: Import from online census records
 - **⏳ DNA Integration**: Link to DNA test results (23andMe, Ancestry DNA)
-- **⏳ Calendar Integration**: Export birthdays/anniversaries to calendar
+- **✅ Calendar Integration**: Export birthdays/anniversaries to calendar - Completed in v1.7.0
 
 ### Data Management
 - ✅ **Database Maintenance** (✓ Completed in v1.2): 
@@ -507,13 +508,18 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 24. ✅ PDF Export - Professional PDF generation for all reports (v1.4.0)
 25. ✅ CSV Export - Data exports for People, Timeline, Surnames, Places, Sources (v1.4.0)
 
-### ✅ Current Release (v1.4.0)
+### ✅ Current Release (v1.6.0)
 
-**✅ Phase 11 - HTML Export & Website Generation** ⭐ (✓ Completed)
+**✅ Quick Wins, Name Authority, Map Enhancements & Full-Text Search** ⭐ (✓ Completed)
+
+See the "Released: v1.6.0" entry later in this document, or ReleaseNotes.txt, for the complete feature list.
+
+### ✅ Previous Releases
+
+**✅ v1.4.0 - Phase 11** ⭐ (✓ Completed)
+- **Phase 11 - HTML Export & Website Generation**
 
 See detailed release notes in ReleaseNotes.txt for complete feature list and usage instructions.
-
-### ⏳ Previous Releases
 
 **✅ v1.3 - Phase 8 & 9** ⭐ (✓ Completed)
 - **Phase 8 - UX Enhancements** (Advanced Search, Enhanced Pedigree, Fan Chart, Context Menus, Descendant Chart)
@@ -833,9 +839,11 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 
 ---
 
-### 🎯 Released: v1.6 - Quick Wins (Released February 3, 2026)
+### ✅ Released: v1.6.0 - Quick Wins, Name Authority, Map Enhancements & Full-Text Search (Released August 12, 2026)
 
-**Focus:** High-impact, foundational improvements that benefit all users
+**Focus:** High-impact, foundational improvements accumulated over several months of development
+and shipped together as a single release: data-entry quality-of-life, complete map life-journey
+visualization, and powerful full-text search.
 
 **Backup Reminders** ⭐ HIGH PRIORITY (✓ Complete)
 - ✅ Track last backup date in database settings
@@ -880,15 +888,6 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 - **Actual Effort:** 2 hours (core indexing complete, advanced features deferred)
 - **Performance Results:** ✅ Verified fast on 1,400 people, ready for 10,000+
 
-**Total Actual Effort:** 7-9 hours (significantly under original 30-45 hour estimate)
-**Release Date:** February 3, 2026
-
----
-
-### 🎯 Released: v1.7 - Name Authority (Released February 5, 2026)
-
-**Focus:** Complete Phase 8 Data Entry Helpers with intelligent name suggestions
-
 **Phase 8: Name Authority** ⭐ HIGH PRIORITY (✓ Complete)
 - ✅ **Given Name Autocomplete**: Suggests existing given names as you type
   - ✅ Searches all given names and preferred names in database
@@ -910,15 +909,6 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
   - ✅ Improves searchability and reports
 - **User Value:** VERY HIGH - Daily quality-of-life improvement, completes Phase 8
 - **Actual Effort:** 4-5 hours (including all integration points)
-
-**Total Actual Effort:** 4-5 hours
-**Release Date:** February 5, 2026
-
----
-
-### 🎯 Recent Release: v1.7 - Name Authority & Map Enhancements (February 5, 2026)
-
-In addition to Name Authority, v1.7 includes valuable map improvements:
 
 **Phase 7: Map Enhancements** ⭐ HIGH VALUE (✓ Complete)
 - ✅ **Marriage Location Markers**: Show all marriage places for a person
@@ -992,15 +982,6 @@ In addition to Name Authority, v1.7 includes valuable map improvements:
   - ✅ Thread-safe with mutex protection
 - **User Value:** VERY HIGH - "Set it and forget it" - places are automatically geocoded
 - **Actual Effort:** 2-3 hours
-
-**Total Actual Effort (v1.7):** 14-18 hours (Name Authority + Map Enhancements + Alternate Names + Historical Places + Auto Geocoding)
-**Release Date:** February 5, 2026
-
----
-
-### 🎯 Released: v1.8 - Quick Wins & Full-Text Search (Released February 5, 2026)
-
-**Focus:** High-impact UX improvements and powerful search capabilities
 
 **UX Improvements** ⭐ HIGH VALUE (✓ Complete)
 - ✅ **Map Export to PNG/PDF**: Export maps with all markers and paths
@@ -1077,36 +1058,128 @@ In addition to Name Authority, v1.7 includes valuable map improvements:
 - **User Value:** VERY HIGH - Find anything instantly with powerful yet simple query syntax
 - **Actual Effort:** 7-8 hours (including relationship indexing and query syntax documentation)
 
-**Total Actual Effort (v1.8):** 12-15 hours (UX improvements + Full-Text Search with relationships)
-**Release Date:** February 5, 2026
+**Total Actual Effort (v1.6.0):** 37-47 hours (Backup Reminders + Place Autocomplete + Performance + Name Authority + Map Enhancements + Historical Places + Auto Geocoding + UX Improvements + Full-Text Search)
+**Release Date:** August 12, 2026
+
+---
+
+### ✅ Released: v1.7.0 - Performance & Scalability (Released August 12, 2026)
+
+**Focus:** Close out the remaining Phase 9 performance items — background processing for
+long-running operations and eliminating N+1 query patterns in the two full-database list views.
+
+**Background Processing** ⭐ HIGH VALUE (✓ Complete)
+- ✅ GEDCOM/GenoPro/Gramps import (into current database or a newly created one) now runs on a
+  background goroutine with an indeterminate progress dialog instead of freezing the UI
+- ✅ GEDCOM export (entire database or branch-only) runs in the background with progress feedback
+- ✅ Database backup (including optional media zips) runs in the background
+- ✅ Database restore (zip extraction + file copy) runs in the background
+- ✅ Shared `runWithProgress` helper reuses the existing goroutine + `fyne.Do` pattern already
+  proven in the Geocoding Tool and Map Export features
+- **User Value:** VERY HIGH - Large imports/exports/backups no longer lock up the application
+
+**Large Database Optimization: Batch Person Indicators** ⭐ HIGH VALUE (✓ Complete)
+- ✅ New `Store.GetPersonIndicators()` batch query replaces per-row `CountPendingTodosForPerson` /
+  `CountCitationsForPerson` / `CountResearchLogsForPerson` / `GetMediaForPerson` calls with 4
+  aggregate queries total
+- ✅ Applied to the main People list and the Individual View table — the two views that render
+  every person in the database (as opposed to one family or a bounded number of generations)
+- ✅ A full list render goes from O(N × 4) single-row queries to O(N) + 4, regardless of database
+  size
+- **User Value:** HIGH - Keeps the two full-database views fast as people count grows toward
+  10,000+
+
+**Advanced Map Features: Timeline Slider & Measure Tool** ⭐ HIGH VALUE (✓ Complete)
+- ✅ **Timeline Slider**: Time-lapse the map to a selected year
+  - ✅ Drag to filter markers/paths to events on or before the selected year
+  - ✅ Range auto-populates from the currently loaded markers
+  - ✅ Live year label while dragging, map redraws on release (avoids re-triggering tile loads on every drag tick)
+- ✅ **Measure Tool**: Click two points on the map to see the distance between them
+  - ✅ 📏 Measure toggle button; click once for point A, again for point B
+  - ✅ Distance shown in both km and miles, reusing the existing Haversine `CalculateDistance` helper
+  - ✅ Third click starts a fresh measurement
+- ⏳ Heat map overlay and animated paths deferred to a follow-up (heavier rendering/animation work, not bundled here)
+- **User Value:** HIGH - Two of the four "Advanced Map Features" polish items from Phase 7, reusing existing filter and distance-calculation code
+- **Actual Effort:** ~3-4 hours
+
+**Life Events** ⭐ HIGH VALUE (✓ Complete)
+- ✅ Generic per-person life events: immigration, occupation, military service, education, religious events, naturalization, or any free-text type
+- ✅ **📅 Manage Life Events** button in the Person Edit dialog and Family View, matching the existing per-person manager pattern (Research To-Do, Sources, Research Log)
+- ✅ Add/Edit dialog reuses the Smart Date Entry widget (calendar picker + validation) and Place Autocomplete
+- ✅ Life Events with a place show up on the Map View (new 📅 purple marker type, toggleable filter checkbox) and in the Timeline View, once geocoded
+- ✅ Both the manual Geocoding Tool and the automatic Background Geocoding service now scan event places, so new events get geocoded without any extra steps
+- ✅ Optional End Date field for events with a duration (e.g. military service), shown as a "1978 – 1982" range in the Life Events card and Map View popup
+- ✅ Family Group Sheet (Fyne view, HTML export, and PDF export) shows a chronological "Life Events" section for husband/wife, respecting the same living-person privacy settings as the rest of the report
+- ⏳ Not included in CSV/HTML timeline exports, Ancestor/Descendant Reports, or the Family Website's individual person pages yet - Ancestor/Descendant are intentionally terse one-liners, and the others were left for a future pass by choice
+- **Note:** Built on top of a fully-defined `events` table + `Event` model that existed in the schema but was never wired up to any UI - deliberately scoped to one-off life events only, not a residence/move-history tracker (decided not worth the upkeep for most people)
+- **User Value:** HIGH - Fills a real gap for anyone whose life (or ancestor's life) doesn't fit neatly into birth/marriage/death
+- **Actual Effort:** ~5-6 hours
+
+**Map: Jump to Event** ⭐ HIGH VALUE (✓ Complete)
+- ✅ New "📍 Jump to Event..." button lists every geocoded event for the current person (birth, death, every marriage, every Life Event) sorted chronologically
+- ✅ Clicking an entry recenters the map on that location, zooming in if needed, so a single event stands out rather than blending into a cluster of nearby pins
+- **User Value:** MEDIUM-HIGH - Makes newly-added markers (Life Events especially) actually discoverable instead of easy to miss at the wrong zoom level
+- **Actual Effort:** ~1 hour
+
+**Hide All / Show All Windows** ⭐ HIGH VALUE (✓ Complete)
+- ✅ "Hide All Windows" / "Show All Windows" in the File menu and system tray menu, covering the main window and every open secondary window
+- ✅ Rebuilt on `fyne.App.Driver().AllWindows()` instead of the old manually-maintained window registry (which only covered 5 of ~30+ secondary window types) - every window is covered automatically, including ones added in the future, with zero per-window registration needed
+- ✅ Show All restores exactly the set Hide All hid, falling back to just the main window if nothing was hidden via Hide All (e.g. the OS merely minimized it)
+- **Note:** A prior Hide-All implementation was removed in this same codebase after a documented Fyne/macOS crash when hiding the main window. Rebuilt using the same `Driver().AllWindows()` + hide/show-wrapper pattern already proven safe in sibling apps (KrankyBearGitExplorer, KrankyBearScreenSnap, KrankyBearExecutor) rather than the removed approach
+- **User Value:** HIGH - Standard window-management convenience across the KrankyBear app family
+- **Actual Effort:** ~2 hours
+
+**Calendar Export (.ics)** ⭐ HIGH VALUE (✓ Complete) — closes out Phase 9 "Calendar Integration"
+- ✅ Export birthdays and wedding anniversaries as a standard iCalendar file, importable into Calendar/Outlook/Google Calendar as yearly recurring events
+- ✅ Reuses the existing `ParseGenealogyDate` helper for month/day extraction; entries with only a year known (no day/month) are correctly skipped rather than silently defaulting to a bogus "January 1st" event
+- ✅ "Export Calendar (.ics)..." in the Reports/Actions popup menu, next to the existing CSV exports
+- **User Value:** HIGH - Get family birthdays/anniversaries into the calendar app you already use, no manual re-entry
+- **Actual Effort:** ~2 hours
+
+**Change Tracking / Audit Log** ⭐ HIGH VALUE (✓ Complete) — partial Phase 7 "Collaboration & Sharing"
+- ✅ Persistent, append-only log of person edits, deletions, and relationship changes - survives an app restart, unlike the in-memory Undo/Redo buffer
+- ✅ Hooks directly into the existing Undo/Redo instrumentation (`RecordEditPerson`/`RecordDeletePerson`/`RecordAddRelationship`/`RecordDeleteRelationship`) rather than adding parallel tracking code throughout the UI
+- ✅ "View Audit Log..." in the Edit menu (window menu bar and system tray)
+- **User Value:** MEDIUM-HIGH - Answers "who changed this and when" after the fact, without needing the undo stack to still be in memory
+- **Actual Effort:** ~2-3 hours
+
+**Online Search Quick Links** ⭐ MEDIUM VALUE (✓ Complete) — partial Phase 9 "Integration"
+- ✅ Right-click any person → "Search Online" → "Search Ancestry.com" / "Search FamilySearch.org", opens the default browser pre-filled with the person's name and birth year
+- ✅ Reuses `fyne.CurrentApp().OpenURL()`, the same browser-opening mechanism already used for every other external link in the app
+- **Note:** Best-effort convenience links - Ancestry/FamilySearch's search query parameters are third-party and outside this app's control, so exact result relevance may shift if those sites change their URL scheme
+- **User Value:** MEDIUM - One less copy/paste/retype step when cross-referencing a person on a major genealogy site
+- **Actual Effort:** ~1 hour
+
+**Total Actual Effort (v1.7.0):** ~21-25 hours
+**Release Date:** August 12, 2026
 
 ---
 
 ### 📋 Future Releases - Medium Priority (v1.9+)
 
 **Phase 7: Advanced Map Features** (Future Polish & Enhancements)
-- ⏳ Timeline slider: Show where person was at different ages
+- ✅ Timeline slider: Time-lapse the map to a selected year (✓ Completed in v1.7.0)
 - ⏳ Animated paths: Trace journey over time with animation
 - ⏳ Heat map overlay: Density visualization of family events
-- ⏳ Measure tool: Calculate distances between any two locations
-- ✅ Export map as image (PNG, PDF) with legend (✓ Completed in v1.8)
+- ✅ Measure tool: Calculate distances between any two locations (✓ Completed in v1.7.0)
+- ✅ Export map as image (PNG, PDF) with legend (✓ Completed in v1.6.0)
 - ⏳ Historical map overlays: Show borders as they were in different eras
 - ⏳ Street view integration: Link to Google Street View for precise locations
-- **Estimated Effort:** 15-20 hours (multiple releases)
+- **Estimated Effort (remaining):** 10-15 hours (animated paths, heat map, historical overlays, street view)
 
 **Phase 8: Data Entry Helpers** (Mostly Complete)
 - ✅ Smart Date Entry: Parse "May 1945", "1945", "abt 1945", etc. (✓ Completed in v1.5.3)
-- ✅ Place Autocomplete: Suggest standard place names as you type (✓ Completed in v1.6)
-- ✅ Name Authority: Suggest standard name formats (✓ Completed in v1.7)
+- ✅ Place Autocomplete: Suggest standard place names as you type (✓ Completed in v1.6.0)
+- ✅ Name Authority: Suggest standard name formats (✓ Completed in v1.6.0)
 - ⏳ Relationship Suggestions: AI-assisted relationship detection from notes
 - **Actual Effort:** 4-5 hours for Name Authority
 
 **Phase 9: Performance & Scalability**
-- ✅ Indexed Search: Full-text search across all fields (✓ Completed in v1.8)
-- Large Database Optimization: Handle 10,000+ people efficiently
-- Lazy Loading: Load views progressively for large datasets
-- Background Processing: Import/export in background threads
-- **Estimated Effort:** 20-30 hours (reduced with FTS5 completion)
+- ✅ Indexed Search: Full-text search across all fields (✓ Completed in v1.6.0)
+- ✅ Background Processing: Import/export/backup/restore in background threads (✓ Completed in v1.7.0)
+- ✅ Large Database Optimization: Batch person indicators for the People list and Individual View, replacing per-row queries (✓ Completed in v1.7.0)
+- ⏳ Lazy Loading: Load views progressively for large datasets (not yet needed — profiling shows the remaining bottleneck was per-row queries, not `GetPeople()` itself; revisit if databases grow well past 10,000 people)
+- **Actual Effort (v1.7.0):** ~4-5 hours
 
 ---
 
@@ -1131,17 +1204,17 @@ In addition to Name Authority, v1.7 includes valuable map improvements:
 
 **Phase 7: Collaboration & Sharing**
 1. GEDCOM Merge with conflict resolution
-2. Change Tracking (audit log of all edits)
+2. ✅ Change Tracking (persistent audit log of all edits) - Completed in v1.7.0
 3. Advanced Privacy Features (privacy flags, automatic protection)
 4. Collaborative Editing (lock mechanism)
-- **Estimated Effort:** 30-40 hours
+- **Estimated Effort (remaining):** 25-35 hours
 
 **Phase 9: Integration**
-- Online Search Integration: Quick links to Ancestry, FamilySearch, etc.
+- ✅ Online Search Integration: Quick links to Ancestry, FamilySearch, etc. - Completed in v1.7.0
 - Census Data Import: Import from online census records
 - DNA Integration: Link to DNA test results (23andMe, Ancestry DNA)
-- Calendar Integration: Export birthdays/anniversaries to calendar
-- **Estimated Effort:** 25-35 hours
+- ✅ Calendar Integration: Export birthdays/anniversaries to calendar - Completed in v1.7.0
+- **Estimated Effort (remaining):** 20-25 hours (Census + DNA integration)
 
 ---
 
@@ -1254,4 +1327,4 @@ In addition to Name Authority, v1.7 includes valuable map improvements:
 
 ---
 
-*Last Updated: March 3, 2026 - Roadmap aligned with v1.8 status and corrected completed/pending items*
+*Last Updated: August 12, 2026 - Corrected release history: Quick Wins, Name Authority, Map Enhancements, and Full-Text Search were all developed together and shipped as a single v1.6.0 release (not the separate v1.6/v1.7/v1.8 releases this document previously described); dates and effort totals updated to match.*

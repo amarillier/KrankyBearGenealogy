@@ -173,11 +173,14 @@ func GenerateDemoData(s *store.Store) (int64, error) {
 	// Easter egg: Stanley Yelnats family from "Holes" - tracing back to Latvia
 	// Generation 1: Great-great-grandfather from Latvia
 	elya := createPerson(s, "Elya", "Yelnats", "M", "12 Aug 1850", "Riga, Latvia", "03 Nov 1920", "New York, New York, USA", false, "")
-	elya.Notes = "Immigrated from Latvia to America in 1870s. Founded family tradition of naming first sons 'Stanley Yelnats'."
+	elya.Notes = "Immigrated from Latvia to America in 1870s, first settling in Boston before later moving the family to New York City. Founded family tradition of naming first sons 'Stanley Yelnats'."
 	s.UpdatePerson(elya)
 
+	// Married in Boston (deliberately distinct from his birth and death
+	// places) so his single lifetime shows 3 map locations - useful for
+	// demoing the Map View's timeline slider: Riga -> Boston -> New York.
 	sarah_yelnats := createPerson(s, "Sarah", "Miller", "F", "22 Apr 1855", "New York, New York, USA", "18 Dec 1925", "New York, New York, USA", false, "")
-	createMarriage(s, elya, sarah_yelnats, "14 Jun 1875", "New York, New York, USA", "", "", "")
+	createMarriage(s, elya, sarah_yelnats, "14 Jun 1875", "Boston, Massachusetts, USA", "", "", "")
 
 	// Generation 2: Great-grandfather Stanley Yelnats I
 	stanley1 := createPerson(s, "Stanley I", "Yelnats", "M", "05 Mar 1880", "New York, New York, USA", "22 Sep 1950", "Dallas, Texas, USA", false, "")

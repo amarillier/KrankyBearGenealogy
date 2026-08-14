@@ -52,12 +52,19 @@ func LatLngToTile(lat, lon float64, zoom int) TileCoord {
 
 // TileToLatLng converts tile coordinates to the northwest corner lat/lng.
 func TileToLatLng(x, y, zoom int) LatLng {
+	return TileToLatLngF(float64(x), float64(y), zoom)
+}
+
+// TileToLatLngF converts fractional tile coordinates to lat/lng. Same math as
+// TileToLatLng but accepts fractional x/y, e.g. for converting an arbitrary
+// screen pixel (not just a tile corner) back to a geographic coordinate.
+func TileToLatLngF(x, y float64, zoom int) LatLng {
 	n := math.Pow(2, float64(zoom))
-	lon := float64(x)/n*360.0 - 180.0
-	
-	latRad := math.Atan(math.Sinh(math.Pi * (1 - 2*float64(y)/n)))
+	lon := x/n*360.0 - 180.0
+
+	latRad := math.Atan(math.Sinh(math.Pi * (1 - 2*y/n)))
 	lat := latRad * 180.0 / math.Pi
-	
+
 	return LatLng{Lat: lat, Lon: lon}
 }
 

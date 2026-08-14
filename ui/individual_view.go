@@ -25,6 +25,7 @@ type IndividualView struct {
 	content        *fyne.Container
 	people         []store.Person
 	filteredPeople []store.Person
+	indicators     map[int64]store.PersonIndicators
 	selectedIndex  int
 	sortColumn     int
 	sortAscending  bool
@@ -60,6 +61,9 @@ func (iv *IndividualView) Refresh() {
 	iv.people = people
 	iv.filteredPeople = make([]store.Person, len(people))
 	copy(iv.filteredPeople, people)
+	if ind, err := iv.store.GetPersonIndicators(); err == nil {
+		iv.indicators = ind
+	}
 	iv.sortPeople()
 	iv.refresh()
 }
@@ -185,29 +189,28 @@ func (iv *IndividualView) createTable() fyne.CanvasObject {
 			p := iv.people[i]
 			label := o.(*widget.Label)
 			
-			// Check if person has media and add indicator
+			// Indicators from the batch-loaded presence map (avoids 4
+			// per-row DB queries when rendering the full people table).
 			fullName := formatPersonName(p)
-			if media, err := iv.store.GetMediaForPerson(p.ID); err == nil && len(media) > 0 {
+			ind := iv.indicators[p.ID]
+			if ind.HasMedia {
 				fullName = "📷 " + fullName
 			}
-			
+
 			// Add bookmark indicator if bookmarked
 			if p.Bookmarked {
 				fullName = "★ " + fullName
 			}
-			
-			// Add todo indicator if person has pending todos
-			if count, _ := iv.store.CountPendingTodosForPerson(p.ID); count > 0 {
+
+			if ind.HasPendingTodo {
 				fullName = "📝 " + fullName
 			}
-			
-			// Add source indicator if person has citations
-			if count, _ := iv.store.CountCitationsForPerson(p.ID); count > 0 {
+
+			if ind.HasCitation {
 				fullName = "📚 " + fullName
 			}
 
-			// Add research log indicator if person has research logs
-			if count, _ := iv.store.CountResearchLogsForPerson(p.ID); count > 0 {
+			if ind.HasResearchLog {
 				fullName = "🔍 " + fullName
 			}
 

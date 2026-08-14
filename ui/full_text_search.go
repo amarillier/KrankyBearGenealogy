@@ -27,9 +27,6 @@ func showFullTextSearchDialog(w fyne.Window, s *store.Store, onNavigate func(int
 	searchWin := fyne.CurrentApp().NewWindow("Full-Text Search")
 	searchWin.Resize(fyne.NewSize(900, 700))
 	fullTextSearchWindow = searchWin
-	
-	// Register for window lifecycle management
-	RegisterSecondaryWindow(searchWin)
 
 	// Search entry
 	searchEntry := widget.NewEntry()

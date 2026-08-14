@@ -64,9 +64,22 @@ type Event struct {
 	PersonID  int64     `json:"person_id"`
 	Type      string    `json:"type"` // e.g., BIRT, DEAT, MARR, BURI, OCCU
 	Date      string    `json:"date"`
+	DateEnd   string    `json:"date_end"` // optional - for events with a duration (e.g. military service)
 	Place     string    `json:"place"`
 	Note      string    `json:"note"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// AuditLogEntry is a persistent, append-only record of an edit/delete/
+// relationship-change operation - unlike the in-memory Undo/Redo buffer,
+// this survives an app restart.
+type AuditLogEntry struct {
+	ID              int64     `json:"id"`
+	Timestamp       time.Time `json:"timestamp"`
+	OperationType   string    `json:"operation_type"`
+	Description     string    `json:"description"`
+	PersonID        *int64    `json:"person_id"`
+	RelatedPersonID *int64    `json:"related_person_id"`
 }
 
 // Identifier stores external identifiers or GEDCOM UID/REFN entries for a person.

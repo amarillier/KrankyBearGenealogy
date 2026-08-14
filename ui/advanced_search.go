@@ -48,10 +48,7 @@ type SearchCriteria struct {
 func showAdvancedSearchDialog(w fyne.Window, s *store.Store, navigateToPerson func(int64)) {
 	// Create a new window for advanced search
 	searchWindow := fyne.CurrentApp().NewWindow("Advanced Search")
-	
-	// Register for window lifecycle management
-	RegisterSecondaryWindow(searchWindow)
-	
+
 	// Search criteria inputs with autocomplete
 	givenNameAutocomplete := NewGivenNameAutocomplete(func() *store.Store { return s }, "")
 	givenNameAutocomplete.Entry.SetPlaceHolder("Given name...")

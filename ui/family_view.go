@@ -186,6 +186,11 @@ func (fv *FamilyView) refresh() {
 			personName := formatPersonName(*p)
 			showResearchLogForPerson(fv.window, fv.store, p.ID, personName)
 		}),
+		// Add Life Events button (always visible for current person)
+		widget.NewButton("📅 Life Events", func() {
+			personName := formatPersonName(*p)
+			showLifeEventsManager(fv.window, fv.store, p.ID, personName)
+		}),
 	)
 
 	spouseBox.Add(spouseHeaderRow1)

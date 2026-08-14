@@ -27,9 +27,6 @@ func showGlobalSearchReplaceDialog(w fyne.Window, s *store.Store) {
 	searchWin := fyne.CurrentApp().NewWindow("Global Search and Replace")
 	searchWin.Resize(fyne.NewSize(800, 600))
 	globalSearchReplaceWindow = searchWin
-	
-	// Register for window lifecycle management
-	RegisterSecondaryWindow(searchWin)
 
 	// Search and replace fields
 	searchEntry := widget.NewEntry()

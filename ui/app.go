@@ -45,85 +45,86 @@ var (
 	settingsDialog     dialog.Dialog
 )
 
-// Window tracking for show/hide lifecycle management
+// Window tracking for show/hide lifecycle management.
+//
+// Hides/shows are driven by fyne.App.Driver().AllWindows() rather than a
+// manually maintained registry - every window Fyne currently has open
+// (main window included) is covered automatically, so new window types
+// never need their own registration call. Mirrors the pattern already
+// proven in ../KrankyBearGitExplorer, ../KrankyBearScreenSnap, and
+// ../KrankyBearExecutor.
 var (
-	secondaryWindows []fyne.Window
-	isAppHidden      bool
+	// managedWindowVisible tracks whether a window this app explicitly
+	// shows/hides via windowShow/windowHide is currently visible. Fyne has
+	// no per-window IsVisible; a window not yet in the map defaults to
+	// "visible" - safe since every window is visible by the time these
+	// wrappers first touch it.
+	managedWindowVisible = map[fyne.Window]bool{}
+
+	// hiddenByHideAll snapshots the windows HideAllWindows hid, so
+	// ShowAllWindows restores exactly that set - not, say, a dialog the
+	// user had already dismissed before Hide All ran.
+	hiddenByHideAll []fyne.Window
 )
 
-// RegisterSecondaryWindow adds a window to the tracked list for lifecycle management
-func RegisterSecondaryWindow(w fyne.Window) {
+func windowShow(w fyne.Window) {
 	if w == nil {
 		return
 	}
-	
-	// Don't register if already in list
-	for _, existing := range secondaryWindows {
-		if existing == w {
-			return
-		}
-	}
-	
-	secondaryWindows = append(secondaryWindows, w)
-	
-	// Note: We can't add a close intercept here because many windows already have one set
-	// (for hiding instead of closing). The windows will be automatically cleaned up
-	// when they're closed since we check for nil in ShowAllWindows
+	managedWindowVisible[w] = true
+	w.Show()
 }
 
-// UnregisterSecondaryWindow removes a window from the tracked list
-func UnregisterSecondaryWindow(w fyne.Window) {
-	for i, existing := range secondaryWindows {
-		if existing == w {
-			secondaryWindows = append(secondaryWindows[:i], secondaryWindows[i+1:]...)
-			return
+func windowHide(w fyne.Window) {
+	if w == nil {
+		return
+	}
+	managedWindowVisible[w] = false
+	w.Hide()
+}
+
+func isWindowConsideredVisible(w fyne.Window) bool {
+	if w == nil {
+		return false
+	}
+	if v, ok := managedWindowVisible[w]; ok {
+		return v
+	}
+	return true
+}
+
+// HideAllWindows hides every window the app currently has open - the main
+// window and every secondary window (Map View, Life Events, Research Log,
+// reports, etc.) - snapshotting the hidden set so ShowAllWindows can
+// restore exactly it.
+func HideAllWindows(a fyne.App) {
+	hiddenByHideAll = hiddenByHideAll[:0]
+	for _, win := range a.Driver().AllWindows() {
+		if win == nil || !isWindowConsideredVisible(win) {
+			continue
 		}
+		hiddenByHideAll = append(hiddenByHideAll, win)
+		windowHide(win)
 	}
 }
 
-// ShowAllWindows shows the main window and all secondary windows
+// ShowAllWindows restores exactly the set HideAllWindows last hid. If
+// there's no snapshot (e.g. the main window was merely minimized by the
+// OS, not hidden via Hide All), it falls back to showing/focusing the main
+// window.
 func ShowAllWindows() {
-	// Show main window first
-	if mainWindowRef != nil {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					// Main window show failed, ignore
-				}
-			}()
-			mainWindowRef.Show()
-			mainWindowRef.RequestFocus()
-		}()
-	}
-	
-	// Make a copy to avoid concurrent modification
-	windowsCopy := make([]fyne.Window, len(secondaryWindows))
-	copy(windowsCopy, secondaryWindows)
-	
-	// Show all secondary windows that are still open
-	var activeWindows []fyne.Window
-	for _, w := range windowsCopy {
-		if w != nil && w.Content() != nil {
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						// Window show failed, skip it
-						return
-					}
-				}()
-				w.Show()
-				activeWindows = append(activeWindows, w)
-			}()
+	if len(hiddenByHideAll) > 0 {
+		for _, win := range hiddenByHideAll {
+			windowShow(win)
 		}
+		hiddenByHideAll = hiddenByHideAll[:0]
+	} else if mainWindowRef != nil {
+		windowShow(mainWindowRef)
 	}
-	
-	// Update list to only include active windows
-	secondaryWindows = activeWindows
-	isAppHidden = false
+	if mainWindowRef != nil {
+		mainWindowRef.RequestFocus()
+	}
 }
-
-// Note: HideAllWindows removed - causes crashes in Fyne on macOS
-// Users can use Cmd+H or minimize windows individually instead
 
 // Theme and dialog callback functions from main.go
 var (
@@ -195,6 +196,13 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		w.SetContent(widget.NewLabel(fmt.Sprintf("Error loading people: %v", err)))
 		w.ShowAndRun()
 		return
+	}
+
+	// Batch-loaded presence flags (todos/citations/research logs/media) for
+	// the people list row renderer, avoiding a per-row query per indicator.
+	personIndicators, err := getStore().GetPersonIndicators()
+	if err != nil {
+		personIndicators = make(map[int64]store.PersonIndicators)
 	}
 
 	// Sort people alphabetically, with incomplete records at the end
@@ -521,18 +529,16 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 				text = "★ " + text
 			}
 
-			// Add todo indicator if person has pending todos
-			if count, err := getStore().CountPendingTodosForPerson(p.ID); err == nil && count > 0 {
+			// Add indicators from the batch-loaded presence map (avoids
+			// per-row DB queries when rendering large lists).
+			ind := personIndicators[p.ID]
+			if ind.HasPendingTodo {
 				text = "📝 " + text
 			}
-
-			// Add source indicator if person has citations
-			if count, err := getStore().CountCitationsForPerson(p.ID); err == nil && count > 0 {
+			if ind.HasCitation {
 				text = "📚 " + text
 			}
-
-			// Add research log indicator if person has research logs
-			if count, err := getStore().CountResearchLogsForPerson(p.ID); err == nil && count > 0 {
+			if ind.HasResearchLog {
 				text = "🔍 " + text
 			}
 
@@ -611,6 +617,9 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 		if err != nil {
 			dialog.ShowError(err, w)
 			return
+		}
+		if ind, err := getStore().GetPersonIndicators(); err == nil {
+			personIndicators = ind
 		}
 		// Sort people alphabetically, with incomplete records at the end
 		sort.Slice(people, func(i, j int) bool {
@@ -1173,26 +1182,14 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	// Check for backup reminder after UI is ready
 	go func() {
 		time.Sleep(2 * time.Second) // Give UI time to settle
-		checkBackupReminder(w, dbPath, getStore)
+		fyne.Do(func() {
+			checkBackupReminder(w, dbPath, getStore)
+		})
 	}()
 
 	// Start background geocoding service
 	backgroundGeocoder = store.NewBackgroundGeocoder(getStore())
 	backgroundGeocoder.Start()
-	
-	// Start window visibility monitor to handle Cmd+H / show all windows
-	// This monitors when the main window is shown after being hidden
-	go func() {
-		ticker := time.NewTicker(500 * time.Millisecond)
-		defer ticker.Stop()
-		
-		for range ticker.C {
-			// If we marked app as hidden but main window is now visible, show all windows
-			if isAppHidden && mainWindowRef != nil && mainWindowRef.Content() != nil && mainWindowRef.Content().Visible() {
-				ShowAllWindows()
-			}
-		}
-	}()
 
 	w.ShowAndRun()
 }
@@ -1205,11 +1202,12 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	}
 
 	// Window actions
-	show := fyne.NewMenuItem("Show", func() {
+	show := fyne.NewMenuItem("Show All Windows", func() {
 		ShowAllWindows()
 	})
-	// Note: Hide functionality removed - causes crashes in Fyne on macOS when multiple windows are open
-	// Users can use Cmd+H or minimize windows individually instead
+	hideAll := fyne.NewMenuItem("Hide All Windows", func() {
+		HideAllWindows(a)
+	})
 
 	// File menu items (using button callbacks)
 	newDB := fyne.NewMenuItem("New Database...", func() {
@@ -1507,22 +1505,17 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 			"Continue?", 
 			func(ok bool) {
 				if ok {
-					progressDialog := dialog.NewCustomWithoutButtons("Rebuilding Search Index", 
-						widget.NewLabel("Rebuilding full-text search index...\nPlease wait..."), w)
-					progressDialog.Show()
-					
-					go func() {
-						err := getStore().RebuildFullTextIndex()
-						progressDialog.Hide()
-						
-						if err != nil {
-							dialog.ShowError(fmt.Errorf("Failed to rebuild search index: %v", err), w)
-						} else {
-							dialog.ShowInformation("Success", 
+					runWithProgress(w, "Rebuilding Search Index", "Rebuilding full-text search index...\nPlease wait...",
+						func() error { return getStore().RebuildFullTextIndex() },
+						func(err error) {
+							if err != nil {
+								dialog.ShowError(fmt.Errorf("Failed to rebuild search index: %v", err), w)
+								return
+							}
+							dialog.ShowInformation("Success",
 								"Search index rebuilt successfully!\n\n"+
-								"All people are now searchable.", w)
-						}
-					}()
+									"All people are now searchable.", w)
+						})
 				}
 			}, w)
 	})
@@ -1581,6 +1574,10 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	})
 	// Display keyboard shortcut hint (Cmd/Ctrl+Shift+U)
 	redoItem.Shortcut = &desktop.CustomShortcut{KeyName: fyne.KeyU, Modifier: desktop.ControlModifier | fyne.KeyModifierShift}
+
+	auditLogItem := fyne.NewMenuItem("View Audit Log...", func() {
+		showAuditLogWindow(w, getStore())
+	})
 
 	// System tray menu with proper submenus using ChildMenu
 	// Create File submenu
@@ -1689,12 +1686,13 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	toolsMenuItem.ChildMenu = toolsSubMenu
 
 	// Edit submenu for system tray (reuses undoItem/redoItem created earlier)
-	editSubMenu := fyne.NewMenu("Edit", undoItem, redoItem)
+	editSubMenu := fyne.NewMenu("Edit", undoItem, redoItem, fyne.NewMenuItemSeparator(), auditLogItem)
 	editMenuItem := fyne.NewMenuItem("Edit", nil)
 	editMenuItem.ChildMenu = editSubMenu
 
 	menu := fyne.NewMenu("KrankyBear Genealogy",
 		show,
+		hideAll,
 		fyne.NewMenuItemSeparator(),
 		fileMenuItem,
 		editMenuItem,
@@ -1711,11 +1709,12 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	// Setup main menu bar (for window menu bar with submenus)
 	fileMenu := fyne.NewMenu("File", newDB, openDB, recentFiles, clearRecent, fyne.NewMenuItemSeparator(),
 		backup, restore, maintenance, fyne.NewMenuItemSeparator(),
-		importGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(), quit)
+		importGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(),
+		show, hideAll, fyne.NewMenuItemSeparator(), quit)
 	mediaMenu := fyne.NewMenu("Media", mediaLibraryMenuItem, addMediaMenuItem, fyne.NewMenuItemSeparator(), sourcesLibraryMenuItem, researchLogMenuItem)
 
 	// Edit menu (uses undoItem/redoItem created earlier)
-	editMenu := fyne.NewMenu("Edit", undoItem, redoItem)
+	editMenu := fyne.NewMenu("Edit", undoItem, redoItem, fyne.NewMenuItemSeparator(), auditLogItem)
 	toolsMenu := fyne.NewMenu("Tools", advancedSearch, dateCalculator, fullTextSearch, rebuildSearchIndex, geocodingTool, globalSearchReplace, 
 		historicalPlaces, mapView, nameCaseConversion, relationshipCalc, fyne.NewMenuItemSeparator(), projectNotes)
 	reportsMenu := fyne.NewMenu("Reports",
@@ -1876,6 +1875,10 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 	exports := fyne.NewMenuItem("Export to CSV", nil)
 	exports.ChildMenu = exportMenu
 
+	exportCalendar := fyne.NewMenuItem("Export Calendar (.ics)...", func() {
+		exportCalendarICS(w, s)
+	})
+
 	// Actions submenu
 	actionsMenu := fyne.NewMenu("",
 		fyne.NewMenuItem("Generate Family Website", func() {
@@ -1883,6 +1886,7 @@ func showReportsPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64, 
 		}),
 		fyne.NewMenuItemSeparator(),
 		exports,
+		exportCalendar,
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Mass Mark Living", func() {
 			showMassMarkLivingReport(w, s, func() {})
@@ -2624,6 +2628,19 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 		)
 	}
 
+	// Life Events button (only for existing persons)
+	var lifeEventsSection *fyne.Container
+	if isEdit {
+		lifeEventsBtn := widget.NewButton("📅 Manage Life Events", func() {
+			personName := formatPersonName(person)
+			showLifeEventsManager(w, s, person.ID, personName)
+		})
+		lifeEventsSection = container.NewVBox(
+			widget.NewLabel("Life Events:"),
+			lifeEventsBtn,
+		)
+	}
+
 	formItems := []fyne.CanvasObject{
 		widget.NewLabel("Given Name(s):"), givenAutocomplete.Container,
 		widget.NewLabel("Surname:"), surnameAutocomplete.Container,
@@ -2663,6 +2680,11 @@ func showPersonDialog(w fyne.Window, s *store.Store, p *store.Person, onSave fun
 	// Add alternate names section if editing
 	if altNamesSection != nil {
 		formItems = append(formItems, altNamesSection.Objects...)
+	}
+
+	// Add life events section if editing
+	if lifeEventsSection != nil {
+		formItems = append(formItems, lifeEventsSection.Objects...)
 	}
 
 	form := container.NewVBox(formItems...)
@@ -4438,23 +4460,28 @@ func showImportOptionsDialog(w fyne.Window, cfg *config.Config, dbPath string, g
 						return
 					}
 
-					// Import into the NEW database (before switching to it)
-					if err := importFunc(importPath, newStore); err != nil {
-						newStore.Close()
-						dialog.ShowError(fmt.Errorf("%s import failed: %w", formatName, err), w)
-						return
-					}
+					// Import into the NEW database (before switching to it),
+					// running in the background so the UI doesn't freeze.
+					runWithProgress(w, "Importing",
+						fmt.Sprintf("Importing %s file...\nThis may take a moment for large files.", formatName),
+						func() error { return importFunc(importPath, newStore) },
+						func(err error) {
+							// Close the new store before reloading
+							newStore.Close()
 
-					// Close the new store before reloading
-					newStore.Close()
+							if err != nil {
+								dialog.ShowError(fmt.Errorf("%s import failed: %w", formatName, err), w)
+								return
+							}
 
-					// NOW switch to the new database (which now has imported data)
-					// Pass true to suppress the "Database Loaded" dialog
-					reloadWithDatabase(newDBPath, true)
+							// NOW switch to the new database (which now has imported data)
+							// Pass true to suppress the "Database Loaded" dialog
+							reloadWithDatabase(newDBPath, true)
 
-					// Show import success message
-					dialog.ShowInformation("Import Complete",
-						fmt.Sprintf("✅ New database created and %s file imported successfully!\n\nDatabase: %s\n\nRecords imported - no sample data needed.", formatName, filepath.Base(newDBPath)), w)
+							// Show import success message
+							dialog.ShowInformation("Import Complete",
+								fmt.Sprintf("✅ New database created and %s file imported successfully!\n\nDatabase: %s\n\nRecords imported - no sample data needed.", formatName, filepath.Base(newDBPath)), w)
+						})
 				}, w)
 
 				dbFd.SetFileName(suggestedDBName)
@@ -4471,17 +4498,17 @@ func showImportOptionsDialog(w fyne.Window, cfg *config.Config, dbPath string, g
 				importPath := r.URI().Path()
 				r.Close()
 
-				// Show progress for Gramps (can be slow)
-				if formatName == "Gramps" {
-					dialog.ShowInformation("Importing", "Importing from Gramps database...\nThis may take a moment.", w)
-				}
-
-				if err := importFunc(importPath, getStore()); err != nil {
-					dialog.ShowError(fmt.Errorf("%s import failed: %w", formatName, err), w)
-					return
-				}
-				dialog.ShowInformation("Import Complete", fmt.Sprintf("%s file imported successfully!", formatName), w)
-				refreshAll()
+				runWithProgress(w, "Importing",
+					fmt.Sprintf("Importing %s file...\nThis may take a moment for large files.", formatName),
+					func() error { return importFunc(importPath, getStore()) },
+					func(err error) {
+						if err != nil {
+							dialog.ShowError(fmt.Errorf("%s import failed: %w", formatName, err), w)
+							return
+						}
+						dialog.ShowInformation("Import Complete", fmt.Sprintf("%s file imported successfully!", formatName), w)
+						refreshAll()
+					})
 			}, w)
 			fd.SetFilter(storageFilter{ext: fileExt})
 			fd.Show()
@@ -4584,7 +4611,11 @@ func showLoadDemoDialog(w fyne.Window, cfg *config.Config, reloadWithDatabase fu
 					"  • Check Reports → Conflicts Report\n"+
 					"  • Use Reports → Statistics Dashboard\n"+
 					"  • Press G to return to Michael Harrison\n"+
-					"  • Use Add Media to attach your own photos\n\n"+
+					"  • Use Add Media to attach your own photos\n"+
+					"  • Try Map View → Descendants of Elya Yelnats, drag the\n"+
+					"    Timeline slider to watch his 1875 emigration story\n"+
+					"    (Riga → Boston → New York) and the family's later\n"+
+					"    move west (New York → Dallas → Austin) unfold\n\n"+
 					"💡 This demo showcases all the features you can use\n"+
 					"for your own family history!",
 				demoDestPath)
@@ -4644,25 +4675,26 @@ func showExportOptionsDialog(w fyne.Window, cfg *config.Config, dbPath string, g
 			path := uc.URI().Path()
 			uc.Close()
 
-			var exportErr error
-			if len(exportTypeOptions) > 1 && exportType.Selected == exportTypeOptions[1] {
-				// Export current person branch only
-				if currentPersonID == nil || *currentPersonID == 0 {
-					dialog.ShowError(fmt.Errorf("No person currently selected."), w)
-					return
-				}
-				exportErr = importer.ExportBranch(path, getStore(), *currentPersonID)
-			} else {
-				// Export entire database
-				exportErr = importer.Export(path, getStore())
-			}
-
-			if exportErr != nil {
-				dialog.ShowError(exportErr, w)
+			branchExport := len(exportTypeOptions) > 1 && exportType.Selected == exportTypeOptions[1]
+			if branchExport && (currentPersonID == nil || *currentPersonID == 0) {
+				dialog.ShowError(fmt.Errorf("No person currently selected."), w)
 				return
 			}
 
-			dialog.ShowInformation("Export", "Export completed successfully", w)
+			runWithProgress(w, "Exporting", "Exporting GEDCOM file...\nThis may take a moment for large databases.",
+				func() error {
+					if branchExport {
+						return importer.ExportBranch(path, getStore(), *currentPersonID)
+					}
+					return importer.Export(path, getStore())
+				},
+				func(err error) {
+					if err != nil {
+						dialog.ShowError(err, w)
+						return
+					}
+					dialog.ShowInformation("Export", "Export completed successfully", w)
+				})
 		}, w)
 		fd.SetFileName("export.ged")
 		fd.Show()
@@ -4839,45 +4871,52 @@ func showBackupDialog(w fyne.Window, dbPath string, getStore func() *store.Store
 			backupPath := uc.URI().Path()
 			uc.Close()
 
-			// Backup database
-			if err := backupDatabase(dbPath, backupPath); err != nil {
-				dialog.ShowError(fmt.Errorf("Failed to backup database: %w", err), w)
-				return
-			}
+			var resultMsg string
+			runWithProgress(w, "Backing Up", "Backing up database...\nThis may take a moment if media is included.",
+				func() error {
+					// Backup database
+					if err := backupDatabase(dbPath, backupPath); err != nil {
+						return fmt.Errorf("Failed to backup database: %w", err)
+					}
 
-			resultMsg := fmt.Sprintf("✅ Database backed up to:\n%s", backupPath)
+					resultMsg = fmt.Sprintf("✅ Database backed up to:\n%s", backupPath)
 
-			// Backup database-stored media if requested
-			if includeDBMedia && dbStoredCount > 0 {
-				dbMediaBackupPath := strings.TrimSuffix(backupPath, filepath.Ext(backupPath)) + "-media-database.zip"
-				if err := backupDatabaseMedia(s, dbMediaBackupPath); err != nil {
-					dialog.ShowError(fmt.Errorf("Database backup succeeded, but media extraction failed: %w", err), w)
-					return
-				}
-				resultMsg += fmt.Sprintf("\n\n✅ Database media extracted to:\n%s", dbMediaBackupPath)
-			}
+					// Backup database-stored media if requested
+					if includeDBMedia && dbStoredCount > 0 {
+						dbMediaBackupPath := strings.TrimSuffix(backupPath, filepath.Ext(backupPath)) + "-media-database.zip"
+						if err := backupDatabaseMedia(s, dbMediaBackupPath); err != nil {
+							return fmt.Errorf("Database backup succeeded, but media extraction failed: %w", err)
+						}
+						resultMsg += fmt.Sprintf("\n\n✅ Database media extracted to:\n%s", dbMediaBackupPath)
+					}
 
-			// Backup external media if requested
-			if includeExternalMedia && externalCount > 0 {
-				externalMediaBackupPath := strings.TrimSuffix(backupPath, filepath.Ext(backupPath)) + "-media-external.zip"
-				skipped, copyErr := backupExternalMedia(s, externalMediaBackupPath, externalPaths)
-				if copyErr != nil {
-					dialog.ShowError(fmt.Errorf("Database backup succeeded, but external media backup failed: %w", copyErr), w)
-					return
-				}
-				if skipped > 0 {
-					resultMsg += fmt.Sprintf("\n\n✅ External media backed up to:\n%s\n⚠️  %d files were missing/skipped", externalMediaBackupPath, skipped)
-				} else {
-					resultMsg += fmt.Sprintf("\n\n✅ External media backed up to:\n%s", externalMediaBackupPath)
-				}
-			}
+					// Backup external media if requested
+					if includeExternalMedia && externalCount > 0 {
+						externalMediaBackupPath := strings.TrimSuffix(backupPath, filepath.Ext(backupPath)) + "-media-external.zip"
+						skipped, copyErr := backupExternalMedia(s, externalMediaBackupPath, externalPaths)
+						if copyErr != nil {
+							return fmt.Errorf("Database backup succeeded, but external media backup failed: %w", copyErr)
+						}
+						if skipped > 0 {
+							resultMsg += fmt.Sprintf("\n\n✅ External media backed up to:\n%s\n⚠️  %d files were missing/skipped", externalMediaBackupPath, skipped)
+						} else {
+							resultMsg += fmt.Sprintf("\n\n✅ External media backed up to:\n%s", externalMediaBackupPath)
+						}
+					}
 
-			// Record backup date
-			if s != nil {
-				s.UpdateLastBackupDate()
-			}
-
-			dialog.ShowInformation("Backup Complete", resultMsg, w)
+					// Record backup date
+					if s != nil {
+						s.UpdateLastBackupDate()
+					}
+					return nil
+				},
+				func(err error) {
+					if err != nil {
+						dialog.ShowError(err, w)
+						return
+					}
+					dialog.ShowInformation("Backup Complete", resultMsg, w)
+				})
 		}, w)
 
 		fd.SetFileName(defaultFileName)
@@ -5224,111 +5263,116 @@ func showRestoreDialog(w fyne.Window, currentDBPath string, reloadFunc func(stri
 					return
 				}
 
-				// Open the zip file
-				zipReader, err := zip.OpenReader(backupPath)
-				if err != nil {
-					dialog.ShowError(fmt.Errorf("Failed to open backup file: %w", err), w)
-					return
-				}
-
-				// Find the .db file in the zip
-				var dbFile *zip.File
-				for _, file := range zipReader.File {
-					if strings.HasSuffix(strings.ToLower(file.Name), ".db") {
-						dbFile = file
-						break
+				var tempPath, originalDBFileName string
+				runWithProgress(w, "Restoring", "Extracting backup...", func() error {
+					// Open the zip file
+					zipReader, err := zip.OpenReader(backupPath)
+					if err != nil {
+						return fmt.Errorf("Failed to open backup file: %w", err)
 					}
-				}
+					defer zipReader.Close()
 
-				if dbFile == nil {
-					zipReader.Close()
-					dialog.ShowError(fmt.Errorf("No database file found in backup"), w)
-					return
-				}
+					// Find the .db file in the zip
+					var dbFile *zip.File
+					for _, file := range zipReader.File {
+						if strings.HasSuffix(strings.ToLower(file.Name), ".db") {
+							dbFile = file
+							break
+						}
+					}
+					if dbFile == nil {
+						return fmt.Errorf("No database file found in backup")
+					}
 
-				// Extract the database to a temporary file first
-				// This avoids issues with the zipReader being closed before the save dialog completes
-				tempFile, err := os.CreateTemp("", "restore-*.db")
-				if err != nil {
-					zipReader.Close()
-					dialog.ShowError(fmt.Errorf("Failed to create temporary file: %w", err), w)
-					return
-				}
-				tempPath := tempFile.Name()
+					// Extract the database to a temporary file first
+					// This avoids issues with the zipReader being closed before the save dialog completes
+					tempFile, err := os.CreateTemp("", "restore-*.db")
+					if err != nil {
+						return fmt.Errorf("Failed to create temporary file: %w", err)
+					}
+					tempPath = tempFile.Name()
 
-				// Open and copy the database from the zip to the temp file
-				srcFile, err := dbFile.Open()
-				if err != nil {
+					// Open and copy the database from the zip to the temp file
+					srcFile, err := dbFile.Open()
+					if err != nil {
+						tempFile.Close()
+						os.Remove(tempPath)
+						return fmt.Errorf("Failed to read database from backup: %w", err)
+					}
+
+					_, err = io.Copy(tempFile, srcFile)
+					srcFile.Close()
 					tempFile.Close()
-					os.Remove(tempPath)
-					zipReader.Close()
-					dialog.ShowError(fmt.Errorf("Failed to read database from backup: %w", err), w)
-					return
-				}
+					originalDBFileName = dbFile.Name
 
-				_, err = io.Copy(tempFile, srcFile)
-				srcFile.Close()
-				tempFile.Close()
-				originalDBFileName := dbFile.Name
-				zipReader.Close() // Now we can safely close the zip
-
-				if err != nil {
-					os.Remove(tempPath)
-					dialog.ShowError(fmt.Errorf("Failed to extract database: %w", err), w)
-					return
-				}
-
-				// Ask where to save the restored database
-				// Note: It's safe to restore over the currently open database because
-				// we've already extracted to a temp file, so the copy operation
-				// won't interfere with the zip file
-				saveFd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
-					// Clean up temp file when done
-					defer os.Remove(tempPath)
-
-					if err != nil || uc == nil {
-						return
-					}
-					restorePath := uc.URI().Path()
-					uc.Close()
-
-					// Ensure .db extension
-					if !strings.HasSuffix(strings.ToLower(restorePath), ".db") {
-						restorePath = restorePath + ".db"
-					}
-
-					// Copy from temp file to final location
-					srcTemp, err := os.Open(tempPath)
 					if err != nil {
-						dialog.ShowError(fmt.Errorf("Failed to read temporary file: %w", err), w)
-						return
+						os.Remove(tempPath)
+						return fmt.Errorf("Failed to extract database: %w", err)
 					}
-					defer srcTemp.Close()
-
-					dstFile, err := os.Create(restorePath)
+					return nil
+				}, func(err error) {
 					if err != nil {
-						dialog.ShowError(fmt.Errorf("Failed to create restored database: %w", err), w)
+						dialog.ShowError(err, w)
 						return
 					}
 
-					_, err = io.Copy(dstFile, srcTemp)
-					dstFile.Close() // Close immediately to release file handle
-					if err != nil {
-						os.Remove(restorePath) // Clean up on error
-						dialog.ShowError(fmt.Errorf("Failed to restore database: %w", err), w)
-						return
-					}
+					// Ask where to save the restored database
+					// Note: It's safe to restore over the currently open database because
+					// we've already extracted to a temp file, so the copy operation
+					// won't interfere with the zip file
+					saveFd := dialog.NewFileSave(func(uc fyne.URIWriteCloser, err error) {
+						// Clean up temp file when done
+						defer os.Remove(tempPath)
 
-					// Reload with the restored database
-					reloadFunc(restorePath)
+						if err != nil || uc == nil {
+							return
+						}
+						restorePath := uc.URI().Path()
+						uc.Close()
 
-					dialog.ShowInformation("Restore Complete",
-						fmt.Sprintf("Database restored successfully from backup:\n%s\n\nNow using: %s",
-							filepath.Base(backupPath), filepath.Base(restorePath)), w)
-				}, w)
+						// Ensure .db extension
+						if !strings.HasSuffix(strings.ToLower(restorePath), ".db") {
+							restorePath = restorePath + ".db"
+						}
 
-				saveFd.SetFileName(originalDBFileName)
-				saveFd.Show()
+						runWithProgress(w, "Restoring", "Restoring database...", func() error {
+							// Copy from temp file to final location
+							srcTemp, err := os.Open(tempPath)
+							if err != nil {
+								return fmt.Errorf("Failed to read temporary file: %w", err)
+							}
+							defer srcTemp.Close()
+
+							dstFile, err := os.Create(restorePath)
+							if err != nil {
+								return fmt.Errorf("Failed to create restored database: %w", err)
+							}
+
+							_, err = io.Copy(dstFile, srcTemp)
+							dstFile.Close() // Close immediately to release file handle
+							if err != nil {
+								os.Remove(restorePath) // Clean up on error
+								return fmt.Errorf("Failed to restore database: %w", err)
+							}
+							return nil
+						}, func(err error) {
+							if err != nil {
+								dialog.ShowError(err, w)
+								return
+							}
+
+							// Reload with the restored database
+							reloadFunc(restorePath)
+
+							dialog.ShowInformation("Restore Complete",
+								fmt.Sprintf("Database restored successfully from backup:\n%s\n\nNow using: %s",
+									filepath.Base(backupPath), filepath.Base(restorePath)), w)
+						})
+					}, w)
+
+					saveFd.SetFileName(originalDBFileName)
+					saveFd.Show()
+				})
 			}, w)
 	}, w)
 
@@ -9046,7 +9090,7 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 				wife = person
 			}
 
-			addPersonDetailsToPDF(pdf, husband, options, "husband")
+			addPersonDetailsToPDF(pdf, s, husband, options, "husband")
 			pdf.Ln(2)
 
 			// Wife section
@@ -9057,7 +9101,7 @@ func generateFamilyGroupSheetPDF(s *store.Store, person *store.Person, options H
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetFont("Arial", "", 10)
 
-			addPersonDetailsToPDF(pdf, wife, options, "wife")
+			addPersonDetailsToPDF(pdf, s, wife, options, "wife")
 			pdf.Ln(2)
 
 			// Marriage information
@@ -9215,7 +9259,7 @@ func formatPersonDetailsPDF(person *store.Person, options HTMLExportOptions) str
 }
 
 // addPersonDetailsToPDF adds person details to PDF with privacy handling
-func addPersonDetailsToPDF(pdf *gofpdf.Fpdf, person *store.Person, options HTMLExportOptions, role string) {
+func addPersonDetailsToPDF(pdf *gofpdf.Fpdf, s *store.Store, person *store.Person, options HTMLExportOptions, role string) {
 	pdf.CellFormat(60, 6, "Full Name:", "", 0, "L", false, 0, "")
 	pdf.CellFormat(0, 6, formatPersonName(*person), "", 1, "L", false, 0, "")
 
@@ -9240,6 +9284,33 @@ func addPersonDetailsToPDF(pdf *gofpdf.Fpdf, person *store.Person, options HTMLE
 				pdf.MultiCell(0, 6, person.DeathPlace, "", "L", false)
 			}
 		}
+		addLifeEventsToPDF(pdf, s, person)
+	}
+}
+
+// addLifeEventsToPDF appends a person's Life Events (immigration,
+// occupation, military service, etc.) to the Family Group Sheet PDF,
+// chronologically ordered. No-op if the person has none.
+func addLifeEventsToPDF(pdf *gofpdf.Fpdf, s *store.Store, person *store.Person) {
+	events, err := s.GetEvents(person.ID)
+	if err != nil || len(events) == 0 {
+		return
+	}
+	sort.Slice(events, func(i, j int) bool {
+		return parseDateForSort(events[i].Date).Before(parseDateForSort(events[j].Date))
+	})
+
+	pdf.CellFormat(60, 6, "Life Events:", "", 1, "L", false, 0, "")
+	for _, e := range events {
+		dateStr := formatFGSDate(e.Date)
+		if e.DateEnd != "" {
+			dateStr = formatFGSDate(e.Date) + " - " + formatFGSDate(e.DateEnd)
+		}
+		line := fmt.Sprintf("  %s (%s)", e.Type, dateStr)
+		if e.Place != "" {
+			line += fmt.Sprintf(": %s", e.Place)
+		}
+		pdf.MultiCell(0, 6, line, "", "L", false)
 	}
 }
 
@@ -9755,6 +9826,40 @@ func formatPersonDetailsHTML(person *store.Person, options HTMLExportOptions, in
 	return html.String()
 }
 
+// formatLifeEventsHTML renders a person's Life Events (immigration,
+// occupation, military service, etc.) as HTML, chronologically ordered.
+// Respects the same privacy settings as formatPersonDetailsHTML - returns
+// "" if the person shouldn't be shown at all, or if living info is limited.
+func formatLifeEventsHTML(s *store.Store, person *store.Person, options HTMLExportOptions) string {
+	if !shouldShowPerson(person, options) || (options.LimitLivingInfo && person.IsLiving) {
+		return ""
+	}
+
+	events, err := s.GetEvents(person.ID)
+	if err != nil || len(events) == 0 {
+		return ""
+	}
+	sort.Slice(events, func(i, j int) bool {
+		return parseDateForSort(events[i].Date).Before(parseDateForSort(events[j].Date))
+	})
+
+	var html strings.Builder
+	html.WriteString(`<div class="life-events"><span class="detail-label">Life Events:</span><ul>`)
+	for _, e := range events {
+		dateStr := formatFGSDate(e.Date)
+		if e.DateEnd != "" {
+			dateStr = formatFGSDate(e.Date) + " - " + formatFGSDate(e.DateEnd)
+		}
+		html.WriteString(`<li><strong>` + e.Type + `</strong> (` + dateStr + `)`)
+		if e.Place != "" {
+			html.WriteString(`: ` + e.Place)
+		}
+		html.WriteString(`</li>`)
+	}
+	html.WriteString(`</ul></div>`)
+	return html.String()
+}
+
 // generateFamilyGroupSheetHTML generates the HTML content for the Family Group Sheet
 func generateFamilyGroupSheetHTML(s *store.Store, person *store.Person, options HTMLExportOptions) string {
 	var html strings.Builder
@@ -9824,6 +9929,13 @@ func generateFamilyGroupSheetHTML(s *store.Store, person *store.Person, options 
             color: #555;
             display: inline-block;
             min-width: 120px;
+        }
+        .life-events {
+            margin-left: 20px;
+            margin-top: 8px;
+        }
+        .life-events ul {
+            margin: 4px 0 0 20px;
         }
         .child-entry {
             margin: 20px 0;
@@ -9967,6 +10079,7 @@ func generateMarriedFamilyHTML(s *store.Store, person *store.Person, spouse *sto
 		html.WriteString(`<div class="person-details">`)
 		html.WriteString(formatPersonDetailsHTML(husband, options, true))
 		html.WriteString(`</div>`)
+		html.WriteString(formatLifeEventsHTML(s, husband, options))
 		// Add photo gallery for husband
 		photoGalleryHTML := generatePhotoGalleryHTML(s, husband.ID)
 		if photoGalleryHTML != "" {
@@ -9985,6 +10098,7 @@ func generateMarriedFamilyHTML(s *store.Store, person *store.Person, spouse *sto
 		html.WriteString(`<div class="person-details">`)
 		html.WriteString(formatPersonDetailsHTML(wife, options, true))
 		html.WriteString(`</div>`)
+		html.WriteString(formatLifeEventsHTML(s, wife, options))
 		// Add photo gallery for wife
 		photoGalleryHTML := generatePhotoGalleryHTML(s, wife.ID)
 		if photoGalleryHTML != "" {
@@ -11014,6 +11128,35 @@ func generateAncestorReportHTML(s *store.Store, rootPerson *store.Person, option
 	return html.String()
 }
 
+// renderLifeEventsFGS appends a person's Life Events (immigration, occupation,
+// military service, etc.) to the Family Group Sheet, chronologically ordered.
+// No-op if the person has none.
+func renderLifeEventsFGS(content *fyne.Container, s *store.Store, person *store.Person) {
+	if person == nil {
+		return
+	}
+	events, err := s.GetEvents(person.ID)
+	if err != nil || len(events) == 0 {
+		return
+	}
+	sort.Slice(events, func(i, j int) bool {
+		return parseDateForSort(events[i].Date).Before(parseDateForSort(events[j].Date))
+	})
+
+	content.Add(widget.NewLabel("  Life Events:"))
+	for _, e := range events {
+		dateStr := formatFGSDate(e.Date)
+		if e.DateEnd != "" {
+			dateStr = fmt.Sprintf("%s - %s", formatFGSDate(e.Date), formatFGSDate(e.DateEnd))
+		}
+		line := fmt.Sprintf("    %s (%s)", e.Type, dateStr)
+		if e.Place != "" {
+			line += fmt.Sprintf(": %s", e.Place)
+		}
+		content.Add(widget.NewLabel(line))
+	}
+}
+
 func renderMarriedFamily(content *fyne.Container, s *store.Store, person *store.Person, spouse *store.Person, navigateFunc func(int64)) {
 	// Determine husband and wife based on gender
 	var husband, wife *store.Person
@@ -11043,6 +11186,7 @@ func renderMarriedFamily(content *fyne.Container, s *store.Store, person *store.
 				content.Add(widget.NewLabel(fmt.Sprintf("  Place: %s", husband.DeathPlace)))
 			}
 		}
+		renderLifeEventsFGS(content, s, husband)
 	}
 	content.Add(widget.NewLabel(""))
 
@@ -11064,6 +11208,7 @@ func renderMarriedFamily(content *fyne.Container, s *store.Store, person *store.
 				content.Add(widget.NewLabel(fmt.Sprintf("  Place: %s", wife.DeathPlace)))
 			}
 		}
+		renderLifeEventsFGS(content, s, wife)
 	}
 	content.Add(widget.NewLabel(""))
 
@@ -11705,6 +11850,22 @@ func collectTimelineEvents(s *store.Store) []TimelineEvent {
 						})
 					}
 				}
+			}
+		}
+
+		// Life Events (immigration, occupation, military service, etc.)
+		if lifeEvents, err := s.GetEvents(person.ID); err == nil {
+			for _, le := range lifeEvents {
+				if le.Date == "" {
+					continue
+				}
+				events = append(events, TimelineEvent{
+					PersonID:   person.ID,
+					PersonName: name,
+					Type:       le.Type,
+					Date:       le.Date,
+					Place:      le.Place,
+				})
 			}
 		}
 	}

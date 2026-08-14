@@ -317,6 +317,8 @@ func (s *Store) GetAllUniquePlaces() ([]string, error) {
 			SELECT birth_place as place FROM persons WHERE birth_place != ''
 			UNION
 			SELECT death_place as place FROM persons WHERE death_place != ''
+			UNION
+			SELECT place FROM events WHERE place != ''
 		) WHERE place IS NOT NULL
 		ORDER BY place`
 	

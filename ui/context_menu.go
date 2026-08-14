@@ -175,9 +175,33 @@ func ShowPersonContextMenu(
 	items = append(items, fyne.NewMenuItem("Copy ID", func() {
 		w.Clipboard().SetContent(fmt.Sprintf("%d", person.ID))
 	}))
-	
+
 	items = append(items, fyne.NewMenuItemSeparator())
-	
+
+	// === ONLINE SEARCH ===
+	searchOnlineItem := fyne.NewMenuItem("Search Online", nil)
+	searchOnlineItem.ChildMenu = fyne.NewMenu("",
+		fyne.NewMenuItem("Search Ancestry.com", func() {
+			openOnlineSearch(ancestrySearchURL(person), w)
+		}),
+		fyne.NewMenuItem("Search FamilySearch.org", func() {
+			openOnlineSearch(familySearchURL(person), w)
+		}),
+		fyne.NewMenuItemSeparator(),
+		fyne.NewMenuItem("Search Google", func() {
+			openOnlineSearch(googleSearchURL(person), w)
+		}),
+		fyne.NewMenuItem("Search Bing", func() {
+			openOnlineSearch(bingSearchURL(person), w)
+		}),
+		fyne.NewMenuItem("Search DuckDuckGo", func() {
+			openOnlineSearch(duckDuckGoSearchURL(person), w)
+		}),
+	)
+	items = append(items, searchOnlineItem)
+
+	items = append(items, fyne.NewMenuItemSeparator())
+
 	// === REPORTS ===
 	
 	items = append(items, fyne.NewMenuItem("Generate Ancestor Report...", func() {

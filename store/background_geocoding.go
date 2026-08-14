@@ -199,7 +199,30 @@ func (bg *BackgroundGeocoder) getUniqueUngecodedPlaces() []string {
 			}
 		}
 	}
-	
+
+	// Also get places from Life Events
+	rows3, err := bg.store.DB.Query(`
+		SELECT DISTINCT place
+		FROM events
+		WHERE place != '' AND place IS NOT NULL
+		AND place NOT IN (
+			SELECT place_name FROM place_geocodes WHERE geocode_status = 'success'
+		)
+	`)
+
+	if err == nil {
+		defer rows3.Close()
+		for rows3.Next() {
+			var place string
+			if err := rows3.Scan(&place); err == nil && place != "" {
+				if !isUnknownPlaceName(place) && !placeMap[place] {
+					placeMap[place] = true
+					places = append(places, place)
+				}
+			}
+		}
+	}
+
 	return places
 }
 

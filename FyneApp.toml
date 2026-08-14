@@ -2,7 +2,7 @@
 ID = "com.github.amarillier.KrankyBearGenealogy"
 Name = "KrankyBear Genealogy"
 Creator = "Allan Marillier"
-Version = "1.6.0"
+  Version = "1.7.0"
 Build = 2
 Icon = "KrankyBearGenealogy.png"
 

@@ -4,14 +4,140 @@ KrankyBear Genealogy - Release Notes
 - Gramps load time - around 8 seconds to load, then open recent, about 12-15 seconds before ready
 - PAF load time about 2 seconds until fully ready to use with most recent database open
 
+Version 1.7.0 - August 14, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Performance & Scalability + Advanced Map Features + Life Events + Change Tracking
+
+Major Features:
+• Background Processing - Import, Export, Backup & Restore No Longer Freeze the App
+• Batch Person Indicators - Faster Rendering for Large Databases
+• Map Timeline Slider - Time-Lapse Your Family's Geographic History
+• Map Measure Tool - Calculate Distances Between Any Two Points
+• Map Jump to Event - Chronological Event List with One-Click Recenter
+• Hide All / Show All Windows - Declutter and Restore Every Open Window
+• Life Events - Track Immigration, Occupation, Military Service & More
+• Calendar Export - Birthdays & Anniversaries as a Standard .ics File
+• Audit Log - Persistent Record of Every Edit, Deletion & Relationship Change
+• Online Search Quick Links - Jump to Ancestry.com / FamilySearch.org
+
+🚀 Background Processing:
+  • GEDCOM, GenoPro, and Gramps import now run in the background:
+    - Works for importing into the current database or a newly created one
+    - Progress dialog shown while the import runs
+    - App stays responsive instead of freezing during large imports
+  • GEDCOM export (entire database or single-branch) runs in the background
+  • Database backup (including optional database-media and external-media zips) runs in the background
+  • Database restore (extract + copy) runs in the background
+  • Use Cases:
+    - Import a large Gramps or GEDCOM file without the app appearing to hang
+    - Back up a database with thousands of photos without freezing the UI
+    - Peace of mind that long operations are actually progressing, not stuck
+
+⚡ Batch Person Indicators:
+  • People list and Individual View now fetch todo/citation/research-log/media
+    presence for every person in 4 queries total, instead of one query per
+    person per indicator
+  • Full list renders scale independently of database size - no per-row
+    database round-trips when scrolling or refreshing
+  • Same visual indicators (📝 📚 🔍 📷) as before, just computed once per
+    refresh instead of once per visible row
+  • Use Cases:
+    - Keeps the two full-database views fast as your family tree grows
+      toward 10,000+ people
+
+🗺️ Map Timeline Slider:
+  • Drag to a year and the map shows only births/deaths/marriages/paths
+    up to that point - a time-lapse view of your family's migration
+  • Range auto-populates from whatever markers are currently loaded
+  • Live year label while dragging; the map redraws when you release
+  • Access via the new "Timeline" slider in the Map View control panel
+
+📏 Map Measure Tool:
+  • Click "📏 Measure", then click two points on the map
+  • Shows the distance between them in both kilometers and miles
+  • Click a third point to start a fresh measurement
+  • Great for estimating migration distances without leaving the map
+
+📅 Life Events:
+  • Track one-off life events that don't fit Birth/Death/Marriage: immigration,
+    occupation, military service, education, religious events, naturalization,
+    or any custom type you enter
+  • New "📅 Manage Life Events" button in the Person Edit dialog and Family View
+  • Add/Edit uses the same Smart Date Entry (calendar picker) and Place
+    Autocomplete widgets as the rest of the app
+  • Events with a place automatically show up on the Map View (new purple 📅
+    marker, with its own show/hide filter checkbox) and in the Timeline View
+    once geocoded - both the manual Geocoding Tool and the automatic background
+    geocoder now pick up event places, no extra setup needed
+  • Intentionally scoped to one-off events, not a residence/move history log -
+    tracking every address you've ever lived at goes stale too quickly to be
+    worth maintaining for most people
+  • Optional End Date field for events with a duration (e.g. military service) -
+    shown as "1978 – 1982" in the Life Events card and Map View popup
+  • Family Group Sheet now includes a chronological "Life Events" section for
+    husband/wife - in the on-screen view, the HTML export, and the PDF export -
+    respecting the same living-person privacy settings as the rest of the report
+  • Use Cases:
+    - Record an ancestor's immigration from Riga, Latvia to Boston in 1875 and
+      see it plotted on the map alongside their birth, marriage, and death
+    - Note military service, career milestones, or other biographical facts
+      with a date and place, without inventing a workaround in the Notes field
+
+📍 Map: Jump to Event:
+  • New "📍 Jump to Event..." button lists every geocoded event for the
+    current person - birth, death, every marriage, every Life Event -
+    sorted chronologically
+  • Click any entry to recenter (and zoom in on) that location - makes it
+    obvious the feature exists when events are clustered together or spread
+    across continents and hard to spot at the current zoom level
+
+🪟 Hide All / Show All Windows:
+  • New "Hide All Windows" / "Show All Windows" items in the File menu and
+    system tray menu, covering the main window and every open secondary
+    window (Map View, Life Events, Research Log, Sources, reports, etc.)
+  • Show All restores exactly the windows Hide All hid - already-closed
+    windows stay closed
+  • Declutter your desktop without losing track of what you had open
+
+📆 Calendar Export:
+  • Export birthdays and wedding anniversaries as a standard iCalendar (.ics)
+    file - import into Calendar, Outlook, or Google Calendar as yearly
+    recurring events
+  • People/marriages with only a year known (no month/day) are correctly
+    skipped rather than showing up as a bogus "January 1st" event
+  • Access via Reports/Actions menu → "Export Calendar (.ics)..."
+
+📋 Audit Log:
+  • Persistent, append-only record of every person edit, deletion, and
+    relationship change - unlike Undo/Redo, this survives an app restart
+  • Access via Edit menu → "View Audit Log..." (window menu bar and system
+    tray)
+  • Answers "who changed this and when" after the fact
+
+🔗 Online Search Quick Links:
+  • Right-click any person → "Search Online" for genealogy-site links
+    ("Search Ancestry.com" / "Search FamilySearch.org") and general web
+    search ("Search Google" / "Search Bing" / "Search DuckDuckGo")
+  • Opens your default browser with a search pre-filled with the person's
+    name, birth year, and (for the general engines) a "genealogy" keyword
+    to bias results toward genealogical content
+  • Best-effort convenience links - exact results depend on those sites'
+    current search behavior, which is outside this app's control
+
 1.6.0 - August 12, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━
-Quick Wins: Backup Reminders, Place Autocomplete & Performance Optimization
+Quick Wins, Name Authority, Map Enhancements & Full-Text Search
 
 Major Features:
 • Backup Reminder System - Protect Your Data
 • Place Autocomplete - Smart Data Entry
 • Database Performance Optimization - Future-Proof Speed
+• Name Authority - Smart Name Suggestions
+• Map Enhancements - Complete Life Journey Visualization
+• Historical Place Names - Bridge Past and Present
+• Automatic Background Geocoding - Set It and Forget It
+• Full-Text Search - Find Anything Instantly
+• Additional UX Improvements - Map Export, Panning & More
 
 💾 Backup Reminder System:
   • Smart backup tracking:
@@ -97,15 +223,83 @@ Major Features:
     - Optimizes all common operations (search, reports, filtering)
     - Foundation for advanced features in future releases
 
+🔤 Name Authority - Smart Name Suggestions:
+  • Given name autocomplete:
+    - Suggests existing given names as you type
+    - Shows frequency count for common names (e.g., "John (15)")
+    - Real-time suggestions with 2+ character trigger
+    - Smart ranking: most common names appear first
+  • Surname autocomplete:
+    - Suggests existing surnames as you type
+    - Shows frequency count for family names
+    - Helps maintain consistent spelling across family branches
+  • Applied everywhere:
+    - Person Edit Dialog
+    - Advanced Search (name criteria fields)
+    - Alternate Names Manager (add and edit)
+  • Benefits:
+    - Reduces typos and spelling variations
+    - Encourages consistent name formatting
+    - Improves searchability and reports
+
+🗺️ Map Enhancements - Complete Life Journey Visualization:
+  • Marriage location markers:
+    - 💒 Pink heart marker for each marriage
+    - Click for marriage details, spouse name, and age at marriage
+  • Current address for living people:
+    - 🟢 Green marker built from City/Address/State/Country
+    - Labeled "Current Address" with "Present" as the date
+  • Migration paths:
+    - Lines connect birth → death (deceased) or birth → current address (living)
+    - Toggle on/off with the "🔀 Migration Paths" checkbox
+  • Age display:
+    - Calculated age shown in marker popups for every life event
+  • Quick access:
+    - Right-click any person → "View on Map..." from Family, Pedigree, Fan Chart, or Descendant view
+
+🏛️ Historical Place Names:
+  • New Tools → Historical Place Names manager:
+    - Map historical names to modern equivalents (e.g., "Salisbury, Rhodesia" → "Harare, Zimbabwe")
+    - Optional year-changed and notes fields
+  • Geocoding fallback:
+    - Automatically retries with the modern name when the historical one fails to geocode
+    - Re-attempts previously-failed lookups once a mapping is added
+  • Display helper can render "Salisbury, Rhodesia (now Harare, Zimbabwe)" wherever needed
+
+🤖 Automatic Background Geocoding:
+  • Runs quietly in the background, starting 10 seconds after launch
+  • Finds and geocodes all un-geocoded birth, death, marriage, and current-address places
+  • Respects Nominatim's 1-second rate limit; rechecks every 30 minutes for new places
+  • Starts and stops automatically when switching databases
+
+🔍 Full-Text Search - Find Anything Instantly:
+  • SQLite FTS5 virtual table with Porter stemming and Unicode support
+  • Searches names, places (including marriage places & spouse names), notes, contact info, and UID
+  • Powerful query syntax: AND (default), OR, NOT (-word), "exact phrases", prefix* matching, and boolean grouping
+  • Results show which field matched, a highlighted snippet, and relevance ranking
+  • Access via Tools → Full-Text Search, or the Cmd/Ctrl+Shift+T shortcut
+  • Index stays current automatically as people and relationships are edited
+
+✨ Additional UX Improvements:
+  • Map export to PNG/PDF (1920x1080, with all markers, paths, and legend)
+  • Map panning via directional arrow buttons
+  • Family View scroll fix for large families (10+ children)
+  • Right-click context menu now available on the focused person too
+  • Global Search default changed to "All Place Fields"
+  • Search & Replace and Historical Place Names windows now track state (no duplicate windows)
+  • Geocoding retries the historical-name fallback even for previously "failed" cached lookups
+
 🔧 Technical Improvements:
   • New database table: `settings` (backup tracking, preferences)
+  • New database table: `alternate_places` (historical → current place name mappings)
+  • New SQLite FTS5 virtual table with sync triggers for people and relationships
+  • New background geocoding service with rate limiting and lifecycle management
   • New UI component: PlaceAutocompleteContainer (reusable widget)
+  • New UI components: given-name and surname autocomplete widgets
   • Optimized Settings dialog layout (better UX flow)
   • Performance indexes on 11 commonly-queried fields
   • Combined query optimization for startup speed
   • PRAGMA optimize integration for query planner
-
-Development Time: 7-9 hours (originally estimated 30-45 hours)
 
 
 

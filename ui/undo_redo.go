@@ -52,6 +52,22 @@ type UndoRedoManager struct {
 // Global undo/redo manager
 var undoRedoManager *UndoRedoManager
 
+// writeAuditLogEntry persists a permanent record of an operation, separate
+// from the in-memory undo/redo stack above (which is lost on app restart).
+func writeAuditLogEntry(opType, description string, personID, relatedPersonID *int64) {
+	if undoRedoManager == nil || undoRedoManager.store == nil {
+		return
+	}
+	entry := &store.AuditLogEntry{
+		Timestamp:       time.Now(),
+		OperationType:   opType,
+		Description:     description,
+		PersonID:        personID,
+		RelatedPersonID: relatedPersonID,
+	}
+	_ = undoRedoManager.store.CreateAuditLogEntry(entry)
+}
+
 // InitUndoRedo initializes the global undo/redo manager
 func InitUndoRedo(s *store.Store, onUpdate func()) {
 	undoRedoManager = &UndoRedoManager{
@@ -79,7 +95,8 @@ func RecordEditPerson(before, after *store.Person) {
 		PersonBefore: copyPerson(before),
 		PersonAfter:  copyPerson(after),
 	}
-	
+
+	writeAuditLogEntry(OpEditPerson, op.Description, &after.ID, nil)
 	undoRedoManager.addOperation(op)
 }
 
@@ -101,7 +118,8 @@ func RecordDeletePerson(person *store.Person, spouses []store.SpouseInfo, childI
 		DeletedChildren: childIDs,
 		DeletedParents:  parentIDs,
 	}
-	
+
+	writeAuditLogEntry(OpDeletePerson, op.Description, &person.ID, nil)
 	undoRedoManager.addOperation(op)
 }
 
@@ -122,7 +140,8 @@ func RecordAddRelationship(relType string, personID1, personID2 int64, descripti
 		PersonID1:        personID1,
 		PersonID2:        personID2,
 	}
-	
+
+	writeAuditLogEntry(OpAddRelationship, description, &personID1, &personID2)
 	undoRedoManager.addOperation(op)
 }
 
@@ -143,7 +162,8 @@ func RecordDeleteRelationship(relType string, personID1, personID2 int64, descri
 		PersonID1:        personID1,
 		PersonID2:        personID2,
 	}
-	
+
+	writeAuditLogEntry(OpDeleteRelationship, description, &personID1, &personID2)
 	undoRedoManager.addOperation(op)
 }
 

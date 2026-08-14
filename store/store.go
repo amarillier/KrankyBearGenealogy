@@ -341,6 +341,7 @@ func (s *Store) MigrateSchema() error {
 		`ALTER TABLE sources ADD COLUMN source_type TEXT DEFAULT 'other';`,
 		`ALTER TABLE sources ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;`,
 		`ALTER TABLE persons ADD COLUMN preferred_name TEXT;`,
+		`ALTER TABLE events ADD COLUMN date_end TEXT;`,
 	}
 	for _, m := range migrations {
 		if _, err := s.DB.Exec(m); err != nil {
@@ -750,6 +751,25 @@ func (s *Store) MigrateSchema() error {
 	err = s.RebuildFullTextIndex()
 	if err != nil {
 		fmt.Printf("Warning: Could not populate FTS5 table: %v\n", err)
+	}
+
+	// Create audit_log table if it doesn't exist
+	_, err = s.DB.Exec(`CREATE TABLE IF NOT EXISTS audit_log (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		timestamp DATETIME NOT NULL,
+		operation_type TEXT NOT NULL,
+		description TEXT NOT NULL,
+		person_id INTEGER,
+		related_person_id INTEGER
+	);`)
+	if err != nil {
+		return err
+	}
+
+	// Add index for audit_log table
+	_, err = s.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp);`)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -1873,7 +1893,7 @@ func (s *Store) GetChildrenOfParents(parent1ID, parent2ID int64) ([]Person, erro
 
 // CreateEvent inserts an event record (birth/death/place/note) for a person.
 func (s *Store) CreateEvent(e *Event) error {
-	res, err := s.DB.Exec(`INSERT INTO events(person_id,type,date,place,note) VALUES (?,?,?,?,?)`, e.PersonID, e.Type, e.Date, e.Place, e.Note)
+	res, err := s.DB.Exec(`INSERT INTO events(person_id,type,date,date_end,place,note) VALUES (?,?,?,?,?,?)`, e.PersonID, e.Type, e.Date, e.DateEnd, e.Place, e.Note)
 	if err != nil {
 		return err
 	}
@@ -1903,7 +1923,7 @@ func (s *Store) CreateIdentifier(idt *Identifier) error {
 
 // GetEvents returns events for a person.
 func (s *Store) GetEvents(personID int64) ([]Event, error) {
-	rows, err := s.DB.Query(`SELECT id,person_id,type,date,place,note,created_at FROM events WHERE person_id = ?`, personID)
+	rows, err := s.DB.Query(`SELECT id,person_id,type,date,date_end,place,note,created_at FROM events WHERE person_id = ?`, personID)
 	if err != nil {
 		return nil, err
 	}
@@ -1911,9 +1931,12 @@ func (s *Store) GetEvents(personID int64) ([]Event, error) {
 	var out []Event
 	for rows.Next() {
 		var e Event
-		var created sql.NullString
-		if err := rows.Scan(&e.ID, &e.PersonID, &e.Type, &e.Date, &e.Place, &e.Note, &created); err != nil {
+		var dateEnd, created sql.NullString
+		if err := rows.Scan(&e.ID, &e.PersonID, &e.Type, &e.Date, &dateEnd, &e.Place, &e.Note, &created); err != nil {
 			return nil, err
+		}
+		if dateEnd.Valid {
+			e.DateEnd = dateEnd.String
 		}
 		if created.Valid {
 			if t, err := time.Parse(time.RFC3339, created.String); err == nil {
@@ -1923,6 +1946,66 @@ func (s *Store) GetEvents(personID int64) ([]Event, error) {
 		out = append(out, e)
 	}
 	return out, nil
+}
+
+// UpdateEvent updates an existing event record.
+func (s *Store) UpdateEvent(e *Event) error {
+	_, err := s.DB.Exec(`UPDATE events SET type=?, date=?, date_end=?, place=?, note=? WHERE id=?`,
+		e.Type, e.Date, e.DateEnd, e.Place, e.Note, e.ID)
+	return err
+}
+
+// DeleteEvent removes an event record.
+func (s *Store) DeleteEvent(id int64) error {
+	_, err := s.DB.Exec(`DELETE FROM events WHERE id=?`, id)
+	return err
+}
+
+// CreateAuditLogEntry inserts a persistent audit log record.
+func (s *Store) CreateAuditLogEntry(e *AuditLogEntry) error {
+	res, err := s.DB.Exec(`
+		INSERT INTO audit_log (timestamp, operation_type, description, person_id, related_person_id)
+		VALUES (?, ?, ?, ?, ?)
+	`, e.Timestamp, e.OperationType, e.Description, e.PersonID, e.RelatedPersonID)
+	if err != nil {
+		return err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return err
+	}
+	e.ID = id
+	return nil
+}
+
+// GetAllAuditLogEntries retrieves all audit log entries, newest first.
+func (s *Store) GetAllAuditLogEntries() ([]AuditLogEntry, error) {
+	rows, err := s.DB.Query(`
+		SELECT id, timestamp, operation_type, description, person_id, related_person_id
+		FROM audit_log
+		ORDER BY timestamp DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []AuditLogEntry
+	for rows.Next() {
+		var e AuditLogEntry
+		var personID, relatedPersonID sql.NullInt64
+		if err := rows.Scan(&e.ID, &e.Timestamp, &e.OperationType, &e.Description, &personID, &relatedPersonID); err != nil {
+			return nil, err
+		}
+		if personID.Valid {
+			e.PersonID = &personID.Int64
+		}
+		if relatedPersonID.Valid {
+			e.RelatedPersonID = &relatedPersonID.Int64
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }
 
 // ========================================
@@ -2816,6 +2899,60 @@ func (s *Store) CountResearchLogsForPerson(personID int64) (int, error) {
 		SELECT COUNT(*) FROM research_log_people WHERE person_id=?
 	`, personID).Scan(&count)
 	return count, err
+}
+
+// PersonIndicators holds precomputed presence flags used to render list/table
+// row badges (todos, sources, research log, media) without per-row queries.
+type PersonIndicators struct {
+	HasPendingTodo bool
+	HasCitation    bool
+	HasResearchLog bool
+	HasMedia       bool
+}
+
+// GetPersonIndicators returns indicator flags for every person that has at
+// least one of: a pending todo, a citation, a research log entry, or linked
+// media. It runs 4 aggregate queries total, regardless of how many people
+// are in the database, instead of one query per person per indicator.
+func (s *Store) GetPersonIndicators() (map[int64]PersonIndicators, error) {
+	result := make(map[int64]PersonIndicators)
+
+	mark := func(query string, apply func(*PersonIndicators)) error {
+		rows, err := s.DB.Query(query)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var personID int64
+			if err := rows.Scan(&personID); err != nil {
+				return err
+			}
+			ind := result[personID]
+			apply(&ind)
+			result[personID] = ind
+		}
+		return rows.Err()
+	}
+
+	if err := mark(`SELECT DISTINCT person_id FROM research_todos WHERE status='pending'`,
+		func(ind *PersonIndicators) { ind.HasPendingTodo = true }); err != nil {
+		return nil, err
+	}
+	if err := mark(`SELECT DISTINCT person_id FROM citations`,
+		func(ind *PersonIndicators) { ind.HasCitation = true }); err != nil {
+		return nil, err
+	}
+	if err := mark(`SELECT DISTINCT person_id FROM research_log_people`,
+		func(ind *PersonIndicators) { ind.HasResearchLog = true }); err != nil {
+		return nil, err
+	}
+	if err := mark(`SELECT DISTINCT person_id FROM person_media`,
+		func(ind *PersonIndicators) { ind.HasMedia = true }); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // CreateResearchLog creates a new research log entry.

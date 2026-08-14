@@ -28,9 +28,6 @@ func showAlternatePlacesManager(w fyne.Window, s *store.Store) {
 	altPlacesWindow := fyne.CurrentApp().NewWindow("Historical Place Names")
 	altPlacesWindow.Resize(fyne.NewSize(800, 600))
 	alternatePlacesWindow = altPlacesWindow
-	
-	// Register for window lifecycle management
-	RegisterSecondaryWindow(altPlacesWindow)
 
 	// Load existing alternate places
 	alternatePlaces, err := s.GetAllAlternatePlaces()

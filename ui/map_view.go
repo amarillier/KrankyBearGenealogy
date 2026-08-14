@@ -11,6 +11,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -56,24 +57,47 @@ type MapView struct {
 	showBirths    bool
 	showDeaths    bool
 	showMarriages bool
+	showEvents    bool // Show generic Life Events markers
 	showPaths     bool // Show migration paths connecting life events
 	markers       []*MapMarker
 
+	// Timeline slider ("as of year" time-lapse filter)
+	timelineYear    int
+	timelineMinYear int
+	timelineMaxYear int
+
+	// Measure tool (click two points to see the distance between them)
+	measureMode   bool
+	measurePointA *LatLng
+	measurePointB *LatLng
+
+	// Cached projection basis from the most recent render, so a click
+	// (which happens outside renderTileGridWithMarkers) can invert the same
+	// lat/lng<->pixel projection the render used.
+	lastGridMinX   int
+	lastGridMinY   int
+	lastGridStartX float32
+	lastGridStartY float32
+
 	// UI components
-	content         *fyne.Container
-	controlPanel    *fyne.Container
-	zoomInBtn       *widget.Button
-	zoomOutBtn      *widget.Button
-	zoomLabel       *widget.Label
-	statusLabel     *widget.Label
-	loadingLabel    *widget.Label
-	markerStatsLabel *widget.Label
-	viewModeSelect  *widget.Select
-	surnameEntry    *widget.Entry
-	startYearEntry  *widget.Entry
-	endYearEntry    *widget.Entry
-	livingSelect    *widget.Select
-	generationCheck *widget.Check
+	content            *fyne.Container
+	controlPanel       *fyne.Container
+	zoomInBtn          *widget.Button
+	zoomOutBtn         *widget.Button
+	zoomLabel          *widget.Label
+	statusLabel        *widget.Label
+	loadingLabel       *widget.Label
+	markerStatsLabel   *widget.Label
+	viewModeSelect     *widget.Select
+	surnameEntry       *widget.Entry
+	startYearEntry     *widget.Entry
+	endYearEntry       *widget.Entry
+	livingSelect       *widget.Select
+	generationCheck    *widget.Check
+	timelineSlider     *widget.Slider
+	timelineLabel      *widget.Label
+	measureBtn         *widget.Button
+	measureStatusLabel *widget.Label
 }
 
 // NewMapView creates a new map view window.
@@ -89,6 +113,7 @@ func NewMapView(s *store.Store, w fyne.Window, onNavigate func(personID int64)) 
 		showBirths:        true,
 		showDeaths:        true,
 		showMarriages:     true,
+		showEvents:        true,
 		showPaths:         true, // Show migration paths by default
 		viewMode:          "person", // Default to person-specific view
 		filterLiving:      "all",    // Show all by default
@@ -171,7 +196,12 @@ func (mv *MapView) buildControlPanel() {
 		mv.refreshMap()
 	})
 	reloadBtn.Importance = widget.LowImportance
-	
+
+	jumpToEventBtn := widget.NewButton("📍 Jump to Event...", func() {
+		mv.showEventListDialog()
+	})
+	jumpToEventBtn.Importance = widget.LowImportance
+
 	// Pan buttons for map navigation
 	panUpBtn := widget.NewButtonWithIcon("", theme.MoveUpIcon(), func() {
 		mv.panMap(0, -1) // Pan up
@@ -207,6 +237,7 @@ func (mv *MapView) buildControlPanel() {
 		panControls,
 		layout.NewSpacer(),
 		reloadBtn,
+		jumpToEventBtn,
 	)
 
 	// Marker filter controls with re-center buttons
@@ -249,6 +280,30 @@ func (mv *MapView) buildControlPanel() {
 	})
 	showPathsCheck.SetChecked(mv.showPaths)
 
+	showEventsCheck := widget.NewCheck("📅 Life Events", func(checked bool) {
+		mv.showEvents = checked
+		mv.refreshMap()
+	})
+	showEventsCheck.SetChecked(mv.showEvents)
+
+	// Measure tool: toggle click-to-measure mode on the map.
+	mv.measureStatusLabel = widget.NewLabel("")
+	mv.measureBtn = widget.NewButton("📏 Measure", func() {
+		mv.measureMode = !mv.measureMode
+		mv.measurePointA = nil
+		mv.measurePointB = nil
+		if mv.measureMode {
+			mv.measureBtn.Importance = widget.HighImportance
+			mv.measureStatusLabel.SetText("Click a point on the map to start measuring...")
+		} else {
+			mv.measureBtn.Importance = widget.LowImportance
+			mv.measureStatusLabel.SetText("")
+		}
+		mv.measureBtn.Refresh()
+		mv.refreshMap()
+	})
+	mv.measureBtn.Importance = widget.LowImportance
+
 	filterControls := container.NewHBox(
 		widget.NewLabel("Show:"),
 		showBirthsCheck,
@@ -258,6 +313,10 @@ func (mv *MapView) buildControlPanel() {
 		showMarriagesCheck,
 		centerMarriageBtn,
 		showPathsCheck,
+		showEventsCheck,
+		widget.NewSeparator(),
+		mv.measureBtn,
+		mv.measureStatusLabel,
 	)
 
 	// View mode selector (Phase 5) - wider for better visibility
@@ -373,6 +432,26 @@ func (mv *MapView) buildControlPanel() {
 		layout.NewSpacer(),
 	)
 
+	// Timeline slider: time-lapse the map to only show events up to a
+	// given year. Range is populated once markers load (updateTimelineRange).
+	mv.timelineLabel = widget.NewLabel("As of: —")
+	mv.timelineSlider = widget.NewSlider(1900, 2026)
+	mv.timelineSlider.Step = 1
+	mv.timelineSlider.OnChanged = func(v float64) {
+		mv.timelineLabel.SetText(fmt.Sprintf("As of: %d", int(v)))
+	}
+	mv.timelineSlider.OnChangeEnded = func(v float64) {
+		mv.timelineYear = int(v)
+		mv.refreshMap()
+	}
+
+	timelineRow := container.NewBorder(
+		nil, nil,
+		widget.NewLabel("Timeline:"),
+		mv.timelineLabel,
+		mv.timelineSlider,
+	)
+
 	// Export button
 	exportBtn := widget.NewButtonWithIcon("Export...", theme.DocumentSaveIcon(), func() {
 		mv.showExportDialog()
@@ -414,7 +493,7 @@ func (mv *MapView) buildControlPanel() {
 		filterRow,
 		filterActionRow,
 	)
-	
+
 	// Assemble all rows with background color for visibility
 	mv.controlPanel = container.NewVBox(
 		row1,
@@ -422,6 +501,8 @@ func (mv *MapView) buildControlPanel() {
 		row2,
 		widget.NewSeparator(),
 		row3,
+		widget.NewSeparator(),
+		timelineRow,
 		widget.NewSeparator(), // Bottom separator to clearly separate from map
 	)
 }
@@ -531,9 +612,94 @@ func (mv *MapView) centerOnEventType(eventType string) {
 	// Update center to this marker's location
 	mv.centerLat = targetMarker.Latitude
 	mv.centerLon = targetMarker.Longitude
-	
+
 	// Refresh the map to show the new center
 	mv.refreshMap()
+}
+
+// centerOnMarker recenters (and, if zoomed out too far to make a single
+// event obvious, zooms in on) the given marker's location.
+func (mv *MapView) centerOnMarker(marker *MapMarker) {
+	mv.centerLat = marker.Latitude
+	mv.centerLon = marker.Longitude
+	if mv.zoomLevel < 8 {
+		mv.zoomLevel = 8
+		if mv.zoomLabel != nil {
+			mv.zoomLabel.SetText(fmt.Sprintf("Zoom: %d", mv.zoomLevel))
+		}
+	}
+	mv.refreshMap()
+}
+
+// eventMarkerLabel formats a marker for display in the "Jump to Event" list.
+func eventMarkerLabel(m *MapMarker) string {
+	style := GetMarkerStyle(m.Type)
+
+	typeLabel := m.EventLabel
+	switch m.Type {
+	case MarkerBirth:
+		typeLabel = "Birth"
+	case MarkerDeath:
+		typeLabel = "Death"
+	case MarkerMarriage:
+		typeLabel = "Marriage"
+		if m.SpouseName != "" {
+			typeLabel = fmt.Sprintf("Marriage to %s", m.SpouseName)
+		}
+	case MarkerCurrentAddress:
+		typeLabel = "Current Address"
+	}
+
+	date := m.EventDate
+	if date == "" {
+		date = "Unknown date"
+	}
+	return fmt.Sprintf("%s  %s — %s — %s", style.Symbol, typeLabel, date, m.Place)
+}
+
+// showEventListDialog lists every geocoded event for the current person
+// (birth, death, marriages, and life events) and recenters/zooms the map on
+// whichever one is clicked - makes it obvious the feature exists and lets
+// the user jump straight to an event even if its marker is hard to spot at
+// the current zoom level.
+func (mv *MapView) showEventListDialog() {
+	if mv.currentPerson == nil {
+		dialog.ShowInformation("No Person Selected", "Select a person to see their events.", mv.window)
+		return
+	}
+
+	markers, err := GetMarkersForPerson(mv.store, mv.currentPerson.ID)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("Failed to load events: %w", err), mv.window)
+		return
+	}
+	if len(markers) == 0 {
+		dialog.ShowInformation("No Events", "No geocoded events found for this person yet.", mv.window)
+		return
+	}
+
+	sort.Slice(markers, func(i, j int) bool {
+		return parseDateForSort(markers[i].EventDate).Before(parseDateForSort(markers[j].EventDate))
+	})
+
+	var eventDialog dialog.Dialog
+	list := container.NewVBox()
+	for _, marker := range markers {
+		m := marker
+		btn := widget.NewButton(eventMarkerLabel(m), func() {
+			eventDialog.Hide()
+			mv.centerOnMarker(m)
+		})
+		btn.Alignment = widget.ButtonAlignLeading
+		list.Add(btn)
+	}
+
+	scroll := container.NewVScroll(list)
+	scroll.SetMinSize(fyne.NewSize(420, 400))
+
+	eventDialog = dialog.NewCustom("Jump to Event", "Close", scroll, mv.window)
+	eventDialog.Resize(fyne.NewSize(460, 500))
+	eventDialog.Show()
 }
 
 // loadMapTiles downloads and renders map tiles for the current view.
@@ -637,18 +803,32 @@ func (mv *MapView) renderTileGridWithMarkers(tiles []MapTile, tileImages map[str
 	// Position the tile grid so marker ends up there
 	gridStartX := 450 - markerRelX
 	gridStartY := 300 - markerRelY
-	
+
+	// Cache the projection basis so a click (which happens outside this
+	// function, after this render) can be converted back to lat/lng.
+	mv.lastGridMinX = minX
+	mv.lastGridMinY = minY
+	mv.lastGridStartX = gridStartX
+	mv.lastGridStartY = gridStartY
+
 	// Canvas is fixed at 900x600 to match window
 	canvasWidth := float32(900)
 	canvasHeight := float32(600)
-	
+
 	// Create grid container
 	gridObjects := make([]fyne.CanvasObject, 0)
-	
-	// Add sized background
+
+	// Add sized background, wrapped so clicks on empty map area can be
+	// captured (used by the measure tool).
 	bg := canvas.NewRectangle(color.RGBA{R: 200, G: 220, B: 240, A: 255})
 	bg.Resize(fyne.NewSize(canvasWidth, canvasHeight))
-	gridObjects = append(gridObjects, bg)
+	clickCatcher := newMapClickCatcher(bg, mv.handleMapClick)
+	// The catcher is a widget.BaseWidget, not a plain canvas object - its own
+	// hit-region defaults to zero size until explicitly resized/moved (the
+	// inner rectangle's own Resize above doesn't propagate to the wrapper).
+	clickCatcher.Resize(fyne.NewSize(canvasWidth, canvasHeight))
+	clickCatcher.Move(fyne.NewPos(0, 0))
+	gridObjects = append(gridObjects, clickCatcher)
 	
 	// Add tiles
 	for _, tile := range tiles {
@@ -697,8 +877,16 @@ func (mv *MapView) renderTileGridWithMarkers(tiles []MapTile, tileImages map[str
 		markerX := gridStartX + float32((tileCoord.X - minX) * tileSize) + pixelOffset.X - 10  // -10 to center 20x20 marker
 		markerY := gridStartY + float32((tileCoord.Y - minY) * tileSize) + pixelOffset.Y - 10
 		
-		// Create marker widget with optional generation coloring (Phase 5)
+		// Create marker widget with optional generation coloring (Phase 5).
+		// While the measure tool is active, tapping a marker registers a
+		// measure point at its exact coordinates instead of opening its
+		// popup - otherwise there'd be no way to measure to/from a pin
+		// without clicking just off it.
 		markerWidget := CreateMarkerWidget(m, func() {
+			if mv.measureMode {
+				mv.registerMeasurePoint(m.Latitude, m.Longitude)
+				return
+			}
 			mv.showMarkerPopup(m)
 		}, mv.colorByGeneration)
 		
@@ -708,7 +896,12 @@ func (mv *MapView) renderTileGridWithMarkers(tiles []MapTile, tileImages map[str
 		
 		gridObjects = append(gridObjects, markerWidget)
 	}
-	
+
+	// Draw the measure tool overlay (points + distance line), on top of
+	// markers so it stays visible.
+	measureObjects := mv.drawMeasureOverlay(minX, minY, gridStartX, gridStartY)
+	gridObjects = append(gridObjects, measureObjects...)
+
 	// Set canvas size to fit all tiles
 	mv.mapCanvas.Resize(fyne.NewSize(canvasWidth, canvasHeight))
 	
@@ -806,9 +999,52 @@ func (mv *MapView) loadMarkers() {
 	}
 
 	mv.markers = filtered
-	
+
+	// Update the timeline slider's range to span the currently loaded
+	// markers, defaulting to "show everything" (the latest year).
+	mv.updateTimelineRange()
+
 	// Update marker statistics
 	mv.updateMarkerStats()
+}
+
+// updateTimelineRange recomputes the timeline slider's min/max years from
+// mv.markers and keeps mv.timelineYear defaulted to "show everything" unless
+// the user has already narrowed it within the new range.
+func (mv *MapView) updateTimelineRange() {
+	minYear, maxYear := 0, 0
+	for _, m := range mv.markers {
+		year := extractYearFromDate(m.EventDate)
+		if year <= 100 {
+			continue
+		}
+		if minYear == 0 || year < minYear {
+			minYear = year
+		}
+		if year > maxYear {
+			maxYear = year
+		}
+	}
+	if maxYear == 0 {
+		// No dated markers loaded - fall back to a sensible default range.
+		minYear, maxYear = 1900, 2026
+	}
+
+	mv.timelineMinYear = minYear
+	mv.timelineMaxYear = maxYear
+	if mv.timelineYear == 0 || mv.timelineYear > maxYear || mv.timelineYear < minYear {
+		mv.timelineYear = maxYear
+	}
+
+	if mv.timelineSlider != nil {
+		mv.timelineSlider.Min = float64(minYear)
+		mv.timelineSlider.Max = float64(maxYear)
+		mv.timelineSlider.Value = float64(mv.timelineYear)
+		mv.timelineSlider.Refresh()
+	}
+	if mv.timelineLabel != nil {
+		mv.timelineLabel.SetText(fmt.Sprintf("As of: %d", mv.timelineYear))
+	}
 }
 
 // updateMarkerStats counts and displays marker statistics.
@@ -816,7 +1052,8 @@ func (mv *MapView) updateMarkerStats() {
 	birthCount := 0
 	deathCount := 0
 	marriageCount := 0
-	
+	eventCount := 0
+
 	for _, marker := range mv.markers {
 		switch marker.Type {
 		case MarkerBirth:
@@ -825,12 +1062,14 @@ func (mv *MapView) updateMarkerStats() {
 			deathCount++
 		case MarkerMarriage:
 			marriageCount++
+		case MarkerEvent:
+			eventCount++
 		}
 	}
-	
+
 	// Update label on UI thread
 	if mv.markerStatsLabel != nil {
-		statsText := fmt.Sprintf("Births: %d | Deaths: %d | Marriages: %d", birthCount, deathCount, marriageCount)
+		statsText := fmt.Sprintf("Births: %d | Deaths: %d | Marriages: %d | Events: %d", birthCount, deathCount, marriageCount, eventCount)
 		fyne.Do(func() {
 			mv.markerStatsLabel.SetText(statsText)
 		})
@@ -852,13 +1091,25 @@ func (mv *MapView) filterMarkers() []*MapMarker {
 			include = mv.showMarriages
 		case MarkerCurrentAddress:
 			include = mv.showBirths // Show with births (same green color)
+		case MarkerEvent:
+			include = mv.showEvents
 		}
 		
+		// Timeline slider: only show events on or before the selected year.
+		// Markers with an unparseable date are always shown (tolerant, same
+		// as the date-range filter in loadMarkers).
+		if include && mv.timelineYear > 0 {
+			year := extractYearFromDate(marker.EventDate)
+			if year > 100 && year > mv.timelineYear {
+				include = false
+			}
+		}
+
 		if include {
 			filtered = append(filtered, marker)
 		}
 	}
-	
+
 	return filtered
 }
 
@@ -913,6 +1164,13 @@ func (mv *MapView) showMarkerPopup(marker *MapMarker) {
 	case MarkerCurrentAddress:
 		message = fmt.Sprintf("Current Address\n\n%s\n\nLocation: %s\n\nStatus: Living",
 			marker.PersonName, marker.Place)
+	case MarkerEvent:
+		dateText := marker.EventDate
+		if marker.EventDateEnd != "" {
+			dateText = fmt.Sprintf("%s – %s", marker.EventDate, marker.EventDateEnd)
+		}
+		message = fmt.Sprintf("%s\n\n%s\n\nDate: %s\nPlace: %s",
+			marker.EventLabel, marker.PersonName, dateText, marker.Place)
 	}
 	
 	// Add navigation button
@@ -974,17 +1232,42 @@ func (mv *MapView) showHelp() {
 
 🗺️ Map Controls:
   • Zoom In/Out: Use + and - buttons
-  • Pan: Click and drag (coming soon)
+  • Pan: Use the arrow buttons
   • Markers: Click to view person details
 
 📍 Marker Types:
-  • 🟢 Green: Birth locations
+  • 🟢 Green: Birth locations / current address (living)
   • ⚫ Gray: Death locations
   • 💒 Pink: Marriage locations
+  • 🔀 Migration Paths: Line from birth to death/current address
 
 🔍 Filters:
   • Toggle checkboxes to show/hide event types
-  • More filters coming soon
+  • View: Person / All People / Descendants / Ancestors
+  • Surname, year range, and living-status filters
+
+⏳ Timeline Slider:
+  • Drag to a year to show only events on or before that year -
+    a time-lapse of the family's geographic footprint
+  • Try it: open Map View → View: Descendants, focus on
+    Elya Yelnats (from the demo database), keep Migration Paths
+    checked, then drag the Timeline slider forward from 1850.
+    You'll see his birth in Riga, Latvia; his 1875 marriage in
+    Boston; his move to and death in New York; then his
+    descendants' migration line stretch west to Dallas and Austin.
+
+📏 Measure Tool:
+  • Click "📏 Measure", then click two points on the map
+  • Shows the distance between them in km and miles
+  • Click a third point to start a new measurement
+
+📍 Jump to Event:
+  • Click "📍 Jump to Event..." for a chronological list of every
+    geocoded event for the current person - birth, death, every
+    marriage, and every Life Event
+  • Click any entry to recenter (and zoom in on) that location -
+    handy when several events are close together or far apart and
+    hard to spot at the current zoom level
 
 💡 Tips:
   • Right-click any person → "View on Map"
@@ -1001,9 +1284,6 @@ func ShowMapWindow(s *store.Store, parentWindow fyne.Window, onNavigate func(per
 	mapWindow := fyne.CurrentApp().NewWindow("Map View - KrankyBear Genealogy")
 	mapWindow.Resize(fyne.NewSize(950, 800))  // Taller for control panel
 	mapWindow.CenterOnScreen()
-	
-	// Register for window lifecycle management
-	RegisterSecondaryWindow(mapWindow)
 
 	// Set close button action
 	if mapView.controlPanel != nil {
@@ -1247,6 +1527,121 @@ func (mv *MapView) drawMigrationPaths(markers []*MapMarker, minX, minY int, grid
 	return pathObjects
 }
 
+// mapClickCatcher wraps a canvas object to capture the exact tap position,
+// unlike TappableContainer (context_menu.go) whose callback deliberately
+// drops the *fyne.PointEvent for its simpler popup-menu use cases.
+type mapClickCatcher struct {
+	widget.BaseWidget
+	content fyne.CanvasObject
+	onTap   func(pos fyne.Position)
+}
+
+func newMapClickCatcher(content fyne.CanvasObject, onTap func(pos fyne.Position)) *mapClickCatcher {
+	c := &mapClickCatcher{content: content, onTap: onTap}
+	c.ExtendBaseWidget(c)
+	return c
+}
+
+// CreateRenderer implements fyne.Widget.
+func (c *mapClickCatcher) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(c.content)
+}
+
+// Tapped implements fyne.Tappable.
+func (c *mapClickCatcher) Tapped(e *fyne.PointEvent) {
+	if c.onTap != nil {
+		c.onTap(e.Position)
+	}
+}
+
+// screenToLatLng converts a position on the map canvas (in the same
+// coordinate space as the most recent render) back to a lat/lng coordinate.
+// It inverts the projection used to place tiles and markers
+// (LatLngToTile + latLngToTilePixelOffset).
+func (mv *MapView) screenToLatLng(pos fyne.Position) (float64, float64) {
+	const tileSize = 256.0
+	tileX := float64(pos.X-mv.lastGridStartX)/tileSize + float64(mv.lastGridMinX)
+	tileY := float64(pos.Y-mv.lastGridStartY)/tileSize + float64(mv.lastGridMinY)
+	ll := TileToLatLngF(tileX, tileY, mv.zoomLevel)
+	return ll.Lat, ll.Lon
+}
+
+// handleMapClick processes a click on the map background for the measure
+// tool. It's a no-op when the measure tool isn't active.
+func (mv *MapView) handleMapClick(pos fyne.Position) {
+	if !mv.measureMode {
+		return
+	}
+
+	lat, lng := mv.screenToLatLng(pos)
+	mv.registerMeasurePoint(lat, lng)
+}
+
+// registerMeasurePoint records a measure-tool click at an exact lat/lng.
+// Used both for clicks on empty map area (via handleMapClick, which first
+// inverts the screen position) and for clicks directly on a marker (which
+// already knows its exact coordinates, more precise than hit-testing the
+// background under the pin).
+func (mv *MapView) registerMeasurePoint(lat, lng float64) {
+	point := LatLng{Lat: lat, Lon: lng}
+
+	if mv.measurePointA == nil || mv.measurePointB != nil {
+		// Start a fresh measurement.
+		mv.measurePointA = &point
+		mv.measurePointB = nil
+		mv.measureStatusLabel.SetText("Click a second point to measure distance...")
+	} else {
+		mv.measurePointB = &point
+		dist := CalculateDistance(mv.measurePointA.Lat, mv.measurePointA.Lon, point.Lat, point.Lon)
+		miles := dist * 0.621371
+		mv.measureStatusLabel.SetText(fmt.Sprintf("📏 Distance: %.1f km (%.1f mi)", dist, miles))
+	}
+
+	mv.refreshMap()
+}
+
+// drawMeasureOverlay draws the measure tool's point markers and connecting
+// line, using the same lat/lng-to-pixel projection as markers and paths.
+func (mv *MapView) drawMeasureOverlay(minX, minY int, gridStartX, gridStartY float32) []fyne.CanvasObject {
+	const tileSize = 256
+
+	toScreen := func(p *LatLng) fyne.Position {
+		tileCoord := LatLngToTile(p.Lat, p.Lon, mv.zoomLevel)
+		pixelOffset := latLngToTilePixelOffset(p.Lat, p.Lon, mv.zoomLevel)
+		x := gridStartX + float32((tileCoord.X-minX)*tileSize) + pixelOffset.X
+		y := gridStartY + float32((tileCoord.Y-minY)*tileSize) + pixelOffset.Y
+		return fyne.NewPos(x, y)
+	}
+
+	newPoint := func(pos fyne.Position) *canvas.Circle {
+		const r = 5
+		dot := canvas.NewCircle(color.RGBA{R: 255, G: 140, B: 0, A: 255})
+		dot.StrokeColor = color.RGBA{R: 0, G: 0, B: 0, A: 255}
+		dot.StrokeWidth = 1
+		dot.Position1 = fyne.NewPos(pos.X-r, pos.Y-r)
+		dot.Position2 = fyne.NewPos(pos.X+r, pos.Y+r)
+		return dot
+	}
+
+	var objects []fyne.CanvasObject
+
+	if mv.measurePointA != nil {
+		posA := toScreen(mv.measurePointA)
+		objects = append(objects, newPoint(posA))
+
+		if mv.measurePointB != nil {
+			posB := toScreen(mv.measurePointB)
+			line := canvas.NewLine(color.RGBA{R: 255, G: 140, B: 0, A: 255})
+			line.StrokeWidth = 2
+			line.Position1 = posA
+			line.Position2 = posB
+			objects = append(objects, line, newPoint(posB))
+		}
+	}
+
+	return objects
+}
+
 // calculateAgeAtEvent calculates a person's age at a specific event.
 // Returns -1 if dates cannot be parsed.
 func calculateAgeAtEvent(birthDate, eventDate string) int {
@@ -1313,28 +1708,22 @@ func (mv *MapView) exportMapAsPNG() {
 		if err != nil || writer == nil {
 			return
 		}
-		defer writer.Close()
-		
-		// Show progress dialog
-		progressDialog := dialog.NewCustom("Exporting Map", "Cancel", 
-			widget.NewLabel("Downloading map tiles and rendering...\nThis may take 10-30 seconds."), 
-			mv.window)
-		progressDialog.Show()
-		
-		// Capture and save the map in background
-		go func() {
-			err = mv.captureMapToFile(writer)
-			
-			// Close progress dialog
-			progressDialog.Hide()
-			
-			if err != nil {
-				dialog.ShowError(fmt.Errorf("Failed to export map: %v", err), mv.window)
-				return
-			}
-			
-			dialog.ShowInformation("Export Complete", "Map exported successfully as PNG!", mv.window)
-		}()
+
+		runWithProgress(mv.window, "Exporting Map", "Downloading map tiles and rendering...\nThis may take 10-30 seconds.",
+			func() error {
+				// writer must stay open for the whole capture, then close -
+				// closing it via an outer defer would race with (and likely
+				// precede) this background write.
+				defer writer.Close()
+				return mv.captureMapToFile(writer)
+			},
+			func(err error) {
+				if err != nil {
+					dialog.ShowError(fmt.Errorf("Failed to export map: %v", err), mv.window)
+					return
+				}
+				dialog.ShowInformation("Export Complete", "Map exported successfully as PNG!", mv.window)
+			})
 	}, mv.window)
 	
 	saveDialog.SetFileName("map_export.png")
@@ -1665,6 +2054,8 @@ func getMapMarkerColor(markerType MarkerType) color.Color {
 		return color.RGBA{R: 255, G: 150, B: 200, A: 255} // Pink
 	case MarkerCurrentAddress:
 		return color.RGBA{R: 100, G: 255, B: 100, A: 255} // Light green
+	case MarkerEvent:
+		return color.RGBA{R: 150, G: 80, B: 220, A: 255} // Purple
 	default:
 		return color.RGBA{R: 128, G: 128, B: 128, A: 255} // Gray
 	}

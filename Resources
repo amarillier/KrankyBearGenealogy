@@ -4,14 +4,20 @@ KrankyBear Genealogy - Release Notes
 - Gramps load time - around 8 seconds to load, then open recent, about 12-15 seconds before ready
 - PAF load time about 2 seconds until fully ready to use with most recent database open
 
-1.6.0 - February 3, 2026
+1.6.0 - August 12, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━
-Quick Wins: Backup Reminders, Place Autocomplete & Performance Optimization
+Quick Wins, Name Authority, Map Enhancements & Full-Text Search
 
 Major Features:
 • Backup Reminder System - Protect Your Data
 • Place Autocomplete - Smart Data Entry
 • Database Performance Optimization - Future-Proof Speed
+• Name Authority - Smart Name Suggestions
+• Map Enhancements - Complete Life Journey Visualization
+• Historical Place Names - Bridge Past and Present
+• Automatic Background Geocoding - Set It and Forget It
+• Full-Text Search - Find Anything Instantly
+• Additional UX Improvements - Map Export, Panning & More
 
 💾 Backup Reminder System:
   • Smart backup tracking:
@@ -97,15 +103,83 @@ Major Features:
     - Optimizes all common operations (search, reports, filtering)
     - Foundation for advanced features in future releases
 
+🔤 Name Authority - Smart Name Suggestions:
+  • Given name autocomplete:
+    - Suggests existing given names as you type
+    - Shows frequency count for common names (e.g., "John (15)")
+    - Real-time suggestions with 2+ character trigger
+    - Smart ranking: most common names appear first
+  • Surname autocomplete:
+    - Suggests existing surnames as you type
+    - Shows frequency count for family names
+    - Helps maintain consistent spelling across family branches
+  • Applied everywhere:
+    - Person Edit Dialog
+    - Advanced Search (name criteria fields)
+    - Alternate Names Manager (add and edit)
+  • Benefits:
+    - Reduces typos and spelling variations
+    - Encourages consistent name formatting
+    - Improves searchability and reports
+
+🗺️ Map Enhancements - Complete Life Journey Visualization:
+  • Marriage location markers:
+    - 💒 Pink heart marker for each marriage
+    - Click for marriage details, spouse name, and age at marriage
+  • Current address for living people:
+    - 🟢 Green marker built from City/Address/State/Country
+    - Labeled "Current Address" with "Present" as the date
+  • Migration paths:
+    - Lines connect birth → death (deceased) or birth → current address (living)
+    - Toggle on/off with the "🔀 Migration Paths" checkbox
+  • Age display:
+    - Calculated age shown in marker popups for every life event
+  • Quick access:
+    - Right-click any person → "View on Map..." from Family, Pedigree, Fan Chart, or Descendant view
+
+🏛️ Historical Place Names:
+  • New Tools → Historical Place Names manager:
+    - Map historical names to modern equivalents (e.g., "Salisbury, Rhodesia" → "Harare, Zimbabwe")
+    - Optional year-changed and notes fields
+  • Geocoding fallback:
+    - Automatically retries with the modern name when the historical one fails to geocode
+    - Re-attempts previously-failed lookups once a mapping is added
+  • Display helper can render "Salisbury, Rhodesia (now Harare, Zimbabwe)" wherever needed
+
+🤖 Automatic Background Geocoding:
+  • Runs quietly in the background, starting 10 seconds after launch
+  • Finds and geocodes all un-geocoded birth, death, marriage, and current-address places
+  • Respects Nominatim's 1-second rate limit; rechecks every 30 minutes for new places
+  • Starts and stops automatically when switching databases
+
+🔍 Full-Text Search - Find Anything Instantly:
+  • SQLite FTS5 virtual table with Porter stemming and Unicode support
+  • Searches names, places (including marriage places & spouse names), notes, contact info, and UID
+  • Powerful query syntax: AND (default), OR, NOT (-word), "exact phrases", prefix* matching, and boolean grouping
+  • Results show which field matched, a highlighted snippet, and relevance ranking
+  • Access via Tools → Full-Text Search, or the Cmd/Ctrl+Shift+T shortcut
+  • Index stays current automatically as people and relationships are edited
+
+✨ Additional UX Improvements:
+  • Map export to PNG/PDF (1920x1080, with all markers, paths, and legend)
+  • Map panning via directional arrow buttons
+  • Family View scroll fix for large families (10+ children)
+  • Right-click context menu now available on the focused person too
+  • Global Search default changed to "All Place Fields"
+  • Search & Replace and Historical Place Names windows now track state (no duplicate windows)
+  • Geocoding retries the historical-name fallback even for previously "failed" cached lookups
+
 🔧 Technical Improvements:
   • New database table: `settings` (backup tracking, preferences)
+  • New database table: `alternate_places` (historical → current place name mappings)
+  • New SQLite FTS5 virtual table with sync triggers for people and relationships
+  • New background geocoding service with rate limiting and lifecycle management
   • New UI component: PlaceAutocompleteContainer (reusable widget)
+  • New UI components: given-name and surname autocomplete widgets
   • Optimized Settings dialog layout (better UX flow)
   • Performance indexes on 11 commonly-queried fields
   • Combined query optimization for startup speed
   • PRAGMA optimize integration for query planner
-
-Development Time: 7-9 hours (originally estimated 30-45 hours)
 
 
 

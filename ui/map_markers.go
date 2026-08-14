@@ -21,6 +21,7 @@ const (
 	MarkerDeath
 	MarkerMarriage
 	MarkerCurrentAddress // For living people's current location
+	MarkerEvent          // Generic life event (immigration, occupation, etc.)
 )
 
 // MapMarker represents a marker on the map for a life event.
@@ -33,10 +34,19 @@ type MapMarker struct {
 	EventDate  string
 	Place      string
 	Generation int // Generation relative to reference person (0 = same, negative = ancestors, positive = descendants)
-	
+
 	// Additional info for marriages
 	SpouseID   int64
 	SpouseName string
+
+	// EventLabel holds the life event's type (e.g. "Immigration") for
+	// MarkerEvent markers, since none of the other fields fit.
+	EventLabel string
+
+	// EventDateEnd is optionally set for MarkerEvent markers whose event has
+	// a duration (e.g. military service), in addition to EventDate as the
+	// start.
+	EventDateEnd string
 }
 
 // MarkerStyle defines the visual appearance of a marker.
@@ -71,6 +81,12 @@ func GetMarkerStyle(markerType MarkerType) MarkerStyle {
 		return MarkerStyle{
 			Color:  color.RGBA{R: 50, G: 200, B: 50, A: 255}, // Green (same as birth)
 			Symbol: "🏠",
+			Size:   20,
+		}
+	case MarkerEvent:
+		return MarkerStyle{
+			Color:  color.RGBA{R: 150, G: 80, B: 220, A: 255}, // Purple
+			Symbol: "📅",
 			Size:   20,
 		}
 	default:
@@ -204,7 +220,30 @@ func GetMarkersForPerson(s *store.Store, personID int64) ([]*MapMarker, error) {
 			})
 		}
 	}
-	
+
+	// Life Events - generic one-off events (immigration, occupation, etc.)
+	if events, err := s.GetEvents(person.ID); err == nil {
+		for _, event := range events {
+			if event.Place == "" || isUnknownPlace(event.Place) {
+				continue
+			}
+			geocode, err := s.GetPlaceGeocode(event.Place)
+			if err == nil && geocode != nil && geocode.GeocodeStatus == "success" {
+				markers = append(markers, &MapMarker{
+					Type:         MarkerEvent,
+					Latitude:     geocode.Latitude,
+					Longitude:    geocode.Longitude,
+					PersonID:     person.ID,
+					PersonName:   formatPersonName(*person),
+					EventDate:    event.Date,
+					EventDateEnd: event.DateEnd,
+					Place:        event.Place,
+					EventLabel:   event.Type,
+				})
+			}
+		}
+	}
+
 	return markers, nil
 }
 
@@ -248,6 +287,29 @@ func GetAllMarkers(s *store.Store) ([]*MapMarker, error) {
 					EventDate:  person.DeathDate,
 					Place:      person.DeathPlace,
 				})
+			}
+		}
+
+		// Life Events - generic one-off events (immigration, occupation, etc.)
+		if events, err := s.GetEvents(person.ID); err == nil {
+			for _, event := range events {
+				if event.Place == "" || isUnknownPlace(event.Place) {
+					continue
+				}
+				geocode, err := s.GetPlaceGeocode(event.Place)
+				if err == nil && geocode != nil && geocode.GeocodeStatus == "success" {
+					markers = append(markers, &MapMarker{
+						Type:         MarkerEvent,
+						Latitude:     geocode.Latitude,
+						Longitude:    geocode.Longitude,
+						PersonID:     person.ID,
+						PersonName:   formatPersonName(person),
+						EventDate:    event.Date,
+						EventDateEnd: event.DateEnd,
+						Place:        event.Place,
+						EventLabel:   event.Type,
+					})
+				}
 			}
 		}
 	}
