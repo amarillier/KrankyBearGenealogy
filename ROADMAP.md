@@ -143,9 +143,9 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 ### Advanced Media Features (Future)
 - 🚫 Face tagging (link faces in photos to people)
-- ⏳ Photo timeline view
-- ⏳ Automatic photo organization by date/person
-- ⏳ Batch photo import with metadata parsing
+- ✅ Photo timeline view (v1.8.0: browse by year, filter by person, thumbnails load on demand)
+- ✅ Automatic photo organization by date/person (v1.8.0: Photo Timeline groups by EXIF date and filters by person)
+- ✅ Batch photo import with metadata parsing (v1.8.0: folder import, EXIF dates, duplicate skipping)
 - ⏳ Video thumbnails from first frame
 
 ### Document & Video Support (Not Completed Parts)
@@ -1110,7 +1110,8 @@ long-running operations and eliminating N+1 query patterns in the two full-datab
 - ✅ Both the manual Geocoding Tool and the automatic Background Geocoding service now scan event places, so new events get geocoded without any extra steps
 - ✅ Optional End Date field for events with a duration (e.g. military service), shown as a "1978 – 1982" range in the Life Events card and Map View popup
 - ✅ Family Group Sheet (Fyne view, HTML export, and PDF export) shows a chronological "Life Events" section for husband/wife, respecting the same living-person privacy settings as the rest of the report
-- ⏳ Not included in CSV/HTML timeline exports, Ancestor/Descendant Reports, or the Family Website's individual person pages yet - Ancestor/Descendant are intentionally terse one-liners, and the others were left for a future pass by choice
+- ✅ Added to the Timeline CSV export, the family website Timeline page and person pages in v1.8.0 (respecting living-person privacy)
+- ⏳ Still not included in Ancestor/Descendant Reports - intentionally terse one-liners
 - **Note:** Built on top of a fully-defined `events` table + `Event` model that existed in the schema but was never wired up to any UI - deliberately scoped to one-off life events only, not a residence/move-history tracker (decided not worth the upkeep for most people)
 - **User Value:** HIGH - Fills a real gap for anyone whose life (or ancestor's life) doesn't fit neatly into birth/marriage/death
 - **Actual Effort:** ~5-6 hours
@@ -1168,10 +1169,14 @@ long-running operations and eliminating N+1 query patterns in the two full-datab
 - ✅ Relationships are remapped to the resolved people without duplicates; the whole merge rolls back if anything fails
 - ✅ Automatic pre-merge backup in a `merge-backups` folder, cleaned up after 14 days at launch
 - ✅ Shared `internal/dedupe` matching package (surname-sound index, gender/death/place/UID signals) now also drives the Duplicates report
+- ✅ Photo Timeline, batch photo import and EXIF Date Taken (new `internal/exifdate` reader, no new dependency)
+- ✅ Map marker popups have a Street View button (opens Google Street View in the browser)
+- ✅ Life Events now in the Timeline CSV, website Timeline page and person pages
 - ✅ Duplicate merge rebuilt as a single transaction that moves relationships, events, citations, media, alternate names, to-dos and research logs
 - ✅ GEDCOM parsing split from database writing; fixes for multi-word surnames, CONC/CONT notes, alias names and byte-order marks
-- ⏳ Not yet merged from the incoming file: sources, media and alternate names (the parser does not read them yet)
-- ⏳ Imports still mark everyone as not living (unchanged historical default)
+- ✅ Sources, citations and alternate names are imported and merged (existing sources reused, no duplicates on re-merge)
+- ⏳ Media embedded in a GEDCOM file (OBJE) is still not read
+- ✅ Imports infer living status (no death information and born within 100 years)
 
 ---
 
@@ -1183,11 +1188,10 @@ long-running operations and eliminating N+1 query patterns in the two full-datab
 1. ⏳ **Password Protection** (Phase 7): optional database encryption (opt-in; unencrypted remains the default)
    - Likely SQLCipher; CGO is not a blocker because release builds are compiled natively on Windows/Linux/macOS
    - Needs: encrypted open/create, change/remove password, interaction with backup/restore and database switching
-2. ⏳ **Life Events in remaining outputs**: CSV/HTML timeline exports and Family Website person pages
-3. ⏳ **Advanced Map Features** (Phase 7): heat map overlay, animated paths, Google Street View link
+2. ⏳ **Advanced Map Features** (Phase 7): heat map overlay and animated paths (Street View link done in v1.8.0)
    - Timeline slider, measure tool and PNG/PDF export are done
    - **Estimated Effort:** 10-15 hours
-4. ⏳ **Media extras**: video thumbnails from first frame, photo timeline view, batch photo import with metadata (EXIF) parsing
+3. ⏳ **Video thumbnails** from the first frame (only worthwhile if it stays a single binary: pure-Go H.264 decoding or an embedded WASM ffmpeg; a separate ffmpeg binary is ruled out)
 
 **Deferred (revisit only if needed)**
 - ⏳ Lazy Loading for large datasets: profiling in v1.7.0 showed the bottleneck was per-row queries, not the data load; revisit well past 10,000 people

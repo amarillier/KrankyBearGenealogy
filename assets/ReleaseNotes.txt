@@ -13,6 +13,9 @@ Major Features:
 • Automatic Pre-Merge Backup - Every Merge Is Preceded by a Safety Backup
 • Smarter Duplicate Detection - Better Scoring and Much Faster on Large Databases
 • Complete Duplicate Merging - Nothing Is Lost When Two Records Are Combined
+• Photo Timeline - Browse Your Photos by the Year They Were Taken
+• Batch Photo Import - Import a Whole Folder, Dates Read from Each Photo
+• Map Street View - Open Google Street View for Any Map Marker
 • More Accurate GEDCOM Import - Multi-Word Surnames and Long Notes
 
 🔀 Merge GEDCOM:
@@ -30,6 +33,12 @@ Major Features:
       Reset to suggested
   • Exact matches default to Merge; likely matches default to Add as new and are
     flagged "review", so a wrong merge never happens silently
+  • Sources, source citations (page, transcription, confidence) and alternate
+    names (aliases, maiden and married names, nicknames) in the file are brought
+    across too; sources already in your database are reused, and nothing is
+    added twice if you merge the same file again
+  • When you merge into an existing person, the file's version of their name is
+    kept as an alternate name if it differs
   • Marriages and parent-child links from the file are connected to the right
     people, existing links are never duplicated, and a person is never linked
     to themselves
@@ -67,6 +76,46 @@ Major Features:
   • The removed record's name is kept as an alternate name if it differs
   • Recorded in the Audit Log
 
+🖼️ Photo Timeline:
+  • Media → Photo Timeline... shows your photos by the year they were taken:
+    a year list (with counts) on the left and a thumbnail grid on the right
+  • Filter by person, and choose Photos only or All media (videos, documents)
+  • Photos with no date appear under "Undated"; click any photo to open it
+  • Fast on large libraries: thumbnails load only as you scroll
+
+📷 Dates from Your Photos (EXIF):
+  • When you add a photo, Date Taken is filled in automatically from the date
+    stored inside the photo by your camera or phone (you can still change it)
+  • "Fill Dates from Photos..." in the Photo Timeline window reads the dates
+    for photos already in your database that have no Date Taken - it never
+    changes a date you already have
+  • Works with JPEG photos; other image types and videos keep a manual date
+
+📁 Batch Photo Import:
+  • Media → Batch Import Photos... imports every photo in a folder (and its
+    sub-folders) in one step: JPEG, PNG, GIF and WebP
+  • Choose database storage or links to the original files, and link every
+    photo to the people you select
+  • Photos already in the library (same name and size) are skipped, and a
+    photo that cannot be read never stops the rest
+  • Progress bar while importing; a summary lists anything that failed
+
+🛣 Map Street View:
+  • Click any marker on the map (birth, death, marriage, current address or
+    Life Event) and choose "Street View" to open Google Street View for that
+    spot in your web browser
+  • Shows current imagery - handy for seeing where a family home, church or
+    farm stood
+  • The marker popup now has "View Person" and "Street View" buttons
+
+📅 Life Events in More Places:
+  • Life Events (immigration, occupation, military service, etc.) now appear in:
+    - The Timeline CSV export
+    - The family website's Timeline page, with date ranges for events that
+      have an end date
+    - A new "Life Events" section on each person's page on the family website
+  • Living people's events are withheld when "limit living info" privacy is on
+
 📥 GEDCOM Import Improvements:
   • Multi-word surnames such as "van der Berg" are no longer split incorrectly
   • Long notes split across lines (CONC/CONT) are no longer cut short
@@ -75,6 +124,12 @@ Major Features:
   • Notes attached to a birth event no longer end up in the person's notes
   • Files starting with a byte-order mark now import correctly
   • Records now import in file order
+  • People are imported as living when they have no death information and were
+    born within the last 100 years; previously everyone was imported as not
+    living, which also caused the next GEDCOM export to add death records
+  • Sources, citations and alternate names are now imported (they were skipped)
+  • Reference notes (@N1@ pointers) and stray records after the last person no
+    longer leak into people's notes
 
 Version 1.7.1 - September 01, 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
