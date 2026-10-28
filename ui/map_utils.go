@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"math"
+	"net/url"
 )
 
 // MapTile represents a single map tile with its coordinates.
@@ -221,4 +222,16 @@ func CalculateZoomForBounds(bounds MapBounds, viewportWidth, viewportHeight int)
 	}
 	
 	return 1 // Minimum zoom if nothing else fits
+}
+
+// streetViewURL builds a Google Maps Street View link for a coordinate, using
+// the documented Maps URLs format (opens the panorama nearest the point, or a
+// map view if there is no coverage).
+func streetViewURL(lat, lon float64) *url.URL {
+	values := url.Values{}
+	values.Set("api", "1")
+	values.Set("map_action", "pano")
+	values.Set("viewpoint", fmt.Sprintf("%.6f,%.6f", lat, lon))
+	u, _ := url.Parse("https://www.google.com/maps/@?" + values.Encode())
+	return u
 }

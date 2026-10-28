@@ -1173,23 +1173,29 @@ func (mv *MapView) showMarkerPopup(marker *MapMarker) {
 			marker.EventLabel, marker.PersonName, dateText, marker.Place)
 	}
 	
-	// Add navigation button
-	message += "\n\nClick 'View Person' to navigate to this person's record"
-	
-	dialog := dialog.NewConfirm("Life Event", message, func(navigate bool) {
-		if navigate {
-			mv.onNavigate(marker.PersonID)
-			// Update window title
-			if person, err := mv.store.GetPersonByID(marker.PersonID); err == nil {
-				mv.window.SetTitle(fmt.Sprintf("Map View - %s", formatPersonName(*person)))
-				mv.SetPersonFocus(person)
-			}
+	msgLabel := widget.NewLabel(message)
+	msgLabel.Wrapping = fyne.TextWrapWord
+
+	var popup dialog.Dialog
+	viewPersonBtn := widget.NewButton("View Person", func() {
+		popup.Hide()
+		mv.onNavigate(marker.PersonID)
+		// Update window title
+		if person, err := mv.store.GetPersonByID(marker.PersonID); err == nil {
+			mv.window.SetTitle(fmt.Sprintf("Map View - %s", formatPersonName(*person)))
+			mv.SetPersonFocus(person)
 		}
-	}, mv.window)
-	
-	dialog.SetDismissText("Close")
-	dialog.SetConfirmText("View Person")
-	dialog.Show()
+	})
+	viewPersonBtn.Importance = widget.HighImportance
+	// Street View shows today's imagery of the location, which is handy for
+	// seeing where a family home or church stood
+	streetViewBtn := widget.NewButton("🛣 Street View", func() {
+		openOnlineSearch(streetViewURL(marker.Latitude, marker.Longitude), mv.window)
+	})
+
+	popup = dialog.NewCustom("Life Event", "Close",
+		container.NewVBox(msgLabel, container.NewHBox(viewPersonBtn, streetViewBtn)), mv.window)
+	popup.Show()
 }
 
 // calculateTileBounds finds the min/max X/Y from a list of tiles.
@@ -1268,6 +1274,10 @@ func (mv *MapView) showHelp() {
   • Click any entry to recenter (and zoom in on) that location -
     handy when several events are close together or far apart and
     hard to spot at the current zoom level
+
+🛣 Street View:
+  • Click any marker, then "🛣 Street View" to open Google Street View
+    for that spot in your web browser (shows current imagery)
 
 💡 Tips:
   • Right-click any person → "View on Map"

@@ -22,6 +22,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/disintegration/imaging"
 
+	"genealogy/internal/exifdate"
 	"genealogy/store"
 )
 
@@ -490,6 +491,10 @@ func showGlobalMediaMetadataDialog(w fyne.Window, s *store.Store, filename, full
 	
 	dateEntry := widget.NewEntry()
 	dateEntry.SetPlaceHolder("YYYY-MM-DD (optional)")
+	// Photos usually carry the date they were taken; start from that
+	if date, ok := exifdate.FromFile(fullPath); ok {
+		dateEntry.SetText(date)
+	}
 	
 	// Storage option
 	storageOptions := []string{"Store in Database (recommended)", "Link to External File"}
@@ -1039,6 +1044,10 @@ func showMediaMetadataDialog(w fyne.Window, s *store.Store, personID int64, file
 	
 	dateEntry := widget.NewEntry()
 	dateEntry.SetPlaceHolder("YYYY-MM-DD (optional)")
+	// Photos usually carry the date they were taken; start from that
+	if date, ok := exifdate.FromFile(fullPath); ok {
+		dateEntry.SetText(date)
+	}
 	
 	// Storage option
 	storageOptions := []string{"Store in Database (recommended)", "Link to External File"}

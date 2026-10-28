@@ -1447,6 +1447,14 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		showGlobalMediaDialog(w, getStore())
 	})
 
+	photoTimelineMenuItem := fyne.NewMenuItem("Photo Timeline...", func() {
+		showPhotoTimeline(w, getStore())
+	})
+
+	batchPhotoImportMenuItem := fyne.NewMenuItem("Batch Import Photos...", func() {
+		showBatchPhotoImport(w, getStore(), nil)
+	})
+
 	// Sources menu item
 	sourcesLibraryMenuItem := fyne.NewMenuItem("Sources Library", func() {
 		showSourcesLibrary(w, getStore())
@@ -1603,6 +1611,8 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	mediaSubMenu := fyne.NewMenu("Media",
 		mediaLibraryMenuItem,
 		addMediaMenuItem,
+		batchPhotoImportMenuItem,
+		photoTimelineMenuItem,
 		fyne.NewMenuItemSeparator(),
 		sourcesLibraryMenuItem)
 	mediaMenuItem := fyne.NewMenuItem("Media", nil)
@@ -1936,6 +1946,12 @@ func showMediaPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64) {
 		}),
 		fyne.NewMenuItem("Media Library", func() {
 			showMediaLibrary(w, s)
+		}),
+		fyne.NewMenuItem("Batch Import Photos", func() {
+			showBatchPhotoImport(w, s, nil)
+		}),
+		fyne.NewMenuItem("Photo Timeline", func() {
+			showPhotoTimeline(w, s)
 		}),
 		fyne.NewMenuItem("Research Log Manager", func() {
 			showResearchLogManager(w, s)
@@ -7596,9 +7612,11 @@ func generateTimelinePage(s *store.Store, people []store.Person, options HTMLExp
 	type WebTimelineEvent struct {
 		Date   string
 		Year   string
-		Type   string // "birth", "death"
-		Person store.Person
-		Place  string
+		Type    string // "birth", "death", "life"
+		Label   string // life events: the event type, e.g. "Immigration"
+		DateEnd string // life events with a duration
+		Person  store.Person
+		Place   string
 	}
 
 	var events []WebTimelineEvent
@@ -7640,6 +7658,32 @@ func generateTimelinePage(s *store.Store, people []store.Person, options HTMLExp
 				Type:   "death",
 				Person: p,
 				Place:  p.DeathPlace,
+			})
+		}
+	}
+
+	// Add life events (immigration, occupation, military service, etc.);
+	// like the person pages, these are withheld for living people when their info is limited
+	for _, p := range people {
+		if options.LimitLivingInfo && p.IsLiving {
+			continue
+		}
+		lifeEvents, err := s.GetEvents(p.ID)
+		if err != nil {
+			continue
+		}
+		for _, le := range lifeEvents {
+			if le.Date == "" {
+				continue
+			}
+			events = append(events, WebTimelineEvent{
+				Date:    le.Date,
+				Year:    extractYear(le.Date),
+				Type:    "life",
+				Label:   le.Type,
+				DateEnd: le.DateEnd,
+				Person:  p,
+				Place:   le.Place,
 			})
 		}
 	}
@@ -7732,12 +7776,19 @@ func generateTimelinePage(s *store.Store, people []store.Person, options HTMLExp
 			eventType = "Born"
 		} else if event.Type == "death" {
 			eventType = "Died"
+		} else if event.Type == "life" {
+			eventType = event.Label
+			eventIcon = "📌"
 		}
 
 		// Format date and place
 		dateStr := ""
 		if event.Date != "" {
-			dateStr = `<strong>` + formatFGSDate(event.Date) + `</strong> - `
+			dateStr = `<strong>` + formatFGSDate(event.Date)
+			if event.DateEnd != "" {
+				dateStr += ` - ` + formatFGSDate(event.DateEnd)
+			}
+			dateStr += `</strong> - `
 		}
 
 		placeStr := ""
@@ -8719,6 +8770,16 @@ func generatePersonPage(s *store.Store, person *store.Person, options HTMLExport
         </div>
 `)
 
+	// Life Events (empty for living people when their info is limited)
+	if lifeEventsHTML := formatLifeEventsHTML(s, person, options); lifeEventsHTML != "" {
+		lifeEventsHTML = strings.Replace(lifeEventsHTML, `<span class="detail-label">Life Events:</span>`, "", 1)
+		html.WriteString(`        <div class="section">
+            <h2>Life Events</h2>
+` + lifeEventsHTML + `
+        </div>
+`)
+	}
+
 	// Photo Gallery
 	photoGalleryHTML := generatePhotoGalleryHTML(s, person.ID)
 	if photoGalleryHTML != "" {
@@ -9336,6 +9397,28 @@ func exportTimelineToCSV(w fyne.Window, s *store.Store) {
 					return
 				}
 				eventCount++
+			}
+
+			// Life Events (immigration, occupation, military service, etc.)
+			if lifeEvents, err := s.GetEvents(p.ID); err == nil {
+				for _, le := range lifeEvents {
+					if le.Date == "" {
+						continue
+					}
+					row := []string{
+						le.Date,
+						extractYear(le.Date),
+						le.Type,
+						fmt.Sprintf("%d", p.ID),
+						formatPersonName(p),
+						le.Place,
+					}
+					if err := writer.Write(row); err != nil {
+						dialog.ShowError(fmt.Errorf("Failed to write CSV row: %w", err), w)
+						return
+					}
+					eventCount++
+				}
 			}
 		}
 
