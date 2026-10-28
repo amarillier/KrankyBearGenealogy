@@ -55,8 +55,8 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 - ✅ Import media references (paths and descriptions) to notes
 
 
-### Other Import Formats (Low Priority / Not Needed)
-- ⏳ Most applications (Family Tree Maker, Ancestry.com, MyHeritage, etc.) export to GEDCOM
+### Other Import Formats (🚫 Won't Do)
+- 🚫 Most applications (Family Tree Maker, Ancestry.com, MyHeritage, etc.) export to GEDCOM
 - ✅ Our robust GEDCOM import handles these already
 - ✅ Only implemented GenoPro and Gramps because they have unique benefits:
   - ✅ GenoPro: Proprietary XML format users may not know how to export
@@ -137,20 +137,20 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 ## Phase 5: Gramps Import Advanced Features (Future)
 - ✅ We have equivalent features, but not currently Gramps import
-- ⏳ Import source citations from Gramps
-- ⏳ Import full event system data from Gramps
-- ⏳ Import research logs from Gramps
+- 🚫 Import source citations from Gramps
+- 🚫 Import full event system data from Gramps
+- 🚫 Import research logs from Gramps
 
 ### Advanced Media Features (Future)
-- ⏳ Face tagging (link faces in photos to people)
+- 🚫 Face tagging (link faces in photos to people)
 - ⏳ Photo timeline view
 - ⏳ Automatic photo organization by date/person
 - ⏳ Batch photo import with metadata parsing
 - ⏳ Video thumbnails from first frame
 
 ### Document & Video Support (Not Completed Parts)
-- ⏳ Document scanning integration (Future)
-- ⏳ OCR for searchable documents (Future)
+- 🚫 Document scanning integration (Future)
+- 🚫 OCR for searchable documents (Future)
 
 ---
 
@@ -260,7 +260,7 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ⏳ Side-by-side comparison
   - ⏳ Manual conflict resolution
   - ⏳ Smart duplicate detection
-- **⏳ Collaborative Editing**: Lock mechanism for multi-user scenarios - low priority, most use is expected to be single user
+- **🚫 Collaborative Editing**: Lock mechanism for multi-user scenarios - low priority, most use is expected to be single user
 - ✅ **Family Website Generator** (v1.4.0): Complete multi-page static HTML website from database
   - ✅ Individual person pages with photos and relationships
   - ✅ Places index page (geographic organization)
@@ -401,7 +401,7 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
   - ✅ Apply to all name entry fields (Person Edit, Advanced Search, Alternate Names)
   - ✅ Shows usage count for common names (e.g., "John (15)")
   - ✅ Improves data consistency and reduces typos
-- **⏳ Relationship Suggestions**: AI-assisted relationship detection from notes (future)
+- **🚫 Relationship Suggestions**: AI-assisted relationship detection from notes (future)
 
 ---
 
@@ -415,8 +415,8 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 ### Integration (Future)
 - **✅ Online Search Integration**: Quick links to Ancestry, FamilySearch, etc. - Completed in v1.7.0
-- **⏳ Census Data Import**: Import from online census records
-- **⏳ DNA Integration**: Link to DNA test results (23andMe, Ancestry DNA)
+- **🚫 Census Data Import**: Import from online census records
+- **🚫 DNA Integration**: Link to DNA test results (23andMe, Ancestry DNA)
 - **✅ Calendar Integration**: Export birthdays/anniversaries to calendar - Completed in v1.7.0
 
 ### Data Management
@@ -439,12 +439,12 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 ## 📱 Phase 10: Future Platforms (Deferred)
 
-### ⏳ Mobile Apps (Ambitious - Future)
+### 🚫 Mobile Apps (Ambitious - Future)
 - **iOS/Android Apps**: Read-only view of database (sync via iCloud/Dropbox)
 - **Web Version**: Browser-based interface for viewing only
 - **Progressive Web App**: Offline-capable web version
 
-### ⏳ Cloud Sync (Optional - Future)
+### 🚫 Cloud Sync (Optional - Future)
 - **Optional Cloud Backup**: Auto-backup to user's cloud storage
 - **Multi-Device Sync**: Keep databases in sync across devices
 - **Collaboration Server**: Optional self-hosted server for family collaboration
@@ -464,7 +464,7 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 - ✅ JavaScript real-time search (client-side)
 - ✅ Photo & media embedding with base64 encoding
 
-### ⏳ Customizable Report Templates (Optional/Low Priority - Future)
+### 🚫 Customizable Report Templates (Optional/Low Priority - Future)
 - Custom report templates with user-defined layouts
 - Template editor UI
 - Save/load template files
@@ -769,8 +769,8 @@ See detailed release notes in ReleaseNotes.txt for complete feature list and usa
 13. ✅ CSV export for data analysis (People, Timeline, Surnames, Places, Sources)
 
 **Phase 10: Additional Platform Support** (Deferred)
-1. ⏳ Mobile companion apps (read-only database view)
-2. ⏳ Cloud sync capabilities (optional)
+1. 🚫 Mobile companion apps (read-only database view)
+2. 🚫 Cloud sync capabilities (optional)
 3. ⏳ Cross-platform compatibility enhancements
 
 ### ✅ Phase 12: Map Visualization (v1.5.0 - Released January 30, 2026)
@@ -881,9 +881,9 @@ visualization, and powerful full-text search.
   - People list (load in chunks of 100-200)
   - Media library (paginated loading)
   - Report results (virtual scrolling)
-- ⏳ Profile current bottlenecks with benchmarking (deferred)
+- ✅ Profile current bottlenecks with benchmarking (deferred) (done in v1.7.0)
 - ⏳ Memory optimization for large databases (deferred - not needed yet)
-- ⏳ Background processing for non-critical tasks (deferred)
+- ✅ Background processing for non-critical tasks (deferred) (done in v1.7.0)
 - **User Value:** HIGH - Future-proofs for growth, strengthens "fast vs Gramps" competitive advantage
 - **Actual Effort:** 2 hours (core indexing complete, advanced features deferred)
 - **Performance Results:** ✅ Verified fast on 1,400 people, ready for 10,000+
@@ -1155,103 +1155,56 @@ long-running operations and eliminating N+1 query patterns in the two full-datab
 
 ---
 
-### 📋 Future Releases - Medium Priority (v1.9+)
-
-**Phase 7: Advanced Map Features** (Future Polish & Enhancements)
-- ✅ Timeline slider: Time-lapse the map to a selected year (✓ Completed in v1.7.0)
-- ⏳ Animated paths: Trace journey over time with animation
-- ⏳ Heat map overlay: Density visualization of family events
-- ✅ Measure tool: Calculate distances between any two locations (✓ Completed in v1.7.0)
-- ✅ Export map as image (PNG, PDF) with legend (✓ Completed in v1.6.0)
-- ⏳ Historical map overlays: Show borders as they were in different eras
-- ⏳ Street view integration: Link to Google Street View for precise locations
-- **Estimated Effort (remaining):** 10-15 hours (animated paths, heat map, historical overlays, street view)
-
-**Phase 8: Data Entry Helpers** (Mostly Complete)
-- ✅ Smart Date Entry: Parse "May 1945", "1945", "abt 1945", etc. (✓ Completed in v1.5.3)
-- ✅ Place Autocomplete: Suggest standard place names as you type (✓ Completed in v1.6.0)
-- ✅ Name Authority: Suggest standard name formats (✓ Completed in v1.6.0)
-- ⏳ Relationship Suggestions: AI-assisted relationship detection from notes
-- **Actual Effort:** 4-5 hours for Name Authority
-
-**Phase 9: Performance & Scalability**
-- ✅ Indexed Search: Full-text search across all fields (✓ Completed in v1.6.0)
-- ✅ Background Processing: Import/export/backup/restore in background threads (✓ Completed in v1.7.0)
-- ✅ Large Database Optimization: Batch person indicators for the People list and Individual View, replacing per-row queries (✓ Completed in v1.7.0)
-- ⏳ Lazy Loading: Load views progressively for large datasets (not yet needed — profiling shows the remaining bottleneck was per-row queries, not `GetPeople()` itself; revisit if databases grow well past 10,000 people)
-- **Actual Effort (v1.7.0):** ~4-5 hours
+### ✅ Released: v1.7.1 - Dependency Update (September 1, 2026)
+- ✅ Minor release: Fyne and dependency updates only, no new features
 
 ---
 
-### 📋 Future Releases - Low Priority (v1.7+)
+### ✅ Released: v1.8.0 - GEDCOM Merge (October 28, 2026)
 
-**Phase 9: Batch Operations** (Mostly Complete)
-- ✅ Bulk mark as living (v1.2.0)
-- ✅ Bulk edit place names (v1.3.0): Global Search & Replace
-- ✅ Bulk standardize names (v1.3.0): Name Case Conversion
-- ✅ Batch geocoding (v1.5.0): Geocoding Tool
-- ✅ Bulk delete operations - not implemented, see notes related to cascade delete individual
-- ✅ More comprehensive bulk privacy settings
-- **Actual Effort:** 8-10 hours (most features complete)
-
-**Phase 8: Advanced UX** ✅ (Completed in v1.5.2)
-- ✅ Undo/Redo functionality (complex but valuable)
-- ✅ Command history tracking (50-operation buffer)
-- ✅ Edit reversal for person changes, deletions, relationship modifications
-- ✅ Keyboard shortcuts (Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z)
-- ✅ Edit menu integration
-- **Actual Effort:** ~20 hours (core system existed, needed integration)
-
-**Phase 7: Collaboration & Sharing**
-1. GEDCOM Merge with conflict resolution
-2. ✅ Change Tracking (persistent audit log of all edits) - Completed in v1.7.0
-3. Advanced Privacy Features (privacy flags, automatic protection)
-4. Collaborative Editing (lock mechanism)
-- **Estimated Effort (remaining):** 25-35 hours
-
-**Phase 9: Integration**
-- ✅ Online Search Integration: Quick links to Ancestry, FamilySearch, etc. - Completed in v1.7.0
-- Census Data Import: Import from online census records
-- DNA Integration: Link to DNA test results (23andMe, Ancestry DNA)
-- ✅ Calendar Integration: Export birthdays/anniversaries to calendar - Completed in v1.7.0
-- **Estimated Effort (remaining):** 20-25 hours (Census + DNA integration)
+**GEDCOM Merge** ⭐ HIGH VALUE (✓ Complete) — closes out Phase 7 "GEDCOM Merge"
+- ✅ File → Merge GEDCOM...: import another GEDCOM into the current database and resolve overlaps in a side-by-side review window
+- ✅ Each incoming person is classed as exact match, likely match or new; the user chooses add, merge into an existing person, or skip, with per-field choices for conflicts
+- ✅ Relationships are remapped to the resolved people without duplicates; the whole merge rolls back if anything fails
+- ✅ Automatic pre-merge backup in a `merge-backups` folder, cleaned up after 14 days at launch
+- ✅ Shared `internal/dedupe` matching package (surname-sound index, gender/death/place/UID signals) now also drives the Duplicates report
+- ✅ Duplicate merge rebuilt as a single transaction that moves relationships, events, citations, media, alternate names, to-dos and research logs
+- ✅ GEDCOM parsing split from database writing; fixes for multi-word surnames, CONC/CONT notes, alias names and byte-order marks
+- ⏳ Not yet merged from the incoming file: sources, media and alternate names (the parser does not read them yet)
+- ⏳ Imports still mark everyone as not living (unchanged historical default)
 
 ---
 
-### 📋 Deferred Features (v2.0+)
+### 📋 Remaining Work (Consolidated)
 
-**Phase 5: Gramps Import Advanced Features** (When Needed)
-- Import source citations from Gramps
-- Import full event system data from Gramps
-- Import research logs from Gramps
-- Note: Pending investigation of Gramps data availability
+**Legend:** ✅ done · ⏳ planned or deferred · 🚫 won't do
 
-**Phase 10: Mobile & Web Platforms** (Ambitious)
-- iOS/Android companion apps (read-only database view)
-- Web version with browser-based interface
-- Progressive Web App (offline-capable)
-- **Estimated Effort:** 100+ hours
+**Next up (planned, in priority order)**
+1. ⏳ **Password Protection** (Phase 7): optional database encryption (opt-in; unencrypted remains the default)
+   - Likely SQLCipher; CGO is not a blocker because release builds are compiled natively on Windows/Linux/macOS
+   - Needs: encrypted open/create, change/remove password, interaction with backup/restore and database switching
+2. ⏳ **Life Events in remaining outputs**: CSV/HTML timeline exports and Family Website person pages
+3. ⏳ **Advanced Map Features** (Phase 7): heat map overlay, animated paths, Google Street View link
+   - Timeline slider, measure tool and PNG/PDF export are done
+   - **Estimated Effort:** 10-15 hours
+4. ⏳ **Media extras**: video thumbnails from first frame, photo timeline view, batch photo import with metadata (EXIF) parsing
 
-**Phase 10: Cloud Sync** (Optional)
-- Optional cloud backup (user's cloud storage)
-- Multi-device sync capabilities
-- Collaboration server (self-hosted for families)
-- **Estimated Effort:** 80+ hours
+**Deferred (revisit only if needed)**
+- ⏳ Lazy Loading for large datasets: profiling in v1.7.0 showed the bottleneck was per-row queries, not the data load; revisit well past 10,000 people
+- ⏳ Historical map overlays (borders in different eras)
+- ⏳ Fuzzy place matching and GeoNames integration (database suggestions are sufficient)
+- ⏳ Internationalization (see below)
 
-**Phase 8: Advanced Map Features** (v1.6+)
-- Historical map overlays (borders as they were in different eras)
-- 3D terrain view
-- Street view integration
-- Weather data at events
-- Travel time estimates between locations
-- **Estimated Effort:** 20-30 hours
-
-**Advanced AI-Assisted Features** (Future)
-- Automatic relationship detection from notes
-- Smart data entry predictions
-- Duplicate detection using ML
-- Record matching with online databases
-- **Estimated Effort:** 50+ hours
+**🚫 Won't Do**
+- 🚫 Import from other formats (Family Tree Maker, Ancestry, MyHeritage, etc.): GEDCOM import covers them
+- 🚫 Gramps advanced import (source citations, events, research logs)
+- 🚫 Census Data Import and DNA Integration (no stable third-party import APIs)
+- 🚫 Collaborative Editing / lock mechanism (expected use is single user)
+- 🚫 Mobile apps, Web/PWA version, Cloud Sync, Collaboration Server (80-100+ hours each)
+- 🚫 Customizable Report Templates (export to HTML/CSV and edit instead)
+- 🚫 AI-assisted features: Relationship Suggestions, smart predictions, ML duplicate detection, online record matching
+- 🚫 Face tagging, document scanning integration, OCR
+- 🚫 3D terrain, weather data and travel-time estimates on the map
 
 ---
 
@@ -1327,4 +1280,4 @@ long-running operations and eliminating N+1 query patterns in the two full-datab
 
 ---
 
-*Last Updated: August 12, 2026 - Corrected release history: Quick Wins, Name Authority, Map Enhancements, and Full-Text Search were all developed together and shipped as a single v1.6.0 release (not the separate v1.6/v1.7/v1.8 releases this document previously described); dates and effort totals updated to match.*
+*Last Updated: October 28, 2026 - Added v1.7.1 (dependency update), marked out-of-scope items as Won't Do (🚫), and consolidated the duplicated future-release sections into one "Remaining Work" list. GEDCOM Merge released in v1.8.0; next planned: optional Password Protection.*
