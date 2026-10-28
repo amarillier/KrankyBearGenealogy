@@ -2085,6 +2085,21 @@ func (s *Store) GetMediaByID(id int64) (*Media, error) {
 	return &m, nil
 }
 
+// GetMediaThumbnail returns just the thumbnail bytes for a media item, without
+// loading the full image (which GetMediaByID does).
+func (s *Store) GetMediaThumbnail(id int64) ([]byte, error) {
+	var thumb []byte
+	err := s.DB.QueryRow(`SELECT thumbnail FROM media WHERE id=?`, id).Scan(&thumb)
+	return thumb, err
+}
+
+// SetMediaDateTaken updates only the date taken of a media item, leaving its
+// image data untouched.
+func (s *Store) SetMediaDateTaken(id int64, date string) error {
+	_, err := s.DB.Exec(`UPDATE media SET date_taken=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, date, id)
+	return err
+}
+
 // GetMediaForPerson retrieves all media for a person
 func (s *Store) GetMediaForPerson(personID int64) ([]Media, error) {
 	rows, err := s.DB.Query(`
