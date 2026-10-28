@@ -32,6 +32,7 @@ import (
 	"genealogy/config"
 	"genealogy/demo"
 	"genealogy/importer"
+	"genealogy/internal/dedupe"
 	"genealogy/store"
 )
 
@@ -1053,7 +1054,7 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	// Popup menu buttons for toolbar (defined after all individual buttons)
 	// File button - shows popup menu with file operations
 	fileBtn := widget.NewButton("📁 File", func() {
-		showFilePopupMenu(w, cfg, dbPath, getStore, reloadWithDatabase, newDatabaseBtn, openDatabaseBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn)
+		showFilePopupMenu(w, cfg, dbPath, getStore, reloadWithDatabase, refreshAll, newDatabaseBtn, openDatabaseBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn)
 	})
 
 	// Media button - shows popup menu with media options
@@ -1179,6 +1180,9 @@ func RunApp(a fyne.App, s *store.Store, cfgInterface interface{}, dbPath string)
 	// Users can always use Edit → Undo from the menu
 	// For now, prioritizing menu accessibility over keyboard shortcut reliability
 
+	// Remove expired automatic pre-merge backups
+	go cleanupPreMergeBackups(dbPath)
+
 	// Check for backup reminder after UI is ready
 	go func() {
 		time.Sleep(2 * time.Second) // Give UI time to settle
@@ -1287,6 +1291,9 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	})
 	importGED := fyne.NewMenuItem("Import GEDCOM...", func() {
 		importBtn.OnTapped()
+	})
+	mergeGED := fyne.NewMenuItem("Merge GEDCOM...", func() {
+		showGedcomMerge(w, getStore(), refreshAll)
 	})
 	importGNO := fyne.NewMenuItem("Import GenoPro...", func() {
 		importGenoProBtn.OnTapped()
@@ -1586,7 +1593,7 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		fyne.NewMenuItemSeparator(),
 		backup, restore, maintenance,
 		fyne.NewMenuItemSeparator(),
-		importGED, importGNO, importGramps,
+		importGED, mergeGED, importGNO, importGramps,
 		fyne.NewMenuItemSeparator(),
 		exportGED)
 	fileMenuItem := fyne.NewMenuItem("File", nil)
@@ -1957,7 +1964,7 @@ func showMediaPopupMenu(w fyne.Window, s *store.Store, currentPersonID int64) {
 }
 
 // showFilePopupMenu shows a popup menu with file operations
-func showFilePopupMenu(w fyne.Window, cfg *config.Config, dbPath string, getStore func() *store.Store, reloadWithDatabase func(string, ...bool), newDBBtn, openDBBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn *widget.Button) {
+func showFilePopupMenu(w fyne.Window, cfg *config.Config, dbPath string, getStore func() *store.Store, reloadWithDatabase func(string, ...bool), refreshAll func(), newDBBtn, openDBBtn, importBtn, importGenoProBtn, importGrampsBtn, exportBtn *widget.Button) {
 	items := []*fyne.MenuItem{
 		fyne.NewMenuItem("New Database", func() {
 			if newDBBtn != nil {
@@ -2026,6 +2033,9 @@ func showFilePopupMenu(w fyne.Window, cfg *config.Config, dbPath string, getStor
 		if importBtn != nil {
 			importBtn.OnTapped()
 		}
+	}))
+	items = append(items, fyne.NewMenuItem("Merge GEDCOM", func() {
+		showGedcomMerge(w, getStore(), refreshAll)
 	}))
 	items = append(items, fyne.NewMenuItem("Import from GenoPro", func() {
 		if importGenoProBtn != nil {
@@ -6028,134 +6038,17 @@ func detectDuplicates(s *store.Store) []DuplicatePair {
 		return duplicates
 	}
 
-	// Compare each pair
-	for i := 0; i < len(people); i++ {
-		for j := i + 1; j < len(people); j++ {
-			p1 := people[i]
-			p2 := people[j]
-
-			nameScore := calculateNameSimilarity(p1, p2)
-			dateScore := calculateDateSimilarity(p1, p2)
-
-			// Overall score: weighted average (name 60%, date 40%)
-			overallScore := (nameScore * 0.6) + (dateScore * 0.4)
-
-			// Only report if score > 70%
-			if overallScore > 70 {
-				duplicates = append(duplicates, DuplicatePair{
-					Person1:      p1,
-					Person2:      p2,
-					NameScore:    nameScore,
-					DateScore:    dateScore,
-					OverallScore: overallScore,
-				})
-			}
-		}
+	for _, pair := range dedupe.FindDuplicates(people, dedupe.DefaultThreshold) {
+		duplicates = append(duplicates, DuplicatePair{
+			Person1:      pair.A,
+			Person2:      pair.B,
+			NameScore:    pair.Score.Name,
+			DateScore:    pair.Score.Date,
+			OverallScore: pair.Score.Overall,
+		})
 	}
 
 	return duplicates
-}
-
-func calculateNameSimilarity(p1, p2 store.Person) float64 {
-	// Normalize names (lowercase, trim)
-	name1 := strings.ToLower(strings.TrimSpace(p1.GivenName + " " + p1.Surname))
-	name2 := strings.ToLower(strings.TrimSpace(p2.GivenName + " " + p2.Surname))
-
-	// Exact match
-	if name1 == name2 {
-		return 100.0
-	}
-
-	// Levenshtein distance-based similarity
-	distance := levenshteinDistance(name1, name2)
-	maxLen := float64(max(len(name1), len(name2)))
-	if maxLen == 0 {
-		return 0
-	}
-
-	similarity := (1.0 - float64(distance)/maxLen) * 100.0
-	return math.Max(0, similarity)
-}
-
-func calculateDateSimilarity(p1, p2 store.Person) float64 {
-	// If both have no birth date, score 50 (neutral)
-	if p1.BirthDate == "" && p2.BirthDate == "" {
-		return 50.0
-	}
-
-	// If one has birth date and other doesn't, score 20 (low)
-	if p1.BirthDate == "" || p2.BirthDate == "" {
-		return 20.0
-	}
-
-	// Parse dates
-	t1, err1 := parseDate(p1.BirthDate)
-	t2, err2 := parseDate(p2.BirthDate)
-
-	if err1 != nil || err2 != nil {
-		return 20.0
-	}
-
-	// Exact match
-	if t1.Equal(t2) {
-		return 100.0
-	}
-
-	// Calculate day difference
-	daysDiff := math.Abs(t1.Sub(t2).Hours() / 24)
-
-	// Score based on proximity
-	if daysDiff < 1 {
-		return 100.0
-	} else if daysDiff < 7 {
-		return 90.0
-	} else if daysDiff < 30 {
-		return 80.0
-	} else if daysDiff < 365 {
-		return 70.0
-	} else if daysDiff < 365*2 {
-		return 50.0
-	} else if daysDiff < 365*5 {
-		return 30.0
-	} else {
-		return 10.0
-	}
-}
-
-func levenshteinDistance(s1, s2 string) int {
-	if len(s1) == 0 {
-		return len(s2)
-	}
-	if len(s2) == 0 {
-		return len(s1)
-	}
-
-	// Create matrix
-	matrix := make([][]int, len(s1)+1)
-	for i := range matrix {
-		matrix[i] = make([]int, len(s2)+1)
-		matrix[i][0] = i
-	}
-	for j := 0; j <= len(s2); j++ {
-		matrix[0][j] = j
-	}
-
-	// Fill matrix
-	for i := 1; i <= len(s1); i++ {
-		for j := 1; j <= len(s2); j++ {
-			cost := 1
-			if s1[i-1] == s2[j-1] {
-				cost = 0
-			}
-			matrix[i][j] = min(
-				matrix[i-1][j]+1,      // deletion
-				matrix[i][j-1]+1,      // insertion
-				matrix[i-1][j-1]+cost, // substitution
-			)
-		}
-	}
-
-	return matrix[len(s1)][len(s2)]
 }
 
 func showDuplicateComparisonDialog(w fyne.Window, s *store.Store, dup DuplicatePair,
@@ -6204,7 +6097,7 @@ func showDuplicateComparisonDialog(w fyne.Window, s *store.Store, dup DuplicateP
 	// Action buttons
 	mergeP1Btn := widget.NewButton("Keep #1, Delete #2", func() {
 		dialog.ShowConfirm("Merge Records",
-			fmt.Sprintf("This will:\n1. Keep %s (ID: %d)\n2. Transfer all relationships from #2 to #1\n3. Delete %s (ID: %d)\n\nContinue?",
+			fmt.Sprintf("This will:\n1. Keep %s (ID: %d)\n2. Fill blank fields and move relationships, events, sources, media and notes from #2 to #1\n3. Delete %s (ID: %d)\n\nContinue?",
 				formatPersonName(p1), p1.ID, formatPersonName(p2), p2.ID),
 			func(confirmed bool) {
 				if confirmed {
@@ -6223,7 +6116,7 @@ func showDuplicateComparisonDialog(w fyne.Window, s *store.Store, dup DuplicateP
 
 	mergeP2Btn := widget.NewButton("Keep #2, Delete #1", func() {
 		dialog.ShowConfirm("Merge Records",
-			fmt.Sprintf("This will:\n1. Keep %s (ID: %d)\n2. Transfer all relationships from #1 to #2\n3. Delete %s (ID: %d)\n\nContinue?",
+			fmt.Sprintf("This will:\n1. Keep %s (ID: %d)\n2. Fill blank fields and move relationships, events, sources, media and notes from #1 to #2\n3. Delete %s (ID: %d)\n\nContinue?",
 				formatPersonName(p2), p2.ID, formatPersonName(p1), p1.ID),
 			func(confirmed bool) {
 				if confirmed {
@@ -6259,75 +6152,28 @@ func showDuplicateComparisonDialog(w fyne.Window, s *store.Store, dup DuplicateP
 	dialog.ShowCustom("Compare Duplicates", "Close", content, w)
 }
 
+// mergePersons folds the duplicate deleteID into keepID. Blank fields on the
+// kept person are filled from the duplicate, and all of its relationships,
+// events, citations, media, alternate names, to-dos and research logs move
+// across in one transaction.
 func mergePersons(s *store.Store, keepID, deleteID int64) error {
-	// 1. Get all relationships for the person to be deleted
-	rels, err := s.GetRelationshipsForPerson(deleteID)
+	keep, err := s.GetPersonByID(keepID)
 	if err != nil {
-		return fmt.Errorf("failed to get relationships: %w", err)
+		return fmt.Errorf("failed to load person to keep: %w", err)
+	}
+	dup, err := s.GetPersonByID(deleteID)
+	if err != nil {
+		return fmt.Errorf("failed to load duplicate: %w", err)
 	}
 
-	// 2. Transfer relationships to the kept person
-	for _, rel := range rels {
-		// Create new relationship with keepID
-		var newSubjectID, newObjectID int64
-		if rel.SubjectID == deleteID {
-			newSubjectID = keepID
-			newObjectID = rel.ObjectID
-		} else {
-			newSubjectID = rel.SubjectID
-			newObjectID = keepID
-		}
-
-		// Check if relationship already exists to avoid duplicates
-		existingRels, _ := s.GetRelationshipsForPerson(keepID)
-		exists := false
-		for _, existing := range existingRels {
-			if (existing.SubjectID == newSubjectID && existing.ObjectID == newObjectID && existing.Type == rel.Type) ||
-				(existing.SubjectID == newObjectID && existing.ObjectID == newSubjectID && existing.Type == rel.Type) {
-				exists = true
-				break
-			}
-		}
-
-		if !exists {
-			newRel := &store.Relationship{
-				SubjectID:      newSubjectID,
-				ObjectID:       newObjectID,
-				Type:           rel.Type,
-				MarriageDate:   rel.MarriageDate,
-				MarriagePlace:  rel.MarriagePlace,
-				DivorceDate:    rel.DivorceDate,
-				SeparationDate: rel.SeparationDate,
-				EndReason:      rel.EndReason,
-			}
-			if err := s.CreateRelationship(newRel); err != nil {
-				return fmt.Errorf("failed to transfer relationship: %w", err)
-			}
-		}
-
-		// Delete old relationship
-		if err := s.DeleteRelationship(rel.SubjectID, rel.ObjectID, rel.Type); err != nil {
-			// Ignore errors for already deleted relationships
-			continue
-		}
+	merged := importer.MergePersons(*keep, *dup, nil)
+	if err := s.MergePersonRecords(keepID, deleteID, merged); err != nil {
+		return err
 	}
 
-	// 3. Transfer media links
-	media, err := s.GetMediaForPerson(deleteID)
-	if err == nil {
-		for _, m := range media {
-			// Link to keepID
-			_ = s.LinkMediaToPerson(m.ID, keepID)
-			// Unlink from deleteID
-			_ = s.UnlinkMediaFromPerson(m.ID, deleteID)
-		}
-	}
-
-	// 4. Delete the duplicate person
-	if err := s.DeletePerson(deleteID); err != nil {
-		return fmt.Errorf("failed to delete person: %w", err)
-	}
-
+	writeAuditLogEntry("merge_person",
+		fmt.Sprintf("Merged duplicate %s (ID %d) into %s (ID %d)", formatPersonName(*dup), deleteID, formatPersonName(*keep), keepID),
+		&keepID, nil)
 	return nil
 }
 
