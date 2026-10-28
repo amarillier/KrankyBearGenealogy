@@ -1726,9 +1726,9 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 	// Setup main menu bar (for window menu bar with submenus)
 	fileMenu := fyne.NewMenu("File", newDB, openDB, recentFiles, clearRecent, fyne.NewMenuItemSeparator(),
 		backup, restore, maintenance, fyne.NewMenuItemSeparator(),
-		importGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(),
+		importGED, mergeGED, importGNO, importGramps, exportGED, fyne.NewMenuItemSeparator(),
 		show, hideAll, fyne.NewMenuItemSeparator(), quit)
-	mediaMenu := fyne.NewMenu("Media", mediaLibraryMenuItem, addMediaMenuItem, fyne.NewMenuItemSeparator(), sourcesLibraryMenuItem, researchLogMenuItem)
+	mediaMenu := fyne.NewMenu("Media", mediaLibraryMenuItem, addMediaMenuItem, batchPhotoImportMenuItem, photoTimelineMenuItem, fyne.NewMenuItemSeparator(), sourcesLibraryMenuItem, researchLogMenuItem)
 
 	// Edit menu (uses undoItem/redoItem created earlier)
 	editMenu := fyne.NewMenu("Edit", undoItem, redoItem, fyne.NewMenuItemSeparator(), auditLogItem)
