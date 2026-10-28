@@ -87,7 +87,7 @@ func showUpdateDialog(a fyne.App, message string, updateAvailable bool, ahead bo
 		releaseLink := widget.NewHyperlink("Download Latest Release", releaseURL)
 		releaseLink.Alignment = fyne.TextAlignCenter
 
-		notesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/ReleaseNotes.txt")
+		notesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/assets/ReleaseNotes.txt")
 		notesLink := widget.NewHyperlink("View Release Notes", notesURL)
 		notesLink.Alignment = fyne.TextAlignCenter
 
@@ -116,7 +116,7 @@ func showUpdateDialog(a fyne.App, message string, updateAvailable bool, ahead bo
 		releasesLink := widget.NewHyperlink("View Releases", releasesURL)
 		releasesLink.Alignment = fyne.TextAlignCenter
 
-		notesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/ReleaseNotes.txt")
+		notesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/assets/ReleaseNotes.txt")
 		notesLink := widget.NewHyperlink("View Release Notes", notesURL)
 		notesLink.Alignment = fyne.TextAlignCenter
 

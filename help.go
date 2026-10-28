@@ -230,7 +230,7 @@ No registration, no tracking, no phone-home (except manual update checks).
 	helpLabel.Wrapping = fyne.TextWrapWord
 
 	// Links - update URLs for your project
-	releaseNotesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/ReleaseNotes.txt")
+	releaseNotesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/assets/ReleaseNotes.txt")
 	releaseNotesLink := widget.NewHyperlink("View Release Notes", releaseNotesURL)
 	releaseNotesLink.Alignment = fyne.TextAlignCenter
 

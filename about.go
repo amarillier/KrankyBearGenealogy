@@ -55,7 +55,7 @@ func showAbout(a fyne.App) {
 	author.Alignment = fyne.TextAlignCenter
 
 	// Links - update URLs for your project
-	releaseNotesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/ReleaseNotes.txt")
+	releaseNotesURL, _ := url.Parse("https://github.com/amarillier/KrankyBearGenealogy/blob/allanm/assets/ReleaseNotes.txt")
 	releaseNotesLink := widget.NewHyperlink("View Release Notes", releaseNotesURL)
 	releaseNotesLink.Alignment = fyne.TextAlignCenter
 

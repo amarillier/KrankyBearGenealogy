@@ -512,14 +512,14 @@ Build a modern, fast, cross-platform genealogy application that combines the bes
 
 **✅ Quick Wins, Name Authority, Map Enhancements & Full-Text Search** ⭐ (✓ Completed)
 
-See the "Released: v1.6.0" entry later in this document, or ReleaseNotes.txt, for the complete feature list.
+See the "Released: v1.6.0" entry later in this document, or assets/ReleaseNotes.txt, for the complete feature list.
 
 ### ✅ Previous Releases
 
 **✅ v1.4.0 - Phase 11** ⭐ (✓ Completed)
 - **Phase 11 - HTML Export & Website Generation**
 
-See detailed release notes in ReleaseNotes.txt for complete feature list and usage instructions.
+See detailed release notes in assets/ReleaseNotes.txt for complete feature list and usage instructions.
 
 **✅ v1.3 - Phase 8 & 9** ⭐ (✓ Completed)
 - **Phase 8 - UX Enhancements** (Advanced Search, Enhanced Pedigree, Fan Chart, Context Menus, Descendant Chart)
