@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"genealogy/store"
 )
@@ -149,4 +150,128 @@ func TestImportRoundTrip(t *testing.T) {
 
 func writeFile(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0o644)
+}
+
+func TestInferLiving(t *testing.T) {
+	old := now
+	now = func() time.Time { return time.Date(2026, 10, 28, 0, 0, 0, 0, time.UTC) }
+	defer func() { now = old }()
+
+	ged := "0 @I1@ INDI\n1 NAME Young /One/\n1 BIRT\n2 DATE 12 MAR 1980\n" +
+		"0 @I2@ INDI\n1 NAME Old /Two/\n1 BIRT\n2 DATE 1850\n" +
+		"0 @I3@ INDI\n1 NAME Dead /Three/\n1 BIRT\n2 DATE 1960\n1 DEAT Y\n" +
+		"0 @I4@ INDI\n1 NAME Dated /Four/\n1 BIRT\n2 DATE 1960\n1 DEAT\n2 DATE 2010\n" +
+		"0 @I5@ INDI\n1 NAME Undated /Five/\n" +
+		"0 @I6@ INDI\n1 NAME Edge /Six/\n1 BIRT\n2 DATE ABT 1927\n"
+	g, err := ParseGedcomReader(strings.NewReader(ged))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []bool{true, false, false, false, false, true}
+	for i, pp := range g.People {
+		if pp.Person.IsLiving != want[i] {
+			t.Errorf("%s (%s): IsLiving = %v, want %v", pp.GedID, pp.Person.Surname, pp.Person.IsLiving, want[i])
+		}
+	}
+}
+
+const sourcedGed = "0 HEAD\n" +
+	"0 @S1@ SOUR\n" +
+	"1 TITL 1900 US Census,\n" +
+	"2 CONT Durban County\n" +
+	"1 AUTH US Census Bureau\n" +
+	"0 @N1@ NOTE\n" +
+	"1 CONT a shared note\n" +
+	"0 @I1@ INDI\n" +
+	"1 NAME John /Smith/\n" +
+	"1 NAME Johnny /Smythe/\n" +
+	"2 TYPE aka\n" +
+	"1 NAME Joan /Doe/\n" +
+	"2 TYPE maiden\n" +
+	"1 NICK Jack\n" +
+	"1 NOTE @N1@\n" +
+	"1 SOUR @S1@\n" +
+	"2 PAGE sheet 4, line 12\n" +
+	"2 QUAY 3\n" +
+	"2 DATA\n" +
+	"3 TEXT John Smith, age 20\n" +
+	"1 BIRT\n" +
+	"2 DATE 1880\n" +
+	"2 SOUR @S1@\n" +
+	"3 PAGE sheet 9\n" +
+	"1 SOUR Family Bible\n" +
+	"0 @I2@ INDI\n" +
+	"1 NAME Mary /Jones/\n" +
+	"1 SOUR @S1@\n" +
+	"2 PAGE sheet 4, line 13\n" +
+	"0 TRLR\n"
+
+func TestParseSourcesAndAltNames(t *testing.T) {
+	g, err := ParseGedcomReader(strings.NewReader(sourcedGed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := g.Sources["S1"]
+	if src == nil || src.Title != "1900 US Census,\nDurban County" || src.Author != "US Census Bureau" {
+		t.Fatalf("source = %+v", src)
+	}
+	john := g.People[0]
+	if john.Person.GivenName != "John" || john.Person.Notes != "" {
+		t.Errorf("primary name / pointer note leaked: %+v", john.Person)
+	}
+	types := map[string]string{}
+	for _, a := range john.AltNames {
+		types[a.GivenName+" "+a.Surname] = a.NameType
+	}
+	want := map[string]string{"Johnny Smythe": "other", "Joan Doe": "maiden", "Jack ": "nickname"}
+	for k, v := range want {
+		if types[k] != v {
+			t.Errorf("alt name %q type = %q, want %q (all: %v)", k, types[k], v, types)
+		}
+	}
+	if len(john.Citations) != 3 {
+		t.Fatalf("citations = %d, want 3", len(john.Citations))
+	}
+	c := john.Citations[0]
+	if c.SourceXref != "S1" || c.Detail != "sheet 4, line 12" || c.Confidence != "high" || c.Transcription != "John Smith, age 20" {
+		t.Errorf("citation 0 = %+v", c)
+	}
+	if b := john.Citations[1]; b.Context != "Birth" || b.Detail != "sheet 9" {
+		t.Errorf("birth citation = %+v", b)
+	}
+	if in := john.Citations[2]; in.InlineTitle != "Family Bible" {
+		t.Errorf("inline citation = %+v", in)
+	}
+	// The NOTE record after the source must not leak into the next person
+	if g.People[1].Person.Notes != "" || len(g.People[1].Citations) != 1 {
+		t.Errorf("second person = %+v", g.People[1])
+	}
+}
+
+func TestImportStoresSourcesAndAltNames(t *testing.T) {
+	s := newTestStore(t)
+	path := filepath.Join(t.TempDir(), "s.ged")
+	if err := writeFile(path, sourcedGed); err != nil {
+		t.Fatal(err)
+	}
+	if err := Import(path, s); err != nil {
+		t.Fatal(err)
+	}
+	sources, _ := s.GetAllSources()
+	if len(sources) != 2 { // census + inline Family Bible
+		t.Errorf("%d sources, want 2", len(sources))
+	}
+	people, _ := s.GetPeople()
+	for _, p := range people {
+		if p.GivenName != "John" {
+			continue
+		}
+		cites, _ := s.GetCitationsForPerson(p.ID)
+		alts, _ := s.GetAlternateNames(p.ID)
+		if len(cites) != 3 || len(alts) != 3 {
+			t.Errorf("John has %d citations, %d alternate names; want 3 and 3", len(cites), len(alts))
+		}
+		return
+	}
+	t.Error("John not found")
 }

@@ -133,3 +133,63 @@ func otherID(people []store.Person, not int64) int64 {
 	}
 	return 0
 }
+
+func TestApplyMergeSourcesAndAltNames(t *testing.T) {
+	s := newTestStore(t)
+	john := &store.Person{GivenName: "Jon", Surname: "Smith", BirthDate: "1880"}
+	if err := s.CreatePerson(john); err != nil {
+		t.Fatal(err)
+	}
+	// The same census source already exists in the database
+	if err := s.CreateSource(&store.Source{Title: "1900 US Census,\nDurban County", Author: "us census bureau"}); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ParseGedcomReader(strings.NewReader(sourcedGed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := MergePlan{"I1": {Action: ActionMerge, ExistingID: john.ID}, "I2": {Action: ActionSkip}}
+	res, err := ApplyMerge(s, parsed, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.SourcesAdded != 1 || res.CitationsAdded != 3 || res.AltNamesAdded != 4 {
+		t.Errorf("result = %s", res) // 3 alt names + the incoming primary name "John Smith"
+	}
+	sources, _ := s.GetAllSources()
+	if len(sources) != 2 {
+		t.Errorf("%d sources, want 2 (existing census reused + Family Bible)", len(sources))
+	}
+
+	// Merging the same file again adds nothing
+	res, err = ApplyMerge(s, parsed, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.SourcesAdded+res.CitationsAdded+res.AltNamesAdded != 0 {
+		t.Errorf("second merge result = %s", res)
+	}
+}
+
+func TestExtrasJournalRollback(t *testing.T) {
+	s := newTestStore(t)
+	p := &store.Person{GivenName: "John", Surname: "Smith"}
+	if err := s.CreatePerson(p); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ParseGedcomReader(strings.NewReader(sourcedGed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var j extrasJournal
+	if _, err := writeExtras(s, parsed, map[string]int64{"I1": p.ID}, nil, &j); err != nil {
+		t.Fatal(err)
+	}
+	j.rollback(s)
+	sources, _ := s.GetAllSources()
+	cites, _ := s.GetCitationsForPerson(p.ID)
+	alts, _ := s.GetAlternateNames(p.ID)
+	if len(sources)+len(cites)+len(alts) != 0 {
+		t.Errorf("rollback left %d sources, %d citations, %d alternate names", len(sources), len(cites), len(alts))
+	}
+}

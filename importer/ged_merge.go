@@ -146,11 +146,19 @@ type MergeResult struct {
 	Added, Merged, Skipped int
 	RelationshipsAdded     int
 	RelationshipsExisting  int // links already present, left untouched
+	SourcesAdded           int
+	CitationsAdded         int
+	AltNamesAdded          int
 }
 
 func (r MergeResult) String() string {
-	return fmt.Sprintf("%d added, %d merged, %d skipped; %d relationships added (%d already existed)",
+	out := fmt.Sprintf("%d added, %d merged, %d skipped; %d relationships added (%d already existed)",
 		r.Added, r.Merged, r.Skipped, r.RelationshipsAdded, r.RelationshipsExisting)
+	if r.CitationsAdded+r.SourcesAdded+r.AltNamesAdded > 0 {
+		out += fmt.Sprintf("; %d sources, %d citations, %d alternate names added",
+			r.SourcesAdded, r.CitationsAdded, r.AltNamesAdded)
+	}
+	return out
 }
 
 type relKey struct {
@@ -166,8 +174,11 @@ func ApplyMerge(s *store.Store, parsed *ParsedGedcom, plan MergePlan) (MergeResu
 	var createdPeople []int64
 	var createdRels []relKey
 	var updatedBefore []store.Person
+	var journal extrasJournal
+	nameAsAlt := map[string]bool{}
 
 	rollback := func(cause error) (MergeResult, error) {
+		journal.rollback(s)
 		for _, k := range createdRels {
 			_ = s.DeleteRelationship(k.subject, k.object, k.relType)
 			_ = s.DeleteRelationship(k.object, k.subject, k.relType)
@@ -209,6 +220,7 @@ func ApplyMerge(s *store.Store, parsed *ParsedGedcom, plan MergePlan) (MergeResu
 				}
 			}
 			idMap[pp.GedID] = cur.ID
+			nameAsAlt[pp.GedID] = true
 			res.Merged++
 		default:
 			p := *pp.Person
@@ -220,6 +232,12 @@ func ApplyMerge(s *store.Store, parsed *ParsedGedcom, plan MergePlan) (MergeResu
 			res.Added++
 		}
 	}
+
+	extras, err := writeExtras(s, parsed, idMap, nameAsAlt, &journal)
+	if err != nil {
+		return rollback(err)
+	}
+	res.SourcesAdded, res.CitationsAdded, res.AltNamesAdded = extras.Sources, extras.Citations, extras.AltNames
 
 	addRel := func(rel *store.Relationship) error {
 		if rel.SubjectID == rel.ObjectID {
