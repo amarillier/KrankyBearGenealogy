@@ -1,12 +1,14 @@
 package main
 
 import (
+	_ "embed"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -19,10 +21,16 @@ import (
 	"genealogy/ui"
 )
 
+// The version lives in the VERSION file (build/version.sh X.Y.Z).
+//
+//go:embed VERSION
+var versionFile string
+
+var appVersion = strings.TrimSpace(versionFile)
+
 const (
 	// appName    = "KrankyBear Genealogy"
-	appVersion = "1.7.0" // see FyneApp.toml
-	appAuthor  = "Allan Marillier"
+	appAuthor = "Allan Marillier"
 )
 
 var appName = "KrankyBear Genealogy"
@@ -35,13 +43,17 @@ var updateWindow fyne.Window
 
 func main() {
 	mesaFallbackFlag := flag.Bool(startup.MesaFallbackFlagName, false, "internal: relaunch flag for the Mesa3D OpenGL fallback (Windows only)")
+	// Override the Mesa fallback's automatic rasterizer pick (see startup.chooseGalliumDriver): llvmpipe is the fast default,
+	// softpipe the safe one. Accepted on every OS so one command line works everywhere; only acts on Windows.
+	mesaCompatFlag := flag.Bool(startup.MesaCompatFlagName, false, "Windows only: force the Mesa software-OpenGL fallback's safe, slower softpipe rasterizer (use if the app hangs after the first frame on a VM with a conservative virtual CPU, e.g. Proxmox kvm64/qemu64)")
+	mesaPerformanceFlag := flag.Bool(startup.MesaPerformanceFlagName, false, "Windows only: force the fast llvmpipe rasterizer even if this host's CPU looks like a conservative virtual CPU (only once you have confirmed it does not hang)")
 	flag.Parse()
 
 	// Probes hardware OpenGL and relaunches under a bundled Mesa3D software
 	// renderer if the probe fails (Windows only; no-op elsewhere). Must run
 	// before app.NewWithID -- GLFW allows one Init/Terminate cycle per
 	// process, shared with Fyne's own driver.
-	startup.EnsureWindowsOpenGLReady(*mesaFallbackFlag)
+	startup.EnsureWindowsOpenGLReady(*mesaFallbackFlag, *mesaCompatFlag, *mesaPerformanceFlag)
 
 	// Create Fyne application
 	a := app.NewWithID("com.github.amarillier.KrankyBearGenealogy")

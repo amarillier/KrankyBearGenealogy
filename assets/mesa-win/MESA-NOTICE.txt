@@ -1,0 +1,21 @@
+Mesa3D software OpenGL renderer
+================================
+
+This folder holds opengl32.dll and libgallium_wgl.dll: Mesa 3D 26.2.4, built for Windows by the mesa-dist-win project. They
+are used only when this computer has no working hardware OpenGL, as a software renderer so the program can still draw its
+window. On a computer with a working GPU they are not used.
+
+ * Mesa 3D         https://www.mesa3d.org/
+     source: https://gitlab.freedesktop.org/mesa/mesa/-/tree/mesa-26.2.4
+ * mesa-dist-win   https://github.com/pal1000/mesa-dist-win
+     the Windows build; MIT License, Copyright (c) pal1000
+ * LLVM 22.1.8     https://llvm.org/
+     built into libgallium_wgl.dll for the llvmpipe renderer; Apache License 2.0 with LLVM Exceptions
+
+Licences
+--------
+Mesa is licensed mainly under the MIT license, but Mesa is made of many components and individual files carry their own
+licences. Mesa's statement is in MESA-LICENSE.rst, and every licence text Mesa uses is in the licenses folder next to this
+file (including Apache-2.0, which covers LLVM, and the licence of the mesa-dist-win packaging). Mesa, OpenGL, Vulkan and
+the other names are the property of their respective owners. This notice is provided in good faith as attribution; the
+authoritative terms are those of each component, at the links above.

@@ -42,6 +42,7 @@ installers/*
 assets/
 test/
 vendor/*
+mesa-staging/*
 *.bat
 *.ps1
 *.sh
@@ -61,3 +62,7 @@ assets/images
 Inno/.DS_Store
 !winres/*
 winres/.DS_Store
+
+# Build host details and retired scripts (see build/)
+/build/hosts.env
+/build/legacy/

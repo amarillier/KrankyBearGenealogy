@@ -7,7 +7,7 @@ package startup
 import (
 	"fmt"
 
-	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/go-gl/glfw/v3.4/glfw"
 )
 
 // probeOpenGL performs a real OpenGL capability check: it creates a hidden,
@@ -16,7 +16,7 @@ import (
 // If this fails here, the main window would fail the same way later.
 //
 // Must run before fyne.io/fyne/v2/app.New()/NewWithID(): both this probe and
-// Fyne's driver use github.com/go-gl/glfw/v3.3/glfw, and GLFW only supports
+// Fyne's driver use github.com/go-gl/glfw/v3.4/glfw, and GLFW only supports
 // one Init/Terminate cycle at a time per process. It must also run on the
 // main goroutine — glfw's Fyne driver package pins the main goroutine to its
 // OS thread in an init() func, and importing fyne.io/fyne/v2/app (as this

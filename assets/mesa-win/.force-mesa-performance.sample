@@ -1,0 +1,7 @@
+Mesa's software OpenGL fallback already prefers the fast "llvmpipe" rasterizer
+automatically, except on a CPU the app thinks might be a conservative
+virtual-machine CPU model prone to a known llvmpipe hang (missing the SSE4.1
+instruction set). If you've confirmed this specific machine doesn't actually
+hit that hang and want llvmpipe's speed anyway, rename this file to
+".force-mesa-performance" — remove the ".sample" extension. Only the file's
+name and location matter; this text is never read by the app.

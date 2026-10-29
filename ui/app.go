@@ -24,6 +24,7 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
+	"fyne.io/systray"
 	"github.com/jung-kurt/gofpdf"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
@@ -1722,6 +1723,16 @@ func setupMenus(a fyne.App, w fyne.Window, cfg *config.Config, newDBBtn, openDBB
 		quit)
 	desk.SetSystemTrayMenu(menu)
 	// Icon is set from main package, we just set up the menu here
+
+	// Hover tooltip on the tray icon (Windows/macOS; no-op on Linux) --
+	// desktop.App has no tooltip setter, but fyne.io/systray (what Fyne's
+	// own driver already uses internally for the tray icon) does. Deferred
+	// slightly since, unlike Fyne's own SetSystemTrayIcon call (set from
+	// main package, above), a raw systray.SetTooltip call has no built-in
+	// retry/caching if the tray isn't fully ready yet.
+	time.AfterFunc(300*time.Millisecond, func() {
+		systray.SetTooltip("KrankyBear Genealogy")
+	})
 
 	// Setup main menu bar (for window menu bar with submenus)
 	fileMenu := fyne.NewMenu("File", newDB, openDB, recentFiles, clearRecent, fyne.NewMenuItemSeparator(),

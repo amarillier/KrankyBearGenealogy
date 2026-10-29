@@ -1,0 +1,100 @@
+identity:
+    name: KrankyBearGenealogy
+    id: com.github.amarillier.KrankyBearGenealogy
+    version: "1.8.0"
+    publisher: 'Allan Marillier, 2026-'
+    vendor: Allan Marillier
+    url: 'https://github.com/amarillier/KrankyBearGenealogy'
+    description: KrankyBear Genealogy - Cross-platform Fyne starter / template application
+    license: GPL v3
+    license_file: LICENSE
+    icons:
+        ico: assets/images/KrankyBearGenealogy.ico
+        icns: assets/images/KrankyBearGenealogy.icns
+        png: assets/images/KrankyBearGenealogy.png
+binaries:
+    - os: windows
+      arch: amd64
+      path: bin/KrankyBearGenealogy.exe
+    - os: darwin
+      arch: amd64
+      path: bin/krankybear-genealogy-macos-amd64
+    - os: darwin
+      arch: arm64
+      path: bin/krankybear-genealogy-macos-arm64
+    - os: linux
+      arch: amd64
+      path: bin/krankybear-genealogy-linux-amd64
+    - os: linux
+      arch: arm64
+      path: bin/krankybear-genealogy-linux-arm64
+payload:
+    - source: LICENSE
+      dest: docs
+    - source: assets/ReleaseNotes.txt
+      dest: docs
+    - source: README.md
+      dest: docs
+    - source: assets/ReleaseNotes.txt
+      dest: ''
+    - source: assets/mesa-win/opengl32.dll
+      dest: mesa-fallback
+      os:
+        - windows
+    - source: assets/mesa-win/libgallium_wgl.dll
+      dest: mesa-fallback
+      os:
+        - windows
+    - source: assets/mesa-win/.force-mesa-fallback.sample
+      dest: mesa-fallback
+      os:
+        - windows
+    - source: assets/mesa-win/.force-mesa-compat.sample
+      dest: mesa-fallback
+      os:
+        - windows
+    - source: assets/mesa-win/.force-mesa-performance.sample
+      dest: mesa-fallback
+      os:
+        - windows
+    - source: assets/mesa-win/MESA_VERSION
+      dest: mesa-fallback
+      os:
+        - windows
+    - source: assets/mesa-win/MESA-NOTICE.txt
+      dest: mesa-fallback
+      os:
+        - windows
+    - source: assets/mesa-win/MESA-LICENSE.rst
+      dest: mesa-fallback
+      os:
+        - windows
+    - source: assets/mesa-win/licenses
+      dest: mesa-fallback/licenses
+      recursive: true
+      os:
+        - windows
+install:
+    windows: $PROGRAMFILES64\KrankyBearGenealogy
+    macos: /Applications/KrankyBearGenealogy.app
+    linux: /opt/KrankyBearGenealogy
+install_experience:
+    launch_after_install: true
+    desktop_shortcut: true
+    autostart_at_login: true
+windows:
+    upgrade_guid: '{A0EE6992-0FE3-435A-BA5D-BC1132CD136D}'
+    exe_name: KrankyBearGenealogy.exe
+    install_scope: ask
+macos:
+    bundle_executable: KrankyBearGenealogy
+targets:
+    - deb
+    - rpm
+    - macpkg
+    - winexe
+    - winmsi
+output:
+    dir: installers
+    filename_template: '{{.Identity.Name}}_{{.Identity.Version}}_{{.Arch}}'
+    clean_old_versions: true

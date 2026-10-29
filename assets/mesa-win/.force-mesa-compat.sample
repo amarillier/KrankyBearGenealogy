@@ -1,0 +1,8 @@
+If the app hangs after the first frame once Mesa's software OpenGL fallback
+activates, that's a known issue with Mesa's fast "llvmpipe" rasterizer on some
+VMs with a conservative default virtual CPU model (e.g. Proxmox's kvm64 or
+qemu64). To force the slower but unconditionally stable "softpipe" rasterizer
+instead, rename this file to ".force-mesa-compat" — remove the ".sample"
+extension. Only the file's name and location matter; this text is never read
+by the app. Force-quit the hung app first (Task Manager), then relaunch after
+renaming this file.
